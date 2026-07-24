@@ -248,9 +248,11 @@ describe("STS 资源级临时密钥 - MCP 全资源验证", () => {
         console.log("🧹 删除测试云函数...");
         // 先删网关入口
         await safeTool(client, "manageGateway", {
-          action: "deleteAccess",
+          action: "deleteRoute",
           targetName: `${TEST_PREFIX}func`,
           targetType: "function",
+          path: `/${TEST_PREFIX}func`,
+          type: "Event",
         });
         await delay(1000);
         // 删函数本体 - 通过 callCloudApi
@@ -554,11 +556,11 @@ describe("STS 资源级临时密钥 - MCP 全资源验证", () => {
 
   // ═══ 3.7 网关 ═══════════════════════════════════════════════════════════
   test.skipIf(!hasCredentials())("3.7 网关 - 路由验证", async () => {
-    // 列出域名
+    // 列出自定义域名
     const domainsRes = await safeTool(client, "queryGateway", {
-      action: "listDomains",
+      action: "listCustomDomains",
     });
-    recordResult("网关", "列出域名", domainsRes.success, "");
+    recordResult("网关", "列出自定义域名", domainsRes.success, "");
 
     // 列出路由
     const routesRes = await safeTool(client, "queryGateway", {
@@ -568,21 +570,21 @@ describe("STS 资源级临时密钥 - MCP 全资源验证", () => {
 
     // 如果函数已创建，创建访问入口
     if (testFuncCreated) {
-      const createAccessRes = await safeTool(client, "manageGateway", {
-        action: "createAccess",
+      const createRouteRes = await safeTool(client, "manageGateway", {
+        action: "createRoute",
         targetName: `${TEST_PREFIX}func`,
         targetType: "function",
         type: "Event",
       });
-      recordResult("网关", "创建入口", createAccessRes.success, createAccessRes.text.slice(0, 100));
+      recordResult("网关", "创建入口", createRouteRes.success, createRouteRes.text.slice(0, 100));
 
-      if (createAccessRes.success) {
-        const getAccessRes = await safeTool(client, "queryGateway", {
-          action: "getAccess",
+      if (createRouteRes.success) {
+        const getRouteRes = await safeTool(client, "queryGateway", {
+          action: "getRoute",
           targetName: `${TEST_PREFIX}func`,
           targetType: "function",
         });
-        recordResult("网关", "查询入口", getAccessRes.success, "");
+        recordResult("网关", "查询入口", getRouteRes.success, "");
       }
     }
   }, 30000);
