@@ -3,7 +3,7 @@ import RelatedResources from '../components/RelatedResources';
 
 # 微信开发者工具配置指南
 
-微信云开发 AI ToolKit 帮助开发者基于微信云开发高效构建、调试和部署小程序。
+微信云开发 AI ToolKit 帮助你用自然语言构建、调试和部署小程序。先看 [用 AI 写微信小程序](../tutorials/ai-develop-miniprogram)；微信官方说明：[开发者工具 Skills](https://developers.weixin.qq.com/miniprogram/dev/devtools/Skills.html)。
 
 ![](https://7463-tcb-advanced-a656fc-1257967285.tcb.qcloud.la/imgs/wechat-ide-extension/ide-extension.png)
 
@@ -20,14 +20,13 @@ import RelatedResources from '../components/RelatedResources';
 在开始配置之前，请确保满足以下条件：
 
 <details>
-<summary><strong>已安装微信开发者工具 Nightly（自带 Skills / MCP）</strong></summary>
+<summary><strong>已安装微信开发者工具 Nightly</strong></summary>
 
-WeChat IDE Skills 与配套 MCP **随 Nightly（开发版）内置分发**，Stable 正式版不一定包含同等能力。
+AI 预览 / 调试能力在 **Nightly** 中提供，稳定版往往没有。Nightly 只影响本机开发，不是另一套发版渠道。
 
-- 下载与更新日志：[微信开发者工具 Nightly Build](https://developers.weixin.qq.com/miniprogram/dev/devtools/nightly_backup.html)
-- 安装后确认本机有 `wechatide` 命令，以及内置 skill 目录（macOS 示例）：
-  `/Applications/wechatwebdevtools.app/Contents/Resources/app.asar.unpacked/miniprogram-dev-skill`
-- 日常构建用于尽快修复缺陷与敏捷特性，稳定性可能不如正式版；选用 Nightly 是为启用 AI Skills / MCP 工作流。
+- 下载：[Nightly Build](https://developers.weixin.qq.com/miniprogram/dev/devtools/nightly_backup.html)
+- 扫码登录，开发时保持工具打开
+- 版本与菜单以 [开发者工具 Skills](https://developers.weixin.qq.com/miniprogram/dev/devtools/Skills.html) 为准
 
 </details>
 
@@ -40,34 +39,41 @@ WeChat IDE Skills 与配套 MCP **随 Nightly（开发版）内置分发**，Sta
 
 ---
 
-## WeChat IDE Skills 与 CloudBase MCP / Skills
+## 把开发者工具接到你的 AI
 
-**微信云开发 = CloudBase × 微信。** 推荐分工：
+两条路：开发者工具内置 AI，或外部 Agent（CodeBuddy、Cursor 等）并导入 Skill。步骤见 [用 AI 写微信小程序](../tutorials/ai-develop-miniprogram)；菜单与版本以微信 [开发者工具 Skills](https://developers.weixin.qq.com/miniprogram/dev/devtools/Skills.html) 为准。
 
-| 层 | 作用 | 何时用 |
-| --- | --- | --- |
-| WeChat IDE Skills（Nightly + `wechatide`） | 执行面：调试 / 预览 / 日常云 DB·云函数·云存储 | 默认首选；微信扫码登录即可 |
-| CloudBase Skills | 知识面：规则与最佳实践 | `npx skills add tencentcloudbase/cloudbase-skills -y` |
-| CloudBase MCP | 补全集：权限 / 数据模型 / MySQL 等进阶能力 | IDE Skills 覆盖不到时再用 |
+### 选择并配置 AI 工具
 
-最小上手：
+<IDESelector
+  defaultIDE="wechat-devtools"
+  customPrompt="检查开发者工具是否已登录；然后用微信小程序 + 云开发做一个带登录和列表页的示例，并帮我预览"
+  collapsibleInstallSteps={true}
+/>
+
+### 外部 Agent：导入开发者工具 Skill
+
+1. Nightly 已登录并保持打开。
+2. 菜单栏 → **导出开发者工具 Skill** → 导入到 Agent；或运行 `wechatide`，把输出的路径交给 Agent。
+3. 首次弹窗授权必须点允许。
+4. 说：「检查开发者工具是否已登录，并预览当前小程序。」
+
+走上方选择器「微信开发者工具」内置入口时，一般不用再导出 Skill。
+
+<details>
+<summary>本机命令（排查用）</summary>
 
 ```bash
-# 确认 Nightly CLI
 wechatide
 
-# 会话开始检查登录（clientName 换成你的 AI 客户端名）
 wechatide -c CodeBuddy -t check_devtools_status --skill-version <versionFromSkillYaml>
 
-# 查某个工具参数（不要猜）
 wechatide -c CodeBuddy -t cloud_env_list --help
 ```
 
-更完整的路径与上下文说明见 CloudBase skill：`miniprogram-development` → `references/devtools-debug-preview.md`、`references/wxide-vs-cloudbase-mcp.md`。
+把 `CodeBuddy` 换成你的 Agent 名。
 
----
-
-<IDESelector defaultIDE="wechat-devtools" showInstallButton={false} />
+</details>
 
 ## 常用技巧
 
@@ -128,10 +134,10 @@ CodeBuddy 提供多种权限模式用于控制 AI 工具的使用授权，通过
 ## 常见问题
 
 **Q: 无法使用 AI ToolKit？**
-A: 请确保已安装并登录 [Nightly 版微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/nightly_backup.html)，确认网络连接正常，且本机可运行 `wechatide`。
+A: 请安装并登录 [Nightly](https://developers.weixin.qq.com/miniprogram/dev/devtools/nightly_backup.html)，用菜单 **导出开发者工具 Skill**（或 `wechatide`）把 Skill 导入你的 Agent，并在首次弹窗中授权。也可让 Agent「检查开发者工具是否已登录」。
 
-**Q: 装了微信开发者工具，但没有 Skills / `wechatide`？**
-A: Skills/MCP 随 **Nightly** 内置。请从 [Nightly 下载页](https://developers.weixin.qq.com/miniprogram/dev/devtools/nightly_backup.html)安装开发版，不要只依赖 Stable。
+**Q: 装了微信开发者工具，但 Agent 连不上 / 没有 Skills？**
+A: 请用 [Nightly](https://developers.weixin.qq.com/miniprogram/dev/devtools/nightly_backup.html)，不要只装稳定版；外部 Agent 需导入 Skill，并确认首次授权弹窗已点允许。版本要求以 [开发者工具 Skills](https://developers.weixin.qq.com/miniprogram/dev/devtools/Skills.html) 为准。
 
 **Q: 如何切换权限模式？**
 A: 使用 `Shift+Tab`（macOS/Linux）或 `Alt+M`（Windows）在模式之间循环切换。Windows 用户必须使用 `Alt+M`。

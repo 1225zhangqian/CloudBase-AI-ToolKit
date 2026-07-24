@@ -151,6 +151,11 @@
         "collapsed": true,
         "items": [
           "ai/cloudbase-ai-toolkit/tutorials",
+          {
+            "type": "doc",
+            "id": "ai/cloudbase-ai-toolkit/tutorials/ai-develop-miniprogram",
+            "label": "用 AI 写小程序"
+          },
           "ai/cloudbase-ai-toolkit/tutorials/workbuddy-chess-app",
           "ai/cloudbase-ai-toolkit/tutorials/workbuddy-quickstart",
           "ai/cloudbase-ai-toolkit/tutorials/workbuddy-database",

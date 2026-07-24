@@ -12,7 +12,7 @@ import TabItem from '@theme/TabItem';
 
 ### 方式 1：一键安装（推荐）
 
-通过兼容 [Open Plugin Specification](https://open-plugins.com/plugin-builders/specification) 的 `plugins` CLI 安装，会自动检测本机 AI 工具。
+通过兼容 [Open Plugin Specification](https://open-plugins.com/plugin-builders/specification) 的 `plugins` CLI 安装，会自动检测本机 AI 工具。**优先用这条路径，不要手写 MCP JSON。**
 
 默认 `--scope user`（全局）：
 
@@ -48,6 +48,8 @@ npx plugins add TencentCloudBase/cloudbase-plugin -y --scope user --target curso
 ```
 
 安装后重启 / reload 对应工具即可。
+
+> Agent 总入口（决策树 + 验收）：https://docs.cloudbase.net/skill.md
 
 > Claude Code / Codex 的原生 marketplace 请用主仓库 `TencentCloudBase/CloudBase-MCP`；`cloudbase-plugin` 仓库由 CI 同步 OPS 标准内容，不含 marketplace 元数据。
 

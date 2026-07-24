@@ -6,6 +6,7 @@ import TutorialsGrid from './components/TutorialsGrid';
 
 ## 最近新增文章
 
+- `2026-07-24` [用 AI 写微信小程序](./tutorials/ai-develop-miniprogram) - Nightly Skills + AI 工具，写代码、预览、部署云资源
 - `2026-06-16` [WorkBuddy × CloudBase 实战：从零构建中国象棋双人对战应用](./tutorials/workbuddy-chess-app) - 一篇真正跑通了的实战记录，包含踩坑总结
 - `2026-06-16` [WorkBuddy 快速搭建全栈应用](./tutorials/workbuddy-quickstart) - 使用 WorkBuddy + CloudBase 从零搭建待办事项应用并部署上线
 - `2026-06-16` [WorkBuddy 云数据库实战](./tutorials/workbuddy-database) - 在 WorkBuddy 中操作云数据库和云存储
