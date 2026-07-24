@@ -193,15 +193,19 @@ describe("Function and gateway tool schemas", () => {
     const manageTool = toolsResult.tools.find((item) => item.name === "manageGateway");
 
     expect(queryTool).toBeDefined();
-    expect(queryTool.inputSchema.properties.action.enum).toContain("getAccess");
-    expect(queryTool.inputSchema.properties.action.enum).toContain("listDomains");
+    expect(queryTool.inputSchema.properties.action.enum).toContain("getRoute");
+    expect(queryTool.inputSchema.properties.action.enum).toContain("listRoutes");
+    expect(queryTool.inputSchema.properties.action.enum).toContain("listCustomDomains");
+    expect(queryTool.inputSchema.properties.action.enum).not.toContain("getAccess");
+    expect(queryTool.inputSchema.properties.action.enum).not.toContain("listDomains");
     expect(queryTool.inputSchema.properties.targetType).toBeDefined();
     expect(queryTool.inputSchema.properties.targetName).toBeDefined();
     expect(queryTool.annotations.category).toBe("gateway");
     expect(queryTool.annotations.readOnlyHint).toBe(true);
 
     expect(manageTool).toBeDefined();
-    expect(manageTool.inputSchema.properties.action.enum).toContain("createAccess");
+    expect(manageTool.inputSchema.properties.action.enum).toContain("createRoute");
+    expect(manageTool.inputSchema.properties.action.enum).not.toContain("createAccess");
     expect(manageTool.inputSchema.properties.targetType).toBeDefined();
     expect(manageTool.inputSchema.properties.targetName).toBeDefined();
     expect(manageTool.inputSchema.properties.path).toBeDefined();
@@ -240,11 +244,11 @@ describe("Function and gateway tool schemas", () => {
     const gatewayAccessResult = await testClient.callTool({
       name: "queryGateway",
       arguments: {
-        action: "getAccess",
+        action: "getRoute",
         targetType: "function",
       },
     });
-    expectToolFailure(gatewayAccessResult, /targetName 参数是必需的/);
+    expectToolFailure(gatewayAccessResult, /routeId、targetName 或 path/);
   });
 
   test.skipIf(!testClient)("queryFunctions can call listLayers when credentials are available", async () => {
