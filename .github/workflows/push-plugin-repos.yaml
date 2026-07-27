@@ -98,6 +98,7 @@ jobs:
           test ! -f /tmp/cloudbase-plugin/marketplace.json
           test ! -d /tmp/cloudbase-plugin/.claude-plugin
           test ! -d /tmp/cloudbase-plugin/.codex-plugin
+          test ! -d /tmp/cloudbase-plugin/.cursor-plugin
 
           cd /tmp/cloudbase-plugin
           git config user.name "github-actions[bot]"
@@ -129,6 +130,7 @@ jobs:
           test ! -f /tmp/cloudbase-sites-plugin/marketplace.json
           test ! -d /tmp/cloudbase-sites-plugin/.claude-plugin
           test ! -d /tmp/cloudbase-sites-plugin/.codex-plugin
+          test ! -d /tmp/cloudbase-sites-plugin/.cursor-plugin
 
           cd /tmp/cloudbase-sites-plugin
           git config user.name "github-actions[bot]"

@@ -4,14 +4,26 @@ on:
   pull_request:
     paths:
       - 'plugin/cloudbase/**'
+      - 'plugin/cloudbase-sites/**'
+      - 'marketplace.json'
+      - '.agents/plugins/**'
+      - '.claude-plugin/**'
+      - '.cursor-plugin/**'
       - 'scripts/build-open-plugin-spec.mjs'
+      - 'scripts/check-plugin-marketplaces.mjs'
       - '.github/workflows/open-plugin-spec-check.yml'
   push:
     branches:
       - main
     paths:
       - 'plugin/cloudbase/**'
+      - 'plugin/cloudbase-sites/**'
+      - 'marketplace.json'
+      - '.agents/plugins/**'
+      - '.claude-plugin/**'
+      - '.cursor-plugin/**'
       - 'scripts/build-open-plugin-spec.mjs'
+      - 'scripts/check-plugin-marketplaces.mjs'
       - '.github/workflows/open-plugin-spec-check.yml'
 
 jobs:
@@ -26,9 +38,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Check Open Plugin Spec artifacts are up to date
+      - name: Check Open Plugin Spec + Cursor artifacts are up to date
         run: |
           node scripts/build-open-plugin-spec.mjs --check
+
+      - name: Check Claude Code + Codex marketplace manifests
+        run: |
+          node scripts/check-plugin-marketplaces.mjs
 
       - name: Verify plugins CLI can discover the plugin
         working-directory: plugin/cloudbase

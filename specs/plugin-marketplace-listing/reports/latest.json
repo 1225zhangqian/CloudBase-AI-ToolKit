@@ -1,0 +1,3582 @@
+{
+  "generated_at": "2026-07-27T09:57:22.958Z",
+  "matrix_version": 1,
+  "reviewed_stale_days": 90,
+  "total_markets": 42,
+  "summary": {
+    "ready_to_submit": 6,
+    "needs_packaging_or_manifest": 0,
+    "needs_partner_outreach": 13,
+    "listed": 7,
+    "not_applicable": 15,
+    "unknown": 1
+  },
+  "stale_ids": [],
+  "online": [],
+  "disclaimer": "This report does not auto-submit to any marketplace. All submissions are manual.",
+  "groups": {
+    "ready_to_submit": [
+      {
+        "id": "claude-code-community",
+        "product": "Claude Code",
+        "region": "global",
+        "channel_type": "community_plugin_directory",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "submittable",
+          "self_marketplace": "listed",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "listed",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "public_github_repo_required",
+        "blockers": [],
+        "evidence_links": [
+          "https://code.claude.com/docs/en/plugins",
+          "https://platform.claude.com/plugins/submit",
+          "https://claude.ai/admin-settings/directory/submissions/plugins/new"
+        ],
+        "submit_url_or_process": "Submit public GitHub plugin via claude.ai or platform.claude.com forms; lands in anthropics/claude-plugins-community after review.\n",
+        "recommended_install_path": "doc/ide-setup/claude-code.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "self_marketplace_claude",
+            "status": "present",
+            "detail": ".claude-plugin/marketplace.json lists cloudbase",
+            "paths": [
+              ".claude-plugin/marketplace.json"
+            ]
+          },
+          {
+            "id": "claude_plugin_manifest",
+            "status": "present",
+            "detail": "plugin/cloudbase/.claude-plugin/plugin.json exists",
+            "paths": [
+              "plugin/cloudbase/.claude-plugin/plugin.json"
+            ]
+          },
+          {
+            "id": "open_plugin_spec_cloudbase",
+            "status": "present",
+            "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+            "paths": [
+              "plugin/cloudbase/.plugin/plugin.json"
+            ]
+          }
+        ],
+        "submit_checklist": [
+          "Public GitHub repository URL",
+          "Valid .claude-plugin/plugin.json (or marketplace entry)",
+          "README with install and usage",
+          "claude plugin validate locally"
+        ],
+        "materials": [
+          {
+            "item": "Public GitHub repository URL",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "Valid .claude-plugin/plugin.json (or marketplace entry)",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "README with install and usage",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "claude plugin validate locally",
+            "status": "repo_ready_or_external"
+          }
+        ],
+        "priority": "ready_to_submit",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "cursor-marketplace",
+        "product": "Cursor",
+        "region": "global",
+        "channel_type": "official_curated_marketplace",
+        "listing_statuses": {
+          "official_curated": "submittable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "listed",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "public_github_repo_required",
+        "blockers": [],
+        "evidence_links": [
+          "https://cursor.com/docs/plugins",
+          "https://cursor.com/marketplace/publish",
+          "https://cursor.com/docs/reference/plugins"
+        ],
+        "submit_url_or_process": "Submit repo at https://cursor.com/marketplace/publish (manual review). Needs .cursor-plugin/plugin.json (and marketplace.json for multi-plugin repos).\n",
+        "recommended_install_path": "doc/ide-setup/cursor.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "cursor_plugin_manifest",
+            "status": "present",
+            "detail": "Found plugin/cloudbase/.cursor-plugin/plugin.json, .cursor-plugin/marketplace.json",
+            "paths": [
+              "plugin/cloudbase/.cursor-plugin/plugin.json",
+              ".cursor-plugin/marketplace.json"
+            ]
+          },
+          {
+            "id": "open_plugin_spec_cloudbase",
+            "status": "present",
+            "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+            "paths": [
+              "plugin/cloudbase/.plugin/plugin.json"
+            ]
+          }
+        ],
+        "submit_checklist": [
+          ".cursor-plugin/plugin.json at plugin root",
+          "README.md",
+          "Valid relative paths in manifest",
+          "Tested locally under ~/.cursor/plugins/local/",
+          "Submit at cursor.com/marketplace/publish"
+        ],
+        "materials": [
+          {
+            "item": ".cursor-plugin/plugin.json at plugin root",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "README.md",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "Valid relative paths in manifest",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "Tested locally under ~/.cursor/plugins/local/",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "Submit at cursor.com/marketplace/publish",
+            "status": "repo_ready_or_external"
+          }
+        ],
+        "priority": "ready_to_submit",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "cursor-directory",
+        "product": "Cursor",
+        "region": "global",
+        "channel_type": "community_plugin_directory",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "submittable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "listed",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "public_github_repo_required",
+        "blockers": [],
+        "evidence_links": [
+          "https://cursor.directory",
+          "https://cursor.com/docs/plugins"
+        ],
+        "submit_url_or_process": "Community listing via cursor.directory (plugin discovery). Prefer official Cursor Marketplace for primary listing.\n",
+        "recommended_install_path": "doc/ide-setup/cursor.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "cursor_plugin_manifest",
+            "status": "present",
+            "detail": "Found plugin/cloudbase/.cursor-plugin/plugin.json, .cursor-plugin/marketplace.json",
+            "paths": [
+              "plugin/cloudbase/.cursor-plugin/plugin.json",
+              ".cursor-plugin/marketplace.json"
+            ]
+          }
+        ],
+        "submit_checklist": [
+          "Public repo with .cursor-plugin layout",
+          "Listing on cursor.directory"
+        ],
+        "materials": [
+          {
+            "item": "Public repo with .cursor-plugin layout",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "Listing on cursor.directory",
+            "status": "repo_ready_or_external"
+          }
+        ],
+        "priority": "ready_to_submit",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "codex-universal",
+        "product": "Codex / ChatGPT Work",
+        "region": "global",
+        "channel_type": "official_curated_marketplace",
+        "listing_statuses": {
+          "official_curated": "submittable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "listed",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "listed",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "openai_platform_submission",
+        "blockers": [],
+        "evidence_links": [
+          "https://developers.openai.com/plugins/deploy/submission",
+          "https://developers.openai.com/codex/plugins/build"
+        ],
+        "submit_url_or_process": "Submit via OpenAI plugin submission portal for universal Plugins Directory shared by ChatGPT and Codex.\n",
+        "recommended_install_path": "doc/ide-setup/codex.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "self_marketplace_codex",
+            "status": "present",
+            "detail": "marketplace.json lists cloudbase",
+            "paths": [
+              "marketplace.json"
+            ]
+          },
+          {
+            "id": "codex_plugin_manifest",
+            "status": "present",
+            "detail": "plugin/cloudbase/.codex-plugin/plugin.json exists",
+            "paths": [
+              "plugin/cloudbase/.codex-plugin/plugin.json"
+            ]
+          },
+          {
+            "id": "open_plugin_spec_cloudbase",
+            "status": "present",
+            "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+            "paths": [
+              "plugin/cloudbase/.plugin/plugin.json"
+            ]
+          }
+        ],
+        "submit_checklist": [
+          "Listing metadata (name, descriptions, logo, category)",
+          "Developer identity verification",
+          "Website / support / privacy / terms URLs",
+          "MCP details and test cases if MCP included",
+          "Submit through OpenAI plugin portal; publish after approval"
+        ],
+        "materials": [
+          {
+            "item": "Listing metadata (name, descriptions, logo, category)",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "Developer identity verification",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "Website / support / privacy / terms URLs",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "MCP details and test cases if MCP included",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "Submit through OpenAI plugin portal; publish after approval",
+            "status": "repo_ready_or_external"
+          }
+        ],
+        "priority": "ready_to_submit",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "grok-marketplace",
+        "product": "Grok Build",
+        "region": "global",
+        "channel_type": "community_plugin_directory",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "submittable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "listed",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "unknown"
+        },
+        "eligibility": "public_github_pr_required",
+        "blockers": [],
+        "evidence_links": [
+          "https://github.com/xai-org/plugin-marketplace",
+          "https://x.ai/news/grok-plugin-marketplace"
+        ],
+        "submit_url_or_process": "Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.\n",
+        "recommended_install_path": null,
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "open_plugin_spec_cloudbase",
+            "status": "present",
+            "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+            "paths": [
+              "plugin/cloudbase/.plugin/plugin.json"
+            ]
+          }
+        ],
+        "submit_checklist": [
+          "Plugin installable from public GitHub",
+          "Entry in .grok-plugin/marketplace.json (remote source + commit pin)",
+          "PR to xai-org/plugin-marketplace"
+        ],
+        "materials": [
+          {
+            "item": "Plugin installable from public GitHub",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "Entry in .grok-plugin/marketplace.json (remote source + commit pin)",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "PR to xai-org/plugin-marketplace",
+            "status": "repo_ready_or_external"
+          }
+        ],
+        "priority": "ready_to_submit",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "vscode-agent-plugins",
+        "product": "Visual Studio Code",
+        "region": "global",
+        "channel_type": "self_hosted_marketplace",
+        "listing_statuses": {
+          "official_curated": "unknown",
+          "community_directory": "submittable",
+          "self_marketplace": "listed",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "listed",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "marketplace_add_or_catalog_pr",
+        "blockers": [],
+        "evidence_links": [
+          "https://code.visualstudio.com/docs/agent-customization/agent-plugins"
+        ],
+        "submit_url_or_process": "Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.\n",
+        "recommended_install_path": "doc/ide-setup/vscode.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "self_marketplace_claude",
+            "status": "present",
+            "detail": ".claude-plugin/marketplace.json lists cloudbase",
+            "paths": [
+              ".claude-plugin/marketplace.json"
+            ]
+          },
+          {
+            "id": "open_plugin_spec_cloudbase",
+            "status": "present",
+            "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+            "paths": [
+              "plugin/cloudbase/.plugin/plugin.json"
+            ]
+          }
+        ],
+        "submit_checklist": [
+          "Users can add TencentCloudBase/CloudBase-MCP as marketplace",
+          {
+            "Optional": "PR/request inclusion in default curated catalogs"
+          }
+        ],
+        "materials": [
+          {
+            "item": "Users can add TencentCloudBase/CloudBase-MCP as marketplace",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "[object Object]",
+            "status": "repo_ready_or_external"
+          }
+        ],
+        "priority": "ready_to_submit",
+        "stale": false,
+        "manual_submit_only": true
+      }
+    ],
+    "needs_packaging_or_manifest": [],
+    "needs_partner_outreach": [
+      {
+        "id": "claude-code-official",
+        "product": "Claude Code",
+        "region": "global",
+        "channel_type": "official_curated_marketplace",
+        "listing_statuses": {
+          "official_curated": "unknown",
+          "community_directory": "not_applicable",
+          "self_marketplace": "listed",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "listed",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "anthropic_discretion_only",
+        "blockers": [
+          "No public submission path for claude-plugins-official"
+        ],
+        "evidence_links": [
+          "https://code.claude.com/docs/en/discover-plugins",
+          "https://github.com/anthropics/claude-plugins-official"
+        ],
+        "submit_url_or_process": "Anthropic-curated only; no public application. Community form does not add to official marketplace.\n",
+        "recommended_install_path": "doc/ide-setup/claude-code.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "self_marketplace_claude",
+            "status": "present",
+            "detail": ".claude-plugin/marketplace.json lists cloudbase",
+            "paths": [
+              ".claude-plugin/marketplace.json"
+            ]
+          },
+          {
+            "id": "open_plugin_spec_cloudbase",
+            "status": "present",
+            "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+            "paths": [
+              "plugin/cloudbase/.plugin/plugin.json"
+            ]
+          }
+        ],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "needs_partner_outreach",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "kimi-code-marketplace",
+        "product": "Kimi Code",
+        "region": "cn",
+        "channel_type": "community_plugin_directory",
+        "listing_statuses": {
+          "official_curated": "unknown",
+          "community_directory": "unknown",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "listed",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "unknown"
+        },
+        "eligibility": "unknown_or_partner",
+        "blockers": [
+          "Official third-party listing process not fully documented"
+        ],
+        "evidence_links": [
+          "https://www.kimi.com/code/docs/en/kimi-code-cli/customization/plugins.html"
+        ],
+        "submit_url_or_process": "Official / third-party marketplace tabs plus custom marketplace JSON URL (KIMI_CODE_PLUGIN_MARKETPLACE_URL). Public third-party listing path needs verification.\n",
+        "recommended_install_path": null,
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "open_plugin_spec_cloudbase",
+            "status": "present",
+            "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+            "paths": [
+              "plugin/cloudbase/.plugin/plugin.json"
+            ]
+          }
+        ],
+        "submit_checklist": [
+          "Confirm Kimi official vs third-party submission path",
+          "Plugin zip or GitHub URL installable via /plugins"
+        ],
+        "materials": [
+          {
+            "item": "Confirm Kimi official vs third-party submission path",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "Plugin zip or GitHub URL installable via /plugins",
+            "status": "repo_ready_or_external"
+          }
+        ],
+        "priority": "needs_partner_outreach",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "codebuddy-plugin",
+        "product": "CodeBuddy",
+        "region": "cn",
+        "channel_type": "native_connector_or_builtin",
+        "listing_statuses": {
+          "official_curated": "unknown",
+          "community_directory": "unknown",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "unknown",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "partner_outreach_required",
+        "blockers": [
+          "Official listing status for CloudBase needs confirmation"
+        ],
+        "evidence_links": [
+          "https://www.codebuddy.cn/docs/cli/plugins",
+          "doc/ide-setup/codebuddy.mdx"
+        ],
+        "submit_url_or_process": "CodeBuddy has plugin marketplace / CLI plugins. Confirm whether CloudBase is already listed or needs partner submission.\n",
+        "recommended_install_path": "doc/ide-setup/codebuddy.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [
+          "Confirm CodeBuddy marketplace submission process",
+          "Align with config/codebuddy-plugin if applicable"
+        ],
+        "materials": [
+          {
+            "item": "Confirm CodeBuddy marketplace submission process",
+            "status": "manual_or_external"
+          },
+          {
+            "item": "Align with config/codebuddy-plugin if applicable",
+            "status": "manual_or_external"
+          }
+        ],
+        "priority": "needs_partner_outreach",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "codebuddy-code-plugin",
+        "product": "CodeBuddy Code",
+        "region": "cn",
+        "channel_type": "community_plugin_directory",
+        "listing_statuses": {
+          "official_curated": "unknown",
+          "community_directory": "unknown",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "partner_outreach_required",
+        "blockers": [
+          "Public submit path not fully verified"
+        ],
+        "evidence_links": [
+          "https://www.codebuddy.cn/docs/cli/plugins",
+          "doc/ide-setup/codebuddy-code.mdx"
+        ],
+        "submit_url_or_process": "Share via CodeBuddy Code plugin marketplace after plugin.json packaging. Confirm public submit path.\n",
+        "recommended_install_path": "doc/ide-setup/codebuddy-code.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [
+          "plugin.json + README",
+          "Marketplace listing steps from CodeBuddy docs"
+        ],
+        "materials": [
+          {
+            "item": "plugin.json + README",
+            "status": "manual_or_external"
+          },
+          {
+            "item": "Marketplace listing steps from CodeBuddy docs",
+            "status": "manual_or_external"
+          }
+        ],
+        "priority": "needs_partner_outreach",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "qoder-plugin",
+        "product": "Qoder",
+        "region": "cn",
+        "channel_type": "community_plugin_directory",
+        "listing_statuses": {
+          "official_curated": "unknown",
+          "community_directory": "unknown",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "partner_outreach_required",
+        "blockers": [
+          "Self-serve listing docs incomplete for third parties"
+        ],
+        "evidence_links": [
+          "https://help.aliyun.com/zh/lingma/plugin-hidden-release",
+          "doc/ide-setup/qoder.mdx"
+        ],
+        "submit_url_or_process": "Qoder CN plugins use plugin.json packaging (skills/MCP/hooks). Public marketplace listing process needs verification (Aliyun Lingma docs overlap).\n",
+        "recommended_install_path": "doc/ide-setup/qoder.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [
+          "Confirm Qoder CN plugin publish channel",
+          "Package plugin.json compatible layout"
+        ],
+        "materials": [
+          {
+            "item": "Confirm Qoder CN plugin publish channel",
+            "status": "manual_or_external"
+          },
+          {
+            "item": "Package plugin.json compatible layout",
+            "status": "manual_or_external"
+          }
+        ],
+        "priority": "needs_partner_outreach",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "qoderwork-connector",
+        "product": "QoderWork",
+        "region": "cn",
+        "channel_type": "native_connector_or_builtin",
+        "listing_statuses": {
+          "official_curated": "unknown",
+          "community_directory": "unknown",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "unknown",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "unknown"
+        },
+        "eligibility": "partner_outreach_required",
+        "blockers": [
+          "No confirmed CloudBase listing",
+          "Third-party connector submit path unclear"
+        ],
+        "evidence_links": [
+          "https://docs.qoder.com/zh/qoderwork/connectors"
+        ],
+        "submit_url_or_process": "QoderWork has connector / integration marketplace plus custom MCP. CloudBase listing requires partner outreach.\n",
+        "recommended_install_path": null,
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [
+          "Confirm connector onboarding with QoderWork",
+          "MCP or connector packaging requirements"
+        ],
+        "materials": [
+          {
+            "item": "Confirm connector onboarding with QoderWork",
+            "status": "manual_or_external"
+          },
+          {
+            "item": "MCP or connector packaging requirements",
+            "status": "manual_or_external"
+          }
+        ],
+        "priority": "needs_partner_outreach",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "trae-mcp-marketplace",
+        "product": "Trae IDE / Trae Work",
+        "region": "cn",
+        "channel_type": "mcp_registry_or_aggregator",
+        "listing_statuses": {
+          "official_curated": "unknown",
+          "community_directory": "unknown",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "unknown",
+          "docs_only": "listed"
+        },
+        "eligibility": "partner_outreach_required",
+        "blockers": [
+          "No public developer submit form for Trae MCP marketplace"
+        ],
+        "evidence_links": [
+          "https://docs.trae.cn/work_remote-mcp-server",
+          "https://docs.trae.cn/ide_model-context-protocol",
+          "doc/ide-setup/trae.mdx"
+        ],
+        "submit_url_or_process": "Users can add MCP from Trae built-in MCP marketplace or manual config. Third-party submission into Trae MCP marketplace is not publicly documented.\n",
+        "recommended_install_path": "doc/ide-setup/trae.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "trae_mcp_deeplink_docs",
+            "status": "present",
+            "detail": "Trae docs present: doc/ide-setup/trae.mdx",
+            "paths": [
+              "doc/ide-setup/trae.mdx"
+            ]
+          }
+        ],
+        "submit_checklist": [
+          "Partner outreach for MCP marketplace inclusion",
+          "Provide stdio npx config for CloudBase MCP"
+        ],
+        "materials": [
+          {
+            "item": "Partner outreach for MCP marketplace inclusion",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "Provide stdio npx config for CloudBase MCP",
+            "status": "repo_ready_or_external"
+          }
+        ],
+        "priority": "needs_partner_outreach",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "trae-work-skills-marketplace",
+        "product": "Trae Work",
+        "region": "cn",
+        "channel_type": "skill_registry",
+        "listing_statuses": {
+          "official_curated": "unknown",
+          "community_directory": "unknown",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "unknown",
+          "docs_only": "unknown"
+        },
+        "eligibility": "partner_outreach_required",
+        "blockers": [
+          "Public skill publishing path not documented"
+        ],
+        "evidence_links": [
+          "https://docs.trae.cn/solo_skills"
+        ],
+        "submit_url_or_process": "Users can upload local SKILL.md zip/.skill or install from Trae Work skills marketplace. Public publisher onboarding unclear.\n",
+        "recommended_install_path": null,
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [
+          "Confirm Trae Work skill market publisher process",
+          "Package SKILL.md zip if allowed"
+        ],
+        "materials": [
+          {
+            "item": "Confirm Trae Work skill market publisher process",
+            "status": "manual_or_external"
+          },
+          {
+            "item": "Package SKILL.md zip if allowed",
+            "status": "manual_or_external"
+          }
+        ],
+        "priority": "needs_partner_outreach",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "mcp-official-registry",
+        "product": "Official MCP Registry",
+        "region": "global",
+        "channel_type": "mcp_registry_or_aggregator",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "unknown",
+          "docs_only": "unknown"
+        },
+        "eligibility": "mcp_publisher_cli",
+        "blockers": [
+          "Confirm whether @cloudbase/cloudbase-mcp is already published to official registry"
+        ],
+        "evidence_links": [
+          "https://registry.modelcontextprotocol.io"
+        ],
+        "submit_url_or_process": "Publish via mcp-publisher CLI to registry.modelcontextprotocol.io; aggregators may ingest afterward.\n",
+        "recommended_install_path": null,
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [
+          "server.json / publisher metadata",
+          "mcp-publisher publish"
+        ],
+        "materials": [
+          {
+            "item": "server.json / publisher metadata",
+            "status": "manual_or_external"
+          },
+          {
+            "item": "mcp-publisher publish",
+            "status": "manual_or_external"
+          }
+        ],
+        "priority": "needs_partner_outreach",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "smithery",
+        "product": "Smithery",
+        "region": "global",
+        "channel_type": "mcp_registry_or_aggregator",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "unknown",
+          "docs_only": "unknown"
+        },
+        "eligibility": "hosted_http_mcp_or_registry",
+        "blockers": [],
+        "evidence_links": [
+          "https://smithery.ai/docs/build/publish.md"
+        ],
+        "submit_url_or_process": "Publish hosted HTTPS MCP or rely on registry ingest; see smithery.ai/new.",
+        "recommended_install_path": null,
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [
+          "Public MCP URL or registry entry",
+          "Complete Smithery publish flow if needed"
+        ],
+        "materials": [
+          {
+            "item": "Public MCP URL or registry entry",
+            "status": "manual_or_external"
+          },
+          {
+            "item": "Complete Smithery publish flow if needed",
+            "status": "manual_or_external"
+          }
+        ],
+        "priority": "needs_partner_outreach",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "pulsemcp",
+        "product": "PulseMCP",
+        "region": "global",
+        "channel_type": "mcp_registry_or_aggregator",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "unknown",
+          "docs_only": "unknown"
+        },
+        "eligibility": "via_official_registry",
+        "blockers": [],
+        "evidence_links": [
+          "https://www.pulsemcp.com"
+        ],
+        "submit_url_or_process": "Typically ingests from official MCP registry; expedite via contact after registry publish.",
+        "recommended_install_path": null,
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [
+          "Ensure official MCP registry listing first"
+        ],
+        "materials": [
+          {
+            "item": "Ensure official MCP registry listing first",
+            "status": "manual_or_external"
+          }
+        ],
+        "priority": "needs_partner_outreach",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "glama",
+        "product": "Glama",
+        "region": "global",
+        "channel_type": "mcp_registry_or_aggregator",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "unknown",
+          "docs_only": "unknown"
+        },
+        "eligibility": "public_github_mcp",
+        "blockers": [],
+        "evidence_links": [
+          "https://glama.ai/mcp/servers"
+        ],
+        "submit_url_or_process": "Indexes public GitHub MCP repos / registry.",
+        "recommended_install_path": null,
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [
+          "Public MCP server repo discoverable"
+        ],
+        "materials": [
+          {
+            "item": "Public MCP server repo discoverable",
+            "status": "manual_or_external"
+          }
+        ],
+        "priority": "needs_partner_outreach",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "mcp-so",
+        "product": "mcp.so",
+        "region": "global",
+        "channel_type": "mcp_registry_or_aggregator",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "unknown",
+          "docs_only": "unknown"
+        },
+        "eligibility": "github_pr",
+        "blockers": [],
+        "evidence_links": [
+          "https://mcp.so"
+        ],
+        "submit_url_or_process": "Community PR / listing line in mcp.so source catalog.",
+        "recommended_install_path": null,
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [
+          "PR adding CloudBase MCP listing line"
+        ],
+        "materials": [
+          {
+            "item": "PR adding CloudBase MCP listing line",
+            "status": "manual_or_external"
+          }
+        ],
+        "priority": "needs_partner_outreach",
+        "stale": false,
+        "manual_submit_only": true
+      }
+    ],
+    "listed": [
+      {
+        "id": "github-copilot-cli",
+        "product": "GitHub Copilot CLI",
+        "region": "global",
+        "channel_type": "open_plugin_spec_target",
+        "listing_statuses": {
+          "official_curated": "unknown",
+          "community_directory": "unknown",
+          "self_marketplace": "listed",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "listed",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "marketplace_add_or_ops",
+        "blockers": [],
+        "evidence_links": [
+          "https://code.visualstudio.com/docs/agent-customization/agent-plugins",
+          "https://open-plugins.com/plugin-builders/specification"
+        ],
+        "submit_url_or_process": "Shares agent plugin format with VS Code; install via marketplace add or npx plugins --target github-copilot.\n",
+        "recommended_install_path": "doc/ide-setup/github-copilot.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "open_plugin_spec_cloudbase",
+            "status": "present",
+            "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+            "paths": [
+              "plugin/cloudbase/.plugin/plugin.json"
+            ]
+          },
+          {
+            "id": "ops_publish_repo_docs",
+            "status": "present",
+            "detail": "doc/ai-agent-plugins.mdx documents npx plugins add",
+            "paths": [
+              "doc/ai-agent-plugins.mdx"
+            ]
+          }
+        ],
+        "submit_checklist": [
+          "Confirm default Copilot curated catalog submission if desired"
+        ],
+        "materials": [
+          {
+            "item": "Confirm default Copilot curated catalog submission if desired",
+            "status": "repo_ready_or_external"
+          }
+        ],
+        "priority": "listed",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "workbuddy-connector",
+        "product": "WorkBuddy",
+        "region": "cn",
+        "channel_type": "native_connector_or_builtin",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "listed",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/workbuddy.mdx",
+          "doc/ai-agent-plugins.mdx"
+        ],
+        "submit_url_or_process": "Already listed as built-in CloudBase connector.",
+        "recommended_install_path": "doc/ide-setup/workbuddy.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "listed",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "zcode-plugin",
+        "product": "ZCode",
+        "region": "cn",
+        "channel_type": "native_connector_or_builtin",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "listed",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/zcode.mdx",
+          "doc/ai-agent-plugins.mdx"
+        ],
+        "submit_url_or_process": "Listed as cloudbase-skills under ZCode plugins (>= 3.4.1).",
+        "recommended_install_path": "doc/ide-setup/zcode.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "listed",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "trae-mcp-deeplink",
+        "product": "Trae IDE",
+        "region": "cn",
+        "channel_type": "deeplink_or_install_assist",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "https://docs.trae.cn/ide_mcp-server-install-links",
+          "doc/ide-setup/trae.mdx"
+        ],
+        "submit_url_or_process": "Distribution assist via trae-cn:// MCP import deep link (already documented). Not a store listing.\n",
+        "recommended_install_path": "doc/ide-setup/trae.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "trae_mcp_deeplink_docs",
+            "status": "present",
+            "detail": "Trae docs present: doc/ide-setup/trae.mdx",
+            "paths": [
+              "doc/ide-setup/trae.mdx"
+            ]
+          }
+        ],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "listed",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "ops-cli",
+        "product": "Open Plugin Spec CLI",
+        "region": "global",
+        "channel_type": "open_plugin_spec_target",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "listed",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ai-agent-plugins.mdx",
+          "https://open-plugins.com/plugin-builders/specification"
+        ],
+        "submit_url_or_process": "Already installable via npx plugins add TencentCloudBase/cloudbase-plugin (targets: claude-code, cursor, codex, grok, kimi, github-copilot, vscode).\n",
+        "recommended_install_path": "doc/ai-agent-plugins.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "open_plugin_spec_cloudbase",
+            "status": "present",
+            "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+            "paths": [
+              "plugin/cloudbase/.plugin/plugin.json"
+            ]
+          },
+          {
+            "id": "ops_publish_repo_docs",
+            "status": "present",
+            "detail": "doc/ai-agent-plugins.mdx documents npx plugins add",
+            "paths": [
+              "doc/ai-agent-plugins.mdx"
+            ]
+          }
+        ],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "listed",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "self-marketplace-claude",
+        "product": "Claude Code (self marketplace)",
+        "region": "global",
+        "channel_type": "self_hosted_marketplace",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "listed",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "listed",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          ".claude-plugin/marketplace.json",
+          "doc/ide-setup/claude-code.mdx"
+        ],
+        "submit_url_or_process": "Users add TencentCloudBase/CloudBase-MCP then install cloudbase@tencent-cloudbase.",
+        "recommended_install_path": "doc/ide-setup/claude-code.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "self_marketplace_claude",
+            "status": "present",
+            "detail": ".claude-plugin/marketplace.json lists cloudbase",
+            "paths": [
+              ".claude-plugin/marketplace.json"
+            ]
+          },
+          {
+            "id": "claude_plugin_manifest",
+            "status": "present",
+            "detail": "plugin/cloudbase/.claude-plugin/plugin.json exists",
+            "paths": [
+              "plugin/cloudbase/.claude-plugin/plugin.json"
+            ]
+          }
+        ],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "listed",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "self-marketplace-codex",
+        "product": "Codex (self marketplace)",
+        "region": "global",
+        "channel_type": "self_hosted_marketplace",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "listed",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "listed",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "marketplace.json",
+          "doc/ide-setup/codex.mdx"
+        ],
+        "submit_url_or_process": "Users add marketplace from this repo root marketplace.json.",
+        "recommended_install_path": "doc/ide-setup/codex.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "self_marketplace_codex",
+            "status": "present",
+            "detail": "marketplace.json lists cloudbase",
+            "paths": [
+              "marketplace.json"
+            ]
+          },
+          {
+            "id": "codex_plugin_manifest",
+            "status": "present",
+            "detail": "plugin/cloudbase/.codex-plugin/plugin.json exists",
+            "paths": [
+              "plugin/cloudbase/.codex-plugin/plugin.json"
+            ]
+          }
+        ],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "listed",
+        "stale": false,
+        "manual_submit_only": true
+      }
+    ],
+    "not_applicable": [
+      {
+        "id": "trae-ide-extension",
+        "product": "Trae IDE",
+        "region": "cn",
+        "channel_type": "editor_extension_marketplace",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "not_applicable"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "https://docs.trae.cn/ide_manage-extensions"
+        ],
+        "submit_url_or_process": "VS Code-compatible .vsix extension marketplace. Not the correct channel for CloudBase agent plugin / MCP listing.\n",
+        "recommended_install_path": "doc/ide-setup/trae.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "tongyi-lingma",
+        "product": "Tongyi Lingma",
+        "region": "cn",
+        "channel_type": "docs_config_only",
+        "listing_statuses": {
+          "official_curated": "unknown",
+          "community_directory": "unknown",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "unknown_or_partner",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/tongyi-lingma.mdx"
+        ],
+        "submit_url_or_process": "MCP / rules via ide-setup docs; dedicated agent plugin store status unknown.",
+        "recommended_install_path": "doc/ide-setup/tongyi-lingma.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "baidu-comate",
+        "product": "Baidu Comate",
+        "region": "cn",
+        "channel_type": "docs_config_only",
+        "listing_statuses": {
+          "official_curated": "unknown",
+          "community_directory": "unknown",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "unknown_or_partner",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/baidu-comate.mdx"
+        ],
+        "submit_url_or_process": "MCP / rules via ide-setup docs; store listing unknown.",
+        "recommended_install_path": "doc/ide-setup/baidu-comate.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "windsurf",
+        "product": "WindSurf",
+        "region": "global",
+        "channel_type": "docs_config_only",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/windsurf.mdx"
+        ],
+        "submit_url_or_process": "MCP + rules config; no confirmed CloudBase agent plugin marketplace.",
+        "recommended_install_path": "doc/ide-setup/windsurf.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "docs-cline",
+        "product": "Cline",
+        "region": "global",
+        "channel_type": "docs_config_only",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/cline.mdx"
+        ],
+        "submit_url_or_process": "No dedicated CloudBase store channel; use MCP + rules docs.",
+        "recommended_install_path": "doc/ide-setup/cline.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "docs-gemini-cli",
+        "product": "Gemini CLI",
+        "region": "global",
+        "channel_type": "docs_config_only",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/gemini-cli.mdx"
+        ],
+        "submit_url_or_process": "Docs-only MCP/rules setup.",
+        "recommended_install_path": "doc/ide-setup/gemini-cli.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "docs-opencode",
+        "product": "OpenCode",
+        "region": "global",
+        "channel_type": "docs_config_only",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/opencode.mdx"
+        ],
+        "submit_url_or_process": "Docs-only MCP/rules setup.",
+        "recommended_install_path": "doc/ide-setup/opencode.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "docs-qwen-code",
+        "product": "Qwen Code",
+        "region": "cn",
+        "channel_type": "docs_config_only",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/qwen-code.mdx"
+        ],
+        "submit_url_or_process": "Docs-only MCP/rules setup.",
+        "recommended_install_path": "doc/ide-setup/qwen-code.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "docs-augment-code",
+        "product": "Augment Code",
+        "region": "global",
+        "channel_type": "docs_config_only",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/augment-code.mdx"
+        ],
+        "submit_url_or_process": "Docs-only MCP/rules setup.",
+        "recommended_install_path": "doc/ide-setup/augment-code.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "docs-roocode",
+        "product": "RooCode",
+        "region": "global",
+        "channel_type": "docs_config_only",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/roocode.mdx"
+        ],
+        "submit_url_or_process": "Docs-only MCP/rules setup (deprecated product guidance may apply).",
+        "recommended_install_path": "doc/ide-setup/roocode.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "docs-antigravity",
+        "product": "Google Antigravity",
+        "region": "global",
+        "channel_type": "docs_config_only",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/antigravity.mdx"
+        ],
+        "submit_url_or_process": "Docs-only MCP/rules setup.",
+        "recommended_install_path": "doc/ide-setup/antigravity.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "docs-kiro",
+        "product": "Kiro",
+        "region": "global",
+        "channel_type": "docs_config_only",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/kiro.mdx"
+        ],
+        "submit_url_or_process": "Docs-only MCP/rules setup.",
+        "recommended_install_path": "doc/ide-setup/kiro.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "docs-aider",
+        "product": "Aider",
+        "region": "global",
+        "channel_type": "docs_config_only",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [],
+        "submit_url_or_process": "Docs-only MCP/rules setup. Dedicated ide-setup page not present yet.",
+        "recommended_install_path": null,
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "docs-iflow-cli",
+        "product": "iFlow CLI",
+        "region": "cn",
+        "channel_type": "docs_config_only",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/iflow-cli.mdx"
+        ],
+        "submit_url_or_process": "Docs-only MCP/rules setup.",
+        "recommended_install_path": "doc/ide-setup/iflow-cli.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "docs-openclaw",
+        "product": "OpenClaw",
+        "region": "global",
+        "channel_type": "docs_config_only",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "not_applicable",
+          "docs_only": "listed"
+        },
+        "eligibility": "n_a",
+        "blockers": [],
+        "evidence_links": [
+          "doc/ide-setup/openclaw.mdx"
+        ],
+        "submit_url_or_process": "Docs-only setup; skill registry via ClawHub tracked separately.",
+        "recommended_install_path": "doc/ide-setup/openclaw.mdx",
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [],
+        "materials": [],
+        "priority": "not_applicable",
+        "stale": false,
+        "manual_submit_only": true
+      }
+    ],
+    "unknown": [
+      {
+        "id": "clawhub",
+        "product": "ClawHub",
+        "region": "global",
+        "channel_type": "skill_registry",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "unknown",
+          "docs_only": "listed"
+        },
+        "eligibility": "clawhub_cli_workflow",
+        "blockers": [],
+        "evidence_links": [
+          "specs/clawhub-public-skill-registry-publish/requirements.md"
+        ],
+        "submit_url_or_process": "Covered by specs/clawhub-public-skill-registry-publish; do not duplicate publish pipeline here.\n",
+        "recommended_install_path": null,
+        "last_reviewed_at": "2026-07-27",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [],
+        "submit_checklist": [
+          "Follow existing ClawHub publish spec"
+        ],
+        "materials": [
+          {
+            "item": "Follow existing ClawHub publish spec",
+            "status": "manual_or_external"
+          }
+        ],
+        "priority": "unknown",
+        "stale": false,
+        "manual_submit_only": true
+      }
+    ]
+  },
+  "markets": [
+    {
+      "id": "claude-code-official",
+      "product": "Claude Code",
+      "region": "global",
+      "channel_type": "official_curated_marketplace",
+      "listing_statuses": {
+        "official_curated": "unknown",
+        "community_directory": "not_applicable",
+        "self_marketplace": "listed",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "listed",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "anthropic_discretion_only",
+      "blockers": [
+        "No public submission path for claude-plugins-official"
+      ],
+      "evidence_links": [
+        "https://code.claude.com/docs/en/discover-plugins",
+        "https://github.com/anthropics/claude-plugins-official"
+      ],
+      "submit_url_or_process": "Anthropic-curated only; no public application. Community form does not add to official marketplace.\n",
+      "recommended_install_path": "doc/ide-setup/claude-code.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [
+        {
+          "id": "self_marketplace_claude",
+          "status": "present",
+          "detail": ".claude-plugin/marketplace.json lists cloudbase",
+          "paths": [
+            ".claude-plugin/marketplace.json"
+          ]
+        },
+        {
+          "id": "open_plugin_spec_cloudbase",
+          "status": "present",
+          "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+          "paths": [
+            "plugin/cloudbase/.plugin/plugin.json"
+          ]
+        }
+      ],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "needs_partner_outreach",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "claude-code-community",
+      "product": "Claude Code",
+      "region": "global",
+      "channel_type": "community_plugin_directory",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "submittable",
+        "self_marketplace": "listed",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "listed",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "public_github_repo_required",
+      "blockers": [],
+      "evidence_links": [
+        "https://code.claude.com/docs/en/plugins",
+        "https://platform.claude.com/plugins/submit",
+        "https://claude.ai/admin-settings/directory/submissions/plugins/new"
+      ],
+      "submit_url_or_process": "Submit public GitHub plugin via claude.ai or platform.claude.com forms; lands in anthropics/claude-plugins-community after review.\n",
+      "recommended_install_path": "doc/ide-setup/claude-code.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [
+        {
+          "id": "self_marketplace_claude",
+          "status": "present",
+          "detail": ".claude-plugin/marketplace.json lists cloudbase",
+          "paths": [
+            ".claude-plugin/marketplace.json"
+          ]
+        },
+        {
+          "id": "claude_plugin_manifest",
+          "status": "present",
+          "detail": "plugin/cloudbase/.claude-plugin/plugin.json exists",
+          "paths": [
+            "plugin/cloudbase/.claude-plugin/plugin.json"
+          ]
+        },
+        {
+          "id": "open_plugin_spec_cloudbase",
+          "status": "present",
+          "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+          "paths": [
+            "plugin/cloudbase/.plugin/plugin.json"
+          ]
+        }
+      ],
+      "submit_checklist": [
+        "Public GitHub repository URL",
+        "Valid .claude-plugin/plugin.json (or marketplace entry)",
+        "README with install and usage",
+        "claude plugin validate locally"
+      ],
+      "materials": [
+        {
+          "item": "Public GitHub repository URL",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "Valid .claude-plugin/plugin.json (or marketplace entry)",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "README with install and usage",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "claude plugin validate locally",
+          "status": "repo_ready_or_external"
+        }
+      ],
+      "priority": "ready_to_submit",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "cursor-marketplace",
+      "product": "Cursor",
+      "region": "global",
+      "channel_type": "official_curated_marketplace",
+      "listing_statuses": {
+        "official_curated": "submittable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "listed",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "public_github_repo_required",
+      "blockers": [],
+      "evidence_links": [
+        "https://cursor.com/docs/plugins",
+        "https://cursor.com/marketplace/publish",
+        "https://cursor.com/docs/reference/plugins"
+      ],
+      "submit_url_or_process": "Submit repo at https://cursor.com/marketplace/publish (manual review). Needs .cursor-plugin/plugin.json (and marketplace.json for multi-plugin repos).\n",
+      "recommended_install_path": "doc/ide-setup/cursor.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [
+        {
+          "id": "cursor_plugin_manifest",
+          "status": "present",
+          "detail": "Found plugin/cloudbase/.cursor-plugin/plugin.json, .cursor-plugin/marketplace.json",
+          "paths": [
+            "plugin/cloudbase/.cursor-plugin/plugin.json",
+            ".cursor-plugin/marketplace.json"
+          ]
+        },
+        {
+          "id": "open_plugin_spec_cloudbase",
+          "status": "present",
+          "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+          "paths": [
+            "plugin/cloudbase/.plugin/plugin.json"
+          ]
+        }
+      ],
+      "submit_checklist": [
+        ".cursor-plugin/plugin.json at plugin root",
+        "README.md",
+        "Valid relative paths in manifest",
+        "Tested locally under ~/.cursor/plugins/local/",
+        "Submit at cursor.com/marketplace/publish"
+      ],
+      "materials": [
+        {
+          "item": ".cursor-plugin/plugin.json at plugin root",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "README.md",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "Valid relative paths in manifest",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "Tested locally under ~/.cursor/plugins/local/",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "Submit at cursor.com/marketplace/publish",
+          "status": "repo_ready_or_external"
+        }
+      ],
+      "priority": "ready_to_submit",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "cursor-directory",
+      "product": "Cursor",
+      "region": "global",
+      "channel_type": "community_plugin_directory",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "submittable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "listed",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "public_github_repo_required",
+      "blockers": [],
+      "evidence_links": [
+        "https://cursor.directory",
+        "https://cursor.com/docs/plugins"
+      ],
+      "submit_url_or_process": "Community listing via cursor.directory (plugin discovery). Prefer official Cursor Marketplace for primary listing.\n",
+      "recommended_install_path": "doc/ide-setup/cursor.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [
+        {
+          "id": "cursor_plugin_manifest",
+          "status": "present",
+          "detail": "Found plugin/cloudbase/.cursor-plugin/plugin.json, .cursor-plugin/marketplace.json",
+          "paths": [
+            "plugin/cloudbase/.cursor-plugin/plugin.json",
+            ".cursor-plugin/marketplace.json"
+          ]
+        }
+      ],
+      "submit_checklist": [
+        "Public repo with .cursor-plugin layout",
+        "Listing on cursor.directory"
+      ],
+      "materials": [
+        {
+          "item": "Public repo with .cursor-plugin layout",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "Listing on cursor.directory",
+          "status": "repo_ready_or_external"
+        }
+      ],
+      "priority": "ready_to_submit",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "codex-universal",
+      "product": "Codex / ChatGPT Work",
+      "region": "global",
+      "channel_type": "official_curated_marketplace",
+      "listing_statuses": {
+        "official_curated": "submittable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "listed",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "listed",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "openai_platform_submission",
+      "blockers": [],
+      "evidence_links": [
+        "https://developers.openai.com/plugins/deploy/submission",
+        "https://developers.openai.com/codex/plugins/build"
+      ],
+      "submit_url_or_process": "Submit via OpenAI plugin submission portal for universal Plugins Directory shared by ChatGPT and Codex.\n",
+      "recommended_install_path": "doc/ide-setup/codex.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [
+        {
+          "id": "self_marketplace_codex",
+          "status": "present",
+          "detail": "marketplace.json lists cloudbase",
+          "paths": [
+            "marketplace.json"
+          ]
+        },
+        {
+          "id": "codex_plugin_manifest",
+          "status": "present",
+          "detail": "plugin/cloudbase/.codex-plugin/plugin.json exists",
+          "paths": [
+            "plugin/cloudbase/.codex-plugin/plugin.json"
+          ]
+        },
+        {
+          "id": "open_plugin_spec_cloudbase",
+          "status": "present",
+          "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+          "paths": [
+            "plugin/cloudbase/.plugin/plugin.json"
+          ]
+        }
+      ],
+      "submit_checklist": [
+        "Listing metadata (name, descriptions, logo, category)",
+        "Developer identity verification",
+        "Website / support / privacy / terms URLs",
+        "MCP details and test cases if MCP included",
+        "Submit through OpenAI plugin portal; publish after approval"
+      ],
+      "materials": [
+        {
+          "item": "Listing metadata (name, descriptions, logo, category)",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "Developer identity verification",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "Website / support / privacy / terms URLs",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "MCP details and test cases if MCP included",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "Submit through OpenAI plugin portal; publish after approval",
+          "status": "repo_ready_or_external"
+        }
+      ],
+      "priority": "ready_to_submit",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "grok-marketplace",
+      "product": "Grok Build",
+      "region": "global",
+      "channel_type": "community_plugin_directory",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "submittable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "listed",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "unknown"
+      },
+      "eligibility": "public_github_pr_required",
+      "blockers": [],
+      "evidence_links": [
+        "https://github.com/xai-org/plugin-marketplace",
+        "https://x.ai/news/grok-plugin-marketplace"
+      ],
+      "submit_url_or_process": "Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.\n",
+      "recommended_install_path": null,
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [
+        {
+          "id": "open_plugin_spec_cloudbase",
+          "status": "present",
+          "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+          "paths": [
+            "plugin/cloudbase/.plugin/plugin.json"
+          ]
+        }
+      ],
+      "submit_checklist": [
+        "Plugin installable from public GitHub",
+        "Entry in .grok-plugin/marketplace.json (remote source + commit pin)",
+        "PR to xai-org/plugin-marketplace"
+      ],
+      "materials": [
+        {
+          "item": "Plugin installable from public GitHub",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "Entry in .grok-plugin/marketplace.json (remote source + commit pin)",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "PR to xai-org/plugin-marketplace",
+          "status": "repo_ready_or_external"
+        }
+      ],
+      "priority": "ready_to_submit",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "kimi-code-marketplace",
+      "product": "Kimi Code",
+      "region": "cn",
+      "channel_type": "community_plugin_directory",
+      "listing_statuses": {
+        "official_curated": "unknown",
+        "community_directory": "unknown",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "listed",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "unknown"
+      },
+      "eligibility": "unknown_or_partner",
+      "blockers": [
+        "Official third-party listing process not fully documented"
+      ],
+      "evidence_links": [
+        "https://www.kimi.com/code/docs/en/kimi-code-cli/customization/plugins.html"
+      ],
+      "submit_url_or_process": "Official / third-party marketplace tabs plus custom marketplace JSON URL (KIMI_CODE_PLUGIN_MARKETPLACE_URL). Public third-party listing path needs verification.\n",
+      "recommended_install_path": null,
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [
+        {
+          "id": "open_plugin_spec_cloudbase",
+          "status": "present",
+          "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+          "paths": [
+            "plugin/cloudbase/.plugin/plugin.json"
+          ]
+        }
+      ],
+      "submit_checklist": [
+        "Confirm Kimi official vs third-party submission path",
+        "Plugin zip or GitHub URL installable via /plugins"
+      ],
+      "materials": [
+        {
+          "item": "Confirm Kimi official vs third-party submission path",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "Plugin zip or GitHub URL installable via /plugins",
+          "status": "repo_ready_or_external"
+        }
+      ],
+      "priority": "needs_partner_outreach",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "vscode-agent-plugins",
+      "product": "Visual Studio Code",
+      "region": "global",
+      "channel_type": "self_hosted_marketplace",
+      "listing_statuses": {
+        "official_curated": "unknown",
+        "community_directory": "submittable",
+        "self_marketplace": "listed",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "listed",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "marketplace_add_or_catalog_pr",
+      "blockers": [],
+      "evidence_links": [
+        "https://code.visualstudio.com/docs/agent-customization/agent-plugins"
+      ],
+      "submit_url_or_process": "Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.\n",
+      "recommended_install_path": "doc/ide-setup/vscode.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [
+        {
+          "id": "self_marketplace_claude",
+          "status": "present",
+          "detail": ".claude-plugin/marketplace.json lists cloudbase",
+          "paths": [
+            ".claude-plugin/marketplace.json"
+          ]
+        },
+        {
+          "id": "open_plugin_spec_cloudbase",
+          "status": "present",
+          "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+          "paths": [
+            "plugin/cloudbase/.plugin/plugin.json"
+          ]
+        }
+      ],
+      "submit_checklist": [
+        "Users can add TencentCloudBase/CloudBase-MCP as marketplace",
+        {
+          "Optional": "PR/request inclusion in default curated catalogs"
+        }
+      ],
+      "materials": [
+        {
+          "item": "Users can add TencentCloudBase/CloudBase-MCP as marketplace",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "[object Object]",
+          "status": "repo_ready_or_external"
+        }
+      ],
+      "priority": "ready_to_submit",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "github-copilot-cli",
+      "product": "GitHub Copilot CLI",
+      "region": "global",
+      "channel_type": "open_plugin_spec_target",
+      "listing_statuses": {
+        "official_curated": "unknown",
+        "community_directory": "unknown",
+        "self_marketplace": "listed",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "listed",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "marketplace_add_or_ops",
+      "blockers": [],
+      "evidence_links": [
+        "https://code.visualstudio.com/docs/agent-customization/agent-plugins",
+        "https://open-plugins.com/plugin-builders/specification"
+      ],
+      "submit_url_or_process": "Shares agent plugin format with VS Code; install via marketplace add or npx plugins --target github-copilot.\n",
+      "recommended_install_path": "doc/ide-setup/github-copilot.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [
+        {
+          "id": "open_plugin_spec_cloudbase",
+          "status": "present",
+          "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+          "paths": [
+            "plugin/cloudbase/.plugin/plugin.json"
+          ]
+        },
+        {
+          "id": "ops_publish_repo_docs",
+          "status": "present",
+          "detail": "doc/ai-agent-plugins.mdx documents npx plugins add",
+          "paths": [
+            "doc/ai-agent-plugins.mdx"
+          ]
+        }
+      ],
+      "submit_checklist": [
+        "Confirm default Copilot curated catalog submission if desired"
+      ],
+      "materials": [
+        {
+          "item": "Confirm default Copilot curated catalog submission if desired",
+          "status": "repo_ready_or_external"
+        }
+      ],
+      "priority": "listed",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "workbuddy-connector",
+      "product": "WorkBuddy",
+      "region": "cn",
+      "channel_type": "native_connector_or_builtin",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "listed",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/workbuddy.mdx",
+        "doc/ai-agent-plugins.mdx"
+      ],
+      "submit_url_or_process": "Already listed as built-in CloudBase connector.",
+      "recommended_install_path": "doc/ide-setup/workbuddy.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "listed",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "zcode-plugin",
+      "product": "ZCode",
+      "region": "cn",
+      "channel_type": "native_connector_or_builtin",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "listed",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/zcode.mdx",
+        "doc/ai-agent-plugins.mdx"
+      ],
+      "submit_url_or_process": "Listed as cloudbase-skills under ZCode plugins (>= 3.4.1).",
+      "recommended_install_path": "doc/ide-setup/zcode.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "listed",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "codebuddy-plugin",
+      "product": "CodeBuddy",
+      "region": "cn",
+      "channel_type": "native_connector_or_builtin",
+      "listing_statuses": {
+        "official_curated": "unknown",
+        "community_directory": "unknown",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "unknown",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "partner_outreach_required",
+      "blockers": [
+        "Official listing status for CloudBase needs confirmation"
+      ],
+      "evidence_links": [
+        "https://www.codebuddy.cn/docs/cli/plugins",
+        "doc/ide-setup/codebuddy.mdx"
+      ],
+      "submit_url_or_process": "CodeBuddy has plugin marketplace / CLI plugins. Confirm whether CloudBase is already listed or needs partner submission.\n",
+      "recommended_install_path": "doc/ide-setup/codebuddy.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [
+        "Confirm CodeBuddy marketplace submission process",
+        "Align with config/codebuddy-plugin if applicable"
+      ],
+      "materials": [
+        {
+          "item": "Confirm CodeBuddy marketplace submission process",
+          "status": "manual_or_external"
+        },
+        {
+          "item": "Align with config/codebuddy-plugin if applicable",
+          "status": "manual_or_external"
+        }
+      ],
+      "priority": "needs_partner_outreach",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "codebuddy-code-plugin",
+      "product": "CodeBuddy Code",
+      "region": "cn",
+      "channel_type": "community_plugin_directory",
+      "listing_statuses": {
+        "official_curated": "unknown",
+        "community_directory": "unknown",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "partner_outreach_required",
+      "blockers": [
+        "Public submit path not fully verified"
+      ],
+      "evidence_links": [
+        "https://www.codebuddy.cn/docs/cli/plugins",
+        "doc/ide-setup/codebuddy-code.mdx"
+      ],
+      "submit_url_or_process": "Share via CodeBuddy Code plugin marketplace after plugin.json packaging. Confirm public submit path.\n",
+      "recommended_install_path": "doc/ide-setup/codebuddy-code.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [
+        "plugin.json + README",
+        "Marketplace listing steps from CodeBuddy docs"
+      ],
+      "materials": [
+        {
+          "item": "plugin.json + README",
+          "status": "manual_or_external"
+        },
+        {
+          "item": "Marketplace listing steps from CodeBuddy docs",
+          "status": "manual_or_external"
+        }
+      ],
+      "priority": "needs_partner_outreach",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "qoder-plugin",
+      "product": "Qoder",
+      "region": "cn",
+      "channel_type": "community_plugin_directory",
+      "listing_statuses": {
+        "official_curated": "unknown",
+        "community_directory": "unknown",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "partner_outreach_required",
+      "blockers": [
+        "Self-serve listing docs incomplete for third parties"
+      ],
+      "evidence_links": [
+        "https://help.aliyun.com/zh/lingma/plugin-hidden-release",
+        "doc/ide-setup/qoder.mdx"
+      ],
+      "submit_url_or_process": "Qoder CN plugins use plugin.json packaging (skills/MCP/hooks). Public marketplace listing process needs verification (Aliyun Lingma docs overlap).\n",
+      "recommended_install_path": "doc/ide-setup/qoder.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [
+        "Confirm Qoder CN plugin publish channel",
+        "Package plugin.json compatible layout"
+      ],
+      "materials": [
+        {
+          "item": "Confirm Qoder CN plugin publish channel",
+          "status": "manual_or_external"
+        },
+        {
+          "item": "Package plugin.json compatible layout",
+          "status": "manual_or_external"
+        }
+      ],
+      "priority": "needs_partner_outreach",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "qoderwork-connector",
+      "product": "QoderWork",
+      "region": "cn",
+      "channel_type": "native_connector_or_builtin",
+      "listing_statuses": {
+        "official_curated": "unknown",
+        "community_directory": "unknown",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "unknown",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "unknown"
+      },
+      "eligibility": "partner_outreach_required",
+      "blockers": [
+        "No confirmed CloudBase listing",
+        "Third-party connector submit path unclear"
+      ],
+      "evidence_links": [
+        "https://docs.qoder.com/zh/qoderwork/connectors"
+      ],
+      "submit_url_or_process": "QoderWork has connector / integration marketplace plus custom MCP. CloudBase listing requires partner outreach.\n",
+      "recommended_install_path": null,
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [
+        "Confirm connector onboarding with QoderWork",
+        "MCP or connector packaging requirements"
+      ],
+      "materials": [
+        {
+          "item": "Confirm connector onboarding with QoderWork",
+          "status": "manual_or_external"
+        },
+        {
+          "item": "MCP or connector packaging requirements",
+          "status": "manual_or_external"
+        }
+      ],
+      "priority": "needs_partner_outreach",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "trae-mcp-marketplace",
+      "product": "Trae IDE / Trae Work",
+      "region": "cn",
+      "channel_type": "mcp_registry_or_aggregator",
+      "listing_statuses": {
+        "official_curated": "unknown",
+        "community_directory": "unknown",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "unknown",
+        "docs_only": "listed"
+      },
+      "eligibility": "partner_outreach_required",
+      "blockers": [
+        "No public developer submit form for Trae MCP marketplace"
+      ],
+      "evidence_links": [
+        "https://docs.trae.cn/work_remote-mcp-server",
+        "https://docs.trae.cn/ide_model-context-protocol",
+        "doc/ide-setup/trae.mdx"
+      ],
+      "submit_url_or_process": "Users can add MCP from Trae built-in MCP marketplace or manual config. Third-party submission into Trae MCP marketplace is not publicly documented.\n",
+      "recommended_install_path": "doc/ide-setup/trae.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [
+        {
+          "id": "trae_mcp_deeplink_docs",
+          "status": "present",
+          "detail": "Trae docs present: doc/ide-setup/trae.mdx",
+          "paths": [
+            "doc/ide-setup/trae.mdx"
+          ]
+        }
+      ],
+      "submit_checklist": [
+        "Partner outreach for MCP marketplace inclusion",
+        "Provide stdio npx config for CloudBase MCP"
+      ],
+      "materials": [
+        {
+          "item": "Partner outreach for MCP marketplace inclusion",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "Provide stdio npx config for CloudBase MCP",
+          "status": "repo_ready_or_external"
+        }
+      ],
+      "priority": "needs_partner_outreach",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "trae-work-skills-marketplace",
+      "product": "Trae Work",
+      "region": "cn",
+      "channel_type": "skill_registry",
+      "listing_statuses": {
+        "official_curated": "unknown",
+        "community_directory": "unknown",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "unknown",
+        "docs_only": "unknown"
+      },
+      "eligibility": "partner_outreach_required",
+      "blockers": [
+        "Public skill publishing path not documented"
+      ],
+      "evidence_links": [
+        "https://docs.trae.cn/solo_skills"
+      ],
+      "submit_url_or_process": "Users can upload local SKILL.md zip/.skill or install from Trae Work skills marketplace. Public publisher onboarding unclear.\n",
+      "recommended_install_path": null,
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [
+        "Confirm Trae Work skill market publisher process",
+        "Package SKILL.md zip if allowed"
+      ],
+      "materials": [
+        {
+          "item": "Confirm Trae Work skill market publisher process",
+          "status": "manual_or_external"
+        },
+        {
+          "item": "Package SKILL.md zip if allowed",
+          "status": "manual_or_external"
+        }
+      ],
+      "priority": "needs_partner_outreach",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "trae-ide-extension",
+      "product": "Trae IDE",
+      "region": "cn",
+      "channel_type": "editor_extension_marketplace",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "not_applicable"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "https://docs.trae.cn/ide_manage-extensions"
+      ],
+      "submit_url_or_process": "VS Code-compatible .vsix extension marketplace. Not the correct channel for CloudBase agent plugin / MCP listing.\n",
+      "recommended_install_path": "doc/ide-setup/trae.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "trae-mcp-deeplink",
+      "product": "Trae IDE",
+      "region": "cn",
+      "channel_type": "deeplink_or_install_assist",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "https://docs.trae.cn/ide_mcp-server-install-links",
+        "doc/ide-setup/trae.mdx"
+      ],
+      "submit_url_or_process": "Distribution assist via trae-cn:// MCP import deep link (already documented). Not a store listing.\n",
+      "recommended_install_path": "doc/ide-setup/trae.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [
+        {
+          "id": "trae_mcp_deeplink_docs",
+          "status": "present",
+          "detail": "Trae docs present: doc/ide-setup/trae.mdx",
+          "paths": [
+            "doc/ide-setup/trae.mdx"
+          ]
+        }
+      ],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "listed",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "tongyi-lingma",
+      "product": "Tongyi Lingma",
+      "region": "cn",
+      "channel_type": "docs_config_only",
+      "listing_statuses": {
+        "official_curated": "unknown",
+        "community_directory": "unknown",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "unknown_or_partner",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/tongyi-lingma.mdx"
+      ],
+      "submit_url_or_process": "MCP / rules via ide-setup docs; dedicated agent plugin store status unknown.",
+      "recommended_install_path": "doc/ide-setup/tongyi-lingma.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "baidu-comate",
+      "product": "Baidu Comate",
+      "region": "cn",
+      "channel_type": "docs_config_only",
+      "listing_statuses": {
+        "official_curated": "unknown",
+        "community_directory": "unknown",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "unknown_or_partner",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/baidu-comate.mdx"
+      ],
+      "submit_url_or_process": "MCP / rules via ide-setup docs; store listing unknown.",
+      "recommended_install_path": "doc/ide-setup/baidu-comate.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "windsurf",
+      "product": "WindSurf",
+      "region": "global",
+      "channel_type": "docs_config_only",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/windsurf.mdx"
+      ],
+      "submit_url_or_process": "MCP + rules config; no confirmed CloudBase agent plugin marketplace.",
+      "recommended_install_path": "doc/ide-setup/windsurf.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "ops-cli",
+      "product": "Open Plugin Spec CLI",
+      "region": "global",
+      "channel_type": "open_plugin_spec_target",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "listed",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ai-agent-plugins.mdx",
+        "https://open-plugins.com/plugin-builders/specification"
+      ],
+      "submit_url_or_process": "Already installable via npx plugins add TencentCloudBase/cloudbase-plugin (targets: claude-code, cursor, codex, grok, kimi, github-copilot, vscode).\n",
+      "recommended_install_path": "doc/ai-agent-plugins.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [
+        {
+          "id": "open_plugin_spec_cloudbase",
+          "status": "present",
+          "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+          "paths": [
+            "plugin/cloudbase/.plugin/plugin.json"
+          ]
+        },
+        {
+          "id": "ops_publish_repo_docs",
+          "status": "present",
+          "detail": "doc/ai-agent-plugins.mdx documents npx plugins add",
+          "paths": [
+            "doc/ai-agent-plugins.mdx"
+          ]
+        }
+      ],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "listed",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "self-marketplace-claude",
+      "product": "Claude Code (self marketplace)",
+      "region": "global",
+      "channel_type": "self_hosted_marketplace",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "listed",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "listed",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        ".claude-plugin/marketplace.json",
+        "doc/ide-setup/claude-code.mdx"
+      ],
+      "submit_url_or_process": "Users add TencentCloudBase/CloudBase-MCP then install cloudbase@tencent-cloudbase.",
+      "recommended_install_path": "doc/ide-setup/claude-code.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [
+        {
+          "id": "self_marketplace_claude",
+          "status": "present",
+          "detail": ".claude-plugin/marketplace.json lists cloudbase",
+          "paths": [
+            ".claude-plugin/marketplace.json"
+          ]
+        },
+        {
+          "id": "claude_plugin_manifest",
+          "status": "present",
+          "detail": "plugin/cloudbase/.claude-plugin/plugin.json exists",
+          "paths": [
+            "plugin/cloudbase/.claude-plugin/plugin.json"
+          ]
+        }
+      ],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "listed",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "self-marketplace-codex",
+      "product": "Codex (self marketplace)",
+      "region": "global",
+      "channel_type": "self_hosted_marketplace",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "listed",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "listed",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "marketplace.json",
+        "doc/ide-setup/codex.mdx"
+      ],
+      "submit_url_or_process": "Users add marketplace from this repo root marketplace.json.",
+      "recommended_install_path": "doc/ide-setup/codex.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [
+        {
+          "id": "self_marketplace_codex",
+          "status": "present",
+          "detail": "marketplace.json lists cloudbase",
+          "paths": [
+            "marketplace.json"
+          ]
+        },
+        {
+          "id": "codex_plugin_manifest",
+          "status": "present",
+          "detail": "plugin/cloudbase/.codex-plugin/plugin.json exists",
+          "paths": [
+            "plugin/cloudbase/.codex-plugin/plugin.json"
+          ]
+        }
+      ],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "listed",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "mcp-official-registry",
+      "product": "Official MCP Registry",
+      "region": "global",
+      "channel_type": "mcp_registry_or_aggregator",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "unknown",
+        "docs_only": "unknown"
+      },
+      "eligibility": "mcp_publisher_cli",
+      "blockers": [
+        "Confirm whether @cloudbase/cloudbase-mcp is already published to official registry"
+      ],
+      "evidence_links": [
+        "https://registry.modelcontextprotocol.io"
+      ],
+      "submit_url_or_process": "Publish via mcp-publisher CLI to registry.modelcontextprotocol.io; aggregators may ingest afterward.\n",
+      "recommended_install_path": null,
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [
+        "server.json / publisher metadata",
+        "mcp-publisher publish"
+      ],
+      "materials": [
+        {
+          "item": "server.json / publisher metadata",
+          "status": "manual_or_external"
+        },
+        {
+          "item": "mcp-publisher publish",
+          "status": "manual_or_external"
+        }
+      ],
+      "priority": "needs_partner_outreach",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "smithery",
+      "product": "Smithery",
+      "region": "global",
+      "channel_type": "mcp_registry_or_aggregator",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "unknown",
+        "docs_only": "unknown"
+      },
+      "eligibility": "hosted_http_mcp_or_registry",
+      "blockers": [],
+      "evidence_links": [
+        "https://smithery.ai/docs/build/publish.md"
+      ],
+      "submit_url_or_process": "Publish hosted HTTPS MCP or rely on registry ingest; see smithery.ai/new.",
+      "recommended_install_path": null,
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [
+        "Public MCP URL or registry entry",
+        "Complete Smithery publish flow if needed"
+      ],
+      "materials": [
+        {
+          "item": "Public MCP URL or registry entry",
+          "status": "manual_or_external"
+        },
+        {
+          "item": "Complete Smithery publish flow if needed",
+          "status": "manual_or_external"
+        }
+      ],
+      "priority": "needs_partner_outreach",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "pulsemcp",
+      "product": "PulseMCP",
+      "region": "global",
+      "channel_type": "mcp_registry_or_aggregator",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "unknown",
+        "docs_only": "unknown"
+      },
+      "eligibility": "via_official_registry",
+      "blockers": [],
+      "evidence_links": [
+        "https://www.pulsemcp.com"
+      ],
+      "submit_url_or_process": "Typically ingests from official MCP registry; expedite via contact after registry publish.",
+      "recommended_install_path": null,
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [
+        "Ensure official MCP registry listing first"
+      ],
+      "materials": [
+        {
+          "item": "Ensure official MCP registry listing first",
+          "status": "manual_or_external"
+        }
+      ],
+      "priority": "needs_partner_outreach",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "glama",
+      "product": "Glama",
+      "region": "global",
+      "channel_type": "mcp_registry_or_aggregator",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "unknown",
+        "docs_only": "unknown"
+      },
+      "eligibility": "public_github_mcp",
+      "blockers": [],
+      "evidence_links": [
+        "https://glama.ai/mcp/servers"
+      ],
+      "submit_url_or_process": "Indexes public GitHub MCP repos / registry.",
+      "recommended_install_path": null,
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [
+        "Public MCP server repo discoverable"
+      ],
+      "materials": [
+        {
+          "item": "Public MCP server repo discoverable",
+          "status": "manual_or_external"
+        }
+      ],
+      "priority": "needs_partner_outreach",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "mcp-so",
+      "product": "mcp.so",
+      "region": "global",
+      "channel_type": "mcp_registry_or_aggregator",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "unknown",
+        "docs_only": "unknown"
+      },
+      "eligibility": "github_pr",
+      "blockers": [],
+      "evidence_links": [
+        "https://mcp.so"
+      ],
+      "submit_url_or_process": "Community PR / listing line in mcp.so source catalog.",
+      "recommended_install_path": null,
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [
+        "PR adding CloudBase MCP listing line"
+      ],
+      "materials": [
+        {
+          "item": "PR adding CloudBase MCP listing line",
+          "status": "manual_or_external"
+        }
+      ],
+      "priority": "needs_partner_outreach",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "clawhub",
+      "product": "ClawHub",
+      "region": "global",
+      "channel_type": "skill_registry",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "unknown",
+        "docs_only": "listed"
+      },
+      "eligibility": "clawhub_cli_workflow",
+      "blockers": [],
+      "evidence_links": [
+        "specs/clawhub-public-skill-registry-publish/requirements.md"
+      ],
+      "submit_url_or_process": "Covered by specs/clawhub-public-skill-registry-publish; do not duplicate publish pipeline here.\n",
+      "recommended_install_path": null,
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [
+        "Follow existing ClawHub publish spec"
+      ],
+      "materials": [
+        {
+          "item": "Follow existing ClawHub publish spec",
+          "status": "manual_or_external"
+        }
+      ],
+      "priority": "unknown",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "docs-cline",
+      "product": "Cline",
+      "region": "global",
+      "channel_type": "docs_config_only",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/cline.mdx"
+      ],
+      "submit_url_or_process": "No dedicated CloudBase store channel; use MCP + rules docs.",
+      "recommended_install_path": "doc/ide-setup/cline.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "docs-gemini-cli",
+      "product": "Gemini CLI",
+      "region": "global",
+      "channel_type": "docs_config_only",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/gemini-cli.mdx"
+      ],
+      "submit_url_or_process": "Docs-only MCP/rules setup.",
+      "recommended_install_path": "doc/ide-setup/gemini-cli.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "docs-opencode",
+      "product": "OpenCode",
+      "region": "global",
+      "channel_type": "docs_config_only",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/opencode.mdx"
+      ],
+      "submit_url_or_process": "Docs-only MCP/rules setup.",
+      "recommended_install_path": "doc/ide-setup/opencode.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "docs-qwen-code",
+      "product": "Qwen Code",
+      "region": "cn",
+      "channel_type": "docs_config_only",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/qwen-code.mdx"
+      ],
+      "submit_url_or_process": "Docs-only MCP/rules setup.",
+      "recommended_install_path": "doc/ide-setup/qwen-code.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "docs-augment-code",
+      "product": "Augment Code",
+      "region": "global",
+      "channel_type": "docs_config_only",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/augment-code.mdx"
+      ],
+      "submit_url_or_process": "Docs-only MCP/rules setup.",
+      "recommended_install_path": "doc/ide-setup/augment-code.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "docs-roocode",
+      "product": "RooCode",
+      "region": "global",
+      "channel_type": "docs_config_only",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/roocode.mdx"
+      ],
+      "submit_url_or_process": "Docs-only MCP/rules setup (deprecated product guidance may apply).",
+      "recommended_install_path": "doc/ide-setup/roocode.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "docs-antigravity",
+      "product": "Google Antigravity",
+      "region": "global",
+      "channel_type": "docs_config_only",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/antigravity.mdx"
+      ],
+      "submit_url_or_process": "Docs-only MCP/rules setup.",
+      "recommended_install_path": "doc/ide-setup/antigravity.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "docs-kiro",
+      "product": "Kiro",
+      "region": "global",
+      "channel_type": "docs_config_only",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/kiro.mdx"
+      ],
+      "submit_url_or_process": "Docs-only MCP/rules setup.",
+      "recommended_install_path": "doc/ide-setup/kiro.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "docs-aider",
+      "product": "Aider",
+      "region": "global",
+      "channel_type": "docs_config_only",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [],
+      "submit_url_or_process": "Docs-only MCP/rules setup. Dedicated ide-setup page not present yet.",
+      "recommended_install_path": null,
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "docs-iflow-cli",
+      "product": "iFlow CLI",
+      "region": "cn",
+      "channel_type": "docs_config_only",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/iflow-cli.mdx"
+      ],
+      "submit_url_or_process": "Docs-only MCP/rules setup.",
+      "recommended_install_path": "doc/ide-setup/iflow-cli.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    },
+    {
+      "id": "docs-openclaw",
+      "product": "OpenClaw",
+      "region": "global",
+      "channel_type": "docs_config_only",
+      "listing_statuses": {
+        "official_curated": "not_applicable",
+        "community_directory": "not_applicable",
+        "self_marketplace": "not_applicable",
+        "native_connector_or_builtin": "not_applicable",
+        "open_plugin_spec": "not_applicable",
+        "mcp_or_skill_registry": "not_applicable",
+        "docs_only": "listed"
+      },
+      "eligibility": "n_a",
+      "blockers": [],
+      "evidence_links": [
+        "doc/ide-setup/openclaw.mdx"
+      ],
+      "submit_url_or_process": "Docs-only setup; skill registry via ClawHub tracked separately.",
+      "recommended_install_path": "doc/ide-setup/openclaw.mdx",
+      "last_reviewed_at": "2026-07-27",
+      "owner": "cloudbase-ai-toolkit",
+      "local_evidence": [],
+      "submit_checklist": [],
+      "materials": [],
+      "priority": "not_applicable",
+      "stale": false,
+      "manual_submit_only": true
+    }
+  ]
+}

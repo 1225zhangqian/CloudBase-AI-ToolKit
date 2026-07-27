@@ -6,6 +6,10 @@
  * Generates for each plugin (cloudbase + cloudbase-sites):
  *   - .plugin/plugin.json  (vendor-neutral manifest)
  *   - mcp.json             (spec-standard MCP config, copied from .mcp.json)
+ *   - .cursor-plugin/plugin.json (Cursor Marketplace manifest)
+ *
+ * Also generates:
+ *   - .cursor-plugin/marketplace.json (repo-root multi-plugin marketplace)
  *
  * Usage:
  *   node scripts/build-open-plugin-spec.mjs          Generate artifacts
@@ -22,6 +26,7 @@ const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, "..");
 
 const SPEC_SCHEMA_URL = "https://open-plugins.com/schemas/1.0.0/plugin.schema.json";
+const REPO_URL = "https://github.com/TencentCloudBase/CloudBase-MCP";
 
 const SPEC_ALLOWED_FIELDS = new Set([
   "$schema", "name", "version", "description",
@@ -29,8 +34,18 @@ const SPEC_ALLOWED_FIELDS = new Set([
 ]);
 
 const PLUGINS = [
-  { name: "cloudbase", dir: path.join(ROOT_DIR, "plugin", "cloudbase") },
-  { name: "cloudbase-sites", dir: path.join(ROOT_DIR, "plugin", "cloudbase-sites") },
+  {
+    name: "cloudbase",
+    dir: path.join(ROOT_DIR, "plugin", "cloudbase"),
+    marketplaceDescription:
+      "CloudBase platform capabilities: AI, auth, databases, cloud functions, storage, CloudRun, and Mini Program integration.",
+  },
+  {
+    name: "cloudbase-sites",
+    dir: path.join(ROOT_DIR, "plugin", "cloudbase-sites"),
+    marketplaceDescription:
+      "Create, preview, save, deploy, inspect, and roll back Vite web apps hosted on Tencent CloudBase.",
+  },
 ];
 
 function readJson(p) {
@@ -58,6 +73,58 @@ function buildSpecManifest(claudeManifestPath) {
     throw new Error(`Plugin name "${name}" does not conform to spec naming constraints`);
   }
   return spec;
+}
+
+function buildCursorManifest(claudeManifestPath) {
+  const cm = readJson(claudeManifestPath);
+  const authorName = cm.author?.name || "Tencent CloudBase";
+  const manifest = {
+    name: cm.name,
+    version: cm.version,
+    description: cm.description,
+    author: { name: authorName },
+    homepage: cm.homepage || "https://cloudbase.net",
+    repository: REPO_URL,
+    license: cm.license || "MIT",
+    keywords: Array.isArray(cm.keywords) ? [...cm.keywords] : [],
+    mcpServers: "./mcp.json",
+  };
+  if (!manifest.keywords.includes("cursor")) {
+    manifest.keywords.push("cursor");
+  }
+  if (!manifest.name) {
+    throw new Error(`Missing 'name' in ${claudeManifestPath}`);
+  }
+  return manifest;
+}
+
+function buildCursorMarketplace() {
+  return {
+    name: "tencent-cloudbase",
+    owner: {
+      name: "Tencent CloudBase",
+    },
+    metadata: {
+      description: "Tencent CloudBase plugins for CloudBase platform development and CloudBase Sites workflows.",
+      version: "1.0.0",
+    },
+    plugins: PLUGINS.map((plugin) => {
+      const claudeManifest = path.join(plugin.dir, ".claude-plugin", "plugin.json");
+      const cm = readJson(claudeManifest);
+      return {
+        name: cm.name,
+        source: `plugin/${plugin.name}`,
+        description: plugin.marketplaceDescription,
+        version: cm.version,
+        author: { name: cm.author?.name || "Tencent CloudBase" },
+        homepage: cm.homepage || "https://cloudbase.net",
+        repository: REPO_URL,
+        license: cm.license || "MIT",
+        category: "Developer Tools",
+        keywords: Array.isArray(cm.keywords) ? cm.keywords : [],
+      };
+    }),
+  };
 }
 
 function verifyDiscover(pluginDir) {
@@ -88,6 +155,7 @@ function main() {
   for (const { name, dir } of PLUGINS) {
     const claudeManifest = path.join(dir, ".claude-plugin", "plugin.json");
     const specManifest = path.join(dir, ".plugin", "plugin.json");
+    const cursorManifest = path.join(dir, ".cursor-plugin", "plugin.json");
     const mcpSource = path.join(dir, ".mcp.json");
     const mcpTarget = path.join(dir, "mcp.json");
 
@@ -97,11 +165,16 @@ function main() {
     }
 
     const spec = buildSpecManifest(claudeManifest);
+    const cursor = buildCursorManifest(claudeManifest);
     const mcp = readJson(mcpSource);
     console.log(`[${name}] fields: ${Object.keys(spec).join(", ")}, mcp servers: ${Object.keys(mcp.mcpServers || {}).join(", ")}`);
 
     if (check) {
-      for (const [p, expected, label] of [[specManifest, spec, ".plugin/plugin.json"], [mcpTarget, mcp, "mcp.json"]]) {
+      for (const [p, expected, label] of [
+        [specManifest, spec, ".plugin/plugin.json"],
+        [mcpTarget, mcp, "mcp.json"],
+        [cursorManifest, cursor, ".cursor-plugin/plugin.json"],
+      ]) {
         if (!fs.existsSync(p) || !jsonEqual(readJson(p), expected)) {
           console.error(`✗ [${name}] Outdated: ${label}`);
           allGood = false;
@@ -112,8 +185,23 @@ function main() {
     } else {
       writeJson(specManifest, spec);
       writeJson(mcpTarget, mcp);
-      console.log(`✓ [${name}] Generated: .plugin/plugin.json + mcp.json`);
+      writeJson(cursorManifest, cursor);
+      console.log(`✓ [${name}] Generated: .plugin/plugin.json + mcp.json + .cursor-plugin/plugin.json`);
     }
+  }
+
+  const cursorMarketplacePath = path.join(ROOT_DIR, ".cursor-plugin", "marketplace.json");
+  const cursorMarketplace = buildCursorMarketplace();
+  if (check) {
+    if (!fs.existsSync(cursorMarketplacePath) || !jsonEqual(readJson(cursorMarketplacePath), cursorMarketplace)) {
+      console.error("✗ Outdated: .cursor-plugin/marketplace.json");
+      allGood = false;
+    } else {
+      console.log("✓ Up to date: .cursor-plugin/marketplace.json");
+    }
+  } else {
+    writeJson(cursorMarketplacePath, cursorMarketplace);
+    console.log("✓ Generated: .cursor-plugin/marketplace.json");
   }
 
   if (check) {
