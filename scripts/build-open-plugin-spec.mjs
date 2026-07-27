@@ -75,7 +75,7 @@ function buildSpecManifest(claudeManifestPath) {
   return spec;
 }
 
-function buildCursorManifest(claudeManifestPath) {
+function buildCursorManifest(claudeManifestPath, pluginDir) {
   const cm = readJson(claudeManifestPath);
   const authorName = cm.author?.name || "Tencent CloudBase";
   const manifest = {
@@ -87,6 +87,7 @@ function buildCursorManifest(claudeManifestPath) {
     repository: REPO_URL,
     license: cm.license || "MIT",
     keywords: Array.isArray(cm.keywords) ? [...cm.keywords] : [],
+    logo: "./assets/logo.png",
     mcpServers: "./mcp.json",
   };
   if (!manifest.keywords.includes("cursor")) {
@@ -94,6 +95,10 @@ function buildCursorManifest(claudeManifestPath) {
   }
   if (!manifest.name) {
     throw new Error(`Missing 'name' in ${claudeManifestPath}`);
+  }
+  const logoPath = path.join(pluginDir, "assets", "logo.png");
+  if (!fs.existsSync(logoPath)) {
+    throw new Error(`Missing recommended Cursor logo at ${logoPath}`);
   }
   return manifest;
 }
@@ -165,7 +170,7 @@ function main() {
     }
 
     const spec = buildSpecManifest(claudeManifest);
-    const cursor = buildCursorManifest(claudeManifest);
+    const cursor = buildCursorManifest(claudeManifest, dir);
     const mcp = readJson(mcpSource);
     console.log(`[${name}] fields: ${Object.keys(spec).join(", ")}, mcp servers: ${Object.keys(mcp.mcpServers || {}).join(", ")}`);
 

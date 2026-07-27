@@ -1,4 +1,5 @@
 ---
+name: cloudbase-deploy
 description: "部署 CloudBase 资源。子命令: function (云函数), hosting (静态托管), cloudrun (云托管)。默认: 检测项目类型后提示"
 ---
 

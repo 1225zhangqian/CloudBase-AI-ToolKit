@@ -9,8 +9,8 @@ Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
 
 ### 1. Claude Code — Community marketplace
 
-- [ ] Run `claude plugin validate` against `plugin/cloudbase` (or install from this repo marketplace and smoke-test)
-- [ ] Confirm public repo URL: `TencentCloudBase/CloudBase-MCP`
+- [x] Run `claude plugin validate` against `plugin/cloudbase` (or install from this repo marketplace and smoke-test)
+- [x] Confirm public repo URL: `TencentCloudBase/CloudBase-MCP` (GitHub may redirect to `CloudBase-AI-Toolkit`)
 - [ ] Submit via one of:
   - https://platform.claude.com/plugins/submit
   - https://claude.ai/admin-settings/directory/submissions/plugins/new
@@ -19,29 +19,38 @@ Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
 
 ### 2. Cursor Marketplace
 
-- [ ] Confirm manifests exist:
+- [x] Confirm manifests exist:
   - `.cursor-plugin/marketplace.json` (repo root)
   - `plugin/cloudbase/.cursor-plugin/plugin.json`
   - `plugin/cloudbase-sites/.cursor-plugin/plugin.json`
   - `plugin/cloudbase/mcp.json`
+  - `plugin/cloudbase/assets/logo.png` (+ sites)
+- [x] Command/skill/agent frontmatter quality gate (`npm run check:plugin-quality`)
 - [ ] Local test (optional): symlink plugin into `~/.cursor/plugins/local/cloudbase` and restart Cursor
 - [ ] Submit at https://cursor.com/marketplace/publish with repo URL
 - [ ] Optional secondary listing: cursor.directory
 
-### 3. Codex / ChatGPT — Universal Plugins Directory
+### 3. Codex / ChatGPT — git marketplace (ready) vs Universal portal (blocked)
 
-- [ ] Confirm `.agents/plugins/marketplace.json` (preferred) + root `marketplace.json` + `plugin/cloudbase/.codex-plugin/plugin.json`
-- [ ] Prepare listing assets: short/long description, logo, category, website, support, privacy, terms
-- [ ] Prepare MCP / skills test cases required by OpenAI submission portal
-- [ ] Submit via OpenAI plugin submission portal:
-  - https://developers.openai.com/plugins/deploy/submission
-- [ ] After approval, publish from the portal when ready
+**Git marketplace (App / CLI sparse):**
+
+- [x] Confirm `.agents/plugins/marketplace.json` (preferred) + root `marketplace.json` + `plugin/cloudbase/.codex-plugin/plugin.json`
+- [x] Logo + privacy/terms URLs present on Codex interface
+
+**Universal Plugins Directory portal (separate track):**
+
+- [ ] Host public MCP HTTPS URL + domain verification (current packaging is local `npx` — not portal-ready)
+- [ ] Prepare listing assets + 5 positive / 3 negative test cases
+- [ ] Verified OpenAI org identity + Apps Management write
+- [ ] Submit via https://developers.openai.com/plugins/deploy/submission
 
 ### 4. Grok Build marketplace
 
+- [ ] Prefer remote source `https://github.com/TencentCloudBase/cloudbase-plugin.git` (not monorepo root)
 - [ ] Open PR to https://github.com/xai-org/plugin-marketplace
-- [ ] Add remote catalog entry pinned to a commit SHA of this repo / plugin path
+- [ ] Add remote catalog entry pinned to a commit SHA
 - [ ] Follow their `.grok-plugin/marketplace.json` contribution guide
+- [ ] Brand-scoped keywords/domains only
 
 ### 5. VS Code / Copilot agent plugins
 

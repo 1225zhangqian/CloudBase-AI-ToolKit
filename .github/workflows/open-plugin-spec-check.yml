@@ -11,6 +11,7 @@ on:
       - '.cursor-plugin/**'
       - 'scripts/build-open-plugin-spec.mjs'
       - 'scripts/check-plugin-marketplaces.mjs'
+      - 'scripts/check-plugin-quality.mjs'
       - '.github/workflows/open-plugin-spec-check.yml'
   push:
     branches:
@@ -24,6 +25,7 @@ on:
       - '.cursor-plugin/**'
       - 'scripts/build-open-plugin-spec.mjs'
       - 'scripts/check-plugin-marketplaces.mjs'
+      - 'scripts/check-plugin-quality.mjs'
       - '.github/workflows/open-plugin-spec-check.yml'
 
 jobs:
@@ -45,6 +47,10 @@ jobs:
       - name: Check Claude Code + Codex marketplace manifests
         run: |
           node scripts/check-plugin-marketplaces.mjs
+
+      - name: Check marketplace submission quality (Claude/Cursor/Codex)
+        run: |
+          node scripts/check-plugin-quality.mjs
 
       - name: Verify plugins CLI can discover the plugin
         working-directory: plugin/cloudbase

@@ -39,6 +39,7 @@
       "Save this version, then deploy it to CloudBase.",
       "Add database-backed state to this CloudBase site."
     ],
-    "brandColor": "#006EFF"
+    "brandColor": "#006EFF",
+    "logo": "./assets/logo.png"
   }
 }
