@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-28T03:09:29.167Z",
+  "generated_at": "2026-07-28T03:17:28.867Z",
   "matrix_version": 1,
   "reviewed_stale_days": 90,
   "total_markets": 42,
@@ -326,11 +326,12 @@
         "blockers": [],
         "evidence_links": [
           "https://github.com/xai-org/plugin-marketplace",
+          "https://github.com/xai-org/plugin-marketplace/pull/151",
           "https://x.ai/news/grok-plugin-marketplace"
         ],
-        "submit_url_or_process": "Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.\n",
+        "submit_url_or_process": "Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.\nStatus 2026-07-28: PR opened https://github.com/xai-org/plugin-marketplace/pull/151\nSource: TencentCloudBase/cloudbase-plugin @ 93b747b3287787b8c3ad0811ef4f9b51e2479ec9\n",
         "recommended_install_path": null,
-        "last_reviewed_at": "2026-07-27",
+        "last_reviewed_at": "2026-07-28",
         "owner": "cloudbase-ai-toolkit",
         "local_evidence": [
           {
@@ -2165,11 +2166,12 @@
       "blockers": [],
       "evidence_links": [
         "https://github.com/xai-org/plugin-marketplace",
+        "https://github.com/xai-org/plugin-marketplace/pull/151",
         "https://x.ai/news/grok-plugin-marketplace"
       ],
-      "submit_url_or_process": "Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.\n",
+      "submit_url_or_process": "Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.\nStatus 2026-07-28: PR opened https://github.com/xai-org/plugin-marketplace/pull/151\nSource: TencentCloudBase/cloudbase-plugin @ 93b747b3287787b8c3ad0811ef4f9b51e2479ec9\n",
       "recommended_install_path": null,
-      "last_reviewed_at": "2026-07-27",
+      "last_reviewed_at": "2026-07-28",
       "owner": "cloudbase-ai-toolkit",
       "local_evidence": [
         {

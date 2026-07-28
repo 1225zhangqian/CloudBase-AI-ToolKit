@@ -187,10 +187,13 @@ markets:
       docs_only: unknown
     submit_url_or_process: |
       Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.
+      Status 2026-07-28: PR opened https://github.com/xai-org/plugin-marketplace/pull/151
+      Source: TencentCloudBase/cloudbase-plugin @ 93b747b3287787b8c3ad0811ef4f9b51e2479ec9
     eligibility: public_github_pr_required
     blockers: []
     evidence_links:
       - https://github.com/xai-org/plugin-marketplace
+      - https://github.com/xai-org/plugin-marketplace/pull/151
       - https://x.ai/news/grok-plugin-marketplace
     local_evidence:
       - open_plugin_spec_cloudbase
@@ -200,9 +203,10 @@ markets:
       - PR to xai-org/plugin-marketplace
     recommended_install_path: null
     priority_hint: null
-    last_reviewed_at: "2026-07-27"
+    last_reviewed_at: "2026-07-28"
     owner: cloudbase-ai-toolkit
-
+    notes: |
+      2026-07-28: Catalog PR #151 opened. Awaiting xAI CI + code-owner review.
   - id: kimi-code-marketplace
     product: Kimi Code
     region: cn

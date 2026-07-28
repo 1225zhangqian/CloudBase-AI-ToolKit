@@ -34,12 +34,30 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 
 | Field | Value |
 |-------|-------|
-| Status | Not submitted yet |
+| Status | Packet ready — awaiting human form submit |
 | Form | https://platform.claude.com/plugins/submit |
+| Packet | `specs/plugin-marketplace-listing/claude-submission-packet.md` |
+| Repo | https://github.com/TencentCloudBase/CloudBase-AI-Toolkit |
+| Plugin path | `plugin/cloudbase` |
+
+### How to check progress (Claude)
+
+1. After submit, watch for Anthropic review email / Console submission status.
+2. Search community catalog nightly sync: https://github.com/anthropics/claude-plugins-community/blob/main/.claude-plugin/marketplace.json
+3. Install test: `claude plugin marketplace add anthropics/claude-plugins-community` then `claude plugin install cloudbase@claude-community` (name may vary after listing).
 
 ## Grok Build
 
 | Field | Value |
 |-------|-------|
-| Status | Not submitted yet |
-| Process | PR to https://github.com/xai-org/plugin-marketplace |
+| Status | **PR opened** — awaiting xAI review |
+| PR | https://github.com/xai-org/plugin-marketplace/pull/151 |
+| Source repo | https://github.com/TencentCloudBase/cloudbase-plugin.git |
+| Pinned SHA | `93b747b3287787b8c3ad0811ef4f9b51e2479ec9` |
+| Submitted at | 2026-07-28 |
+
+### How to check progress (Grok)
+
+1. Watch PR #151 CI + review comments: https://github.com/xai-org/plugin-marketplace/pull/151
+2. After merge, confirm entry in https://github.com/xai-org/plugin-marketplace/blob/main/.grok-plugin/marketplace.json
+3. Install / browse from Grok Build marketplace UI

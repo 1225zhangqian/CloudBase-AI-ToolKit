@@ -2094,7 +2094,7 @@ API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
         {
           name: "EnvParams",
           type: "string",
-          description: `环境变量配置，JSON字符串格式。用于传递配置信息给服务代码，如'{"DATABASE_URL":"mysql://...","NODE_ENV":"production"}'。SDK v5.6.1+ 会自动对传入的环境变量进行 AES-256-CBC 加密传输`,
+          description: `环境变量配置，JSON字符串格式。用于传递配置信息给服务代码，如'{"DATABASE_URL":"postgres://user:pass@10.x.x.x:5432/db","NODE_ENV":"production"}'。SDK v5.6.1+ 会自动对传入的环境变量进行 AES-256-CBC 加密传输。⚠️ 若 EnvParams 含 DATABASE_URL / MYSQL_* / POSTGRES_* / REDIS_* 等传统 TCP 连库变量，必须同时配置 VpcConf，否则实例通常无法访问 VPC 内数据库`,
         },
         {
           name: "Dockerfile",
@@ -2210,19 +2210,19 @@ API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
         {
           name: "VpcConf",
           type: "object",
-          description: `VPC网络配置，用于将云托管服务部署到指定的私有网络中。需要提前创建好VPC和子网`,
+          description: `VPC网络配置（实例出网/私有网络）。用于让云托管实例接入指定 VPC，从而内网访问 MySQL/PostgreSQL/Redis/CVM 等资源。与 OpenAccessTypes（外部如何访问本服务）是不同概念。TCP 连库场景必须配置。MCP 会在首次创建时将 VpcConf 映射为 SDK vpcInfo(CreateType=2)；对已存在服务，更新路径可能无法更换 VPC，需 delete 后带正确 VpcConf 重新 deploy，并用 queryCloudRun detail 复核 ServerConfig.VpcConf`,
           children: [
             {
               name: "VpcId",
               type: "string",
               required: true,
-              description: `VPC网络ID，指定服务所在的私有网络`,
+              description: `VPC网络ID，格式如 vpc-xxxxxxxx。必须与目标数据库/Redis 处于同一地域，并优先选择同一 VPC。强烈建议在服务首次创建时传入；已存在服务更换 VPC 通常需要先删除再重建`,
             },
             {
               name: "SubnetId",
               type: "string",
               required: true,
-              description: `子网ID，指定服务所在的子网`,
+              description: `子网ID，格式如 subnet-xxxxxxxx。云托管实例将占用该子网 IP，需确保有足够可用 IP`,
             }
           ],
         },

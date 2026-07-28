@@ -1,6 +1,6 @@
 # CloudBase Plugin Marketplace Analysis
 
-Generated: 2026-07-28T03:09:29.167Z
+Generated: 2026-07-28T03:17:28.867Z
 
 > This report does not auto-submit to any marketplace. All submissions are manual.
 
@@ -206,7 +206,7 @@ Recommended install docs: `doc/ide-setup/codex.mdx`
 - Region: global
 - Channel: `community_plugin_directory`
 - Eligibility: `public_github_pr_required`
-- Last reviewed: 2026-07-27
+- Last reviewed: 2026-07-28
 - Manual submit only: yes
 
 Statuses:
@@ -233,11 +233,14 @@ Process:
 
 ```
 Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.
+Status 2026-07-28: PR opened https://github.com/xai-org/plugin-marketplace/pull/151
+Source: TencentCloudBase/cloudbase-plugin @ 93b747b3287787b8c3ad0811ef4f9b51e2479ec9
 ```
 
 Evidence:
 
 - https://github.com/xai-org/plugin-marketplace
+- https://github.com/xai-org/plugin-marketplace/pull/151
 - https://x.ai/news/grok-plugin-marketplace
 
 ### vscode-agent-plugins — Visual Studio Code

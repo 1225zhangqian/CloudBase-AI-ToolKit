@@ -11,7 +11,7 @@ Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
 
 - [x] Run `claude plugin validate` against `plugin/cloudbase` (or install from this repo marketplace and smoke-test)
 - [x] Confirm public repo URL: `TencentCloudBase/CloudBase-MCP` (GitHub may redirect to `CloudBase-AI-Toolkit`)
-- [ ] Submit via one of:
+- [ ] Submit via one of (packet ready — see `claude-submission-packet.md`):
   - https://platform.claude.com/plugins/submit
   - https://claude.ai/admin-settings/directory/submissions/plugins/new
 - [ ] After approval, verify entry appears in `anthropics/claude-plugins-community` catalog
@@ -51,11 +51,13 @@ Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
 
 ### 4. Grok Build marketplace
 
-- [ ] Prefer remote source `https://github.com/TencentCloudBase/cloudbase-plugin.git` (not monorepo root)
-- [ ] Open PR to https://github.com/xai-org/plugin-marketplace
-- [ ] Add remote catalog entry pinned to a commit SHA
-- [ ] Follow their `.grok-plugin/marketplace.json` contribution guide
-- [ ] Brand-scoped keywords/domains only
+- [x] Prefer remote source `https://github.com/TencentCloudBase/cloudbase-plugin.git` (not monorepo root)
+- [x] Open PR to https://github.com/xai-org/plugin-marketplace — https://github.com/xai-org/plugin-marketplace/pull/151 (2026-07-28)
+- [x] Add remote catalog entry pinned to SHA `93b747b3287787b8c3ad0811ef4f9b51e2479ec9`
+- [x] Regenerate `.grok-plugin/plugin-index.json` + validate-catalog
+- [ ] Await xAI review / merge
+- [ ] After merge: confirm catalog entry live; mark `markets.yaml` listed
+- [x] Brand-scoped keywords/domains only
 
 ### 5. VS Code / Copilot agent plugins
 
