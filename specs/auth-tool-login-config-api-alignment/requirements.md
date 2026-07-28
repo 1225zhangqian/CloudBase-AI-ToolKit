@@ -2,9 +2,9 @@
 
 ## 介绍
 
-当前 `auth-tool` skill 仍然使用过时的 `lowcode/DescribeLoginStrategy` 与 `lowcode/ModifyLoginStrategy` 指导 AI 配置匿名登录、用户名密码登录和短信登录。与此同时，`#359` 又将这部分能力整体降级为“优先控制台 fallback”，导致 AI 既可能调用错误 API，也可能错过可直接调用的正式 CloudBase 登录配置接口。
+当前 `auth-tool-cloudbase` skill 仍然使用过时的 `lowcode/DescribeLoginStrategy` 与 `lowcode/ModifyLoginStrategy` 指导 AI 配置匿名登录、用户名密码登录和短信登录。与此同时，`#359` 又将这部分能力整体降级为“优先控制台 fallback”，导致 AI 既可能调用错误 API，也可能错过可直接调用的正式 CloudBase 登录配置接口。
 
-本需求的目标是将 `auth-tool` 源 skill 中与登录配置相关的 API 指引统一切换为正式的登录配置接口，并保留原有高价值的参数示例风格，避免 skill 从“可执行指导”退化为“只会让用户去控制台手动操作”。
+本需求的目标是将 `auth-tool-cloudbase` 源 skill 中与登录配置相关的 API 指引统一切换为正式的登录配置接口，并保留原有高价值的参数示例风格，避免 skill 从“可执行指导”退化为“只会让用户去控制台手动操作”。
 
 ## 需求
 
@@ -41,10 +41,10 @@
 
 ### 需求 4 - 变更范围收敛到源 Skill
 
-**用户故事：** 作为维护者，我希望本次修正仅聚焦 `config/source/skills/auth-tool/SKILL.md`，先把源 skill 的 API 指引改正确，再决定是否需要重新生成对外 prompt 文档。
+**用户故事：** 作为维护者，我希望本次修正仅聚焦 `config/source/skills/auth-tool-cloudbase/SKILL.md`，先把源 skill 的 API 指引改正确，再决定是否需要重新生成对外 prompt 文档。
 
 #### 验收标准
 
-1. When 本次需求被实现时，the implementation shall 只修改 `config/source/skills/auth-tool/SKILL.md`，不以 `doc/prompts/auth-tool.mdx` 为本次交付范围。
+1. When 本次需求被实现时，the implementation shall 只修改 `config/source/skills/auth-tool-cloudbase/SKILL.md`，不以 `doc/prompts/auth-tool.mdx` 为本次交付范围。
 2. When 登录配置 API 指引完成切换后，the source skill shall 不再出现 `lowcode/DescribeLoginStrategy` 或 `lowcode/ModifyLoginStrategy` 作为登录策略默认方案。
 3. When 本次需求完成时，the implementation shall 明确说明对外 prompt 文档尚未同步更新，除非后续单独要求生成产物。

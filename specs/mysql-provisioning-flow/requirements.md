@@ -59,6 +59,6 @@
 
 #### 验收标准
 
-1. When SQL 工具名从旧设计切换到新设计时, the 项目 shall 更新 `config/source/skills/relational-database-tool/SKILL.md`，说明新的工具名和调用流程。
+1. When SQL 工具名从旧设计切换到新设计时, the 项目 shall 更新 `config/source/skills/relational-database-mcp-cloudbase/SKILL.md`，说明新的工具名和调用流程。
 2. When source skill 已更新时, the 项目 shall 不把 `.generated/compat-config/`、`config/.claude/skills/` 或其他兼容镜像的手工编辑作为本次需求的前置工作。
 3. When agent 需要学习新的 SQL 生命周期流程时, the source skill shall 明确描述“开通 MySQL -> 查询结果/任务状态 -> 初始化表结构”的推荐调用顺序。

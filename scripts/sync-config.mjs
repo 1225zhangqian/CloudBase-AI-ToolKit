@@ -69,19 +69,19 @@ try {
 // Skills 分类：各平台专属 skill 目录名
 const WEB_ONLY_SKILLS = new Set([
   'web-development',
-  'auth-web',
+  'auth-web-cloudbase',
   'ai-model-web',
   'cloud-storage-web',
-  'no-sql-web-sdk',
-  'relational-database-web',
-  'http-api',
+  'cloudbase-document-database-web-sdk',
+  'relational-database-web-cloudbase',
+  'http-api-cloudbase',
 ]);
 
 const MINIPROGRAM_ONLY_SKILLS = new Set([
   'miniprogram-development',
-  'auth-wechat',
+  'auth-wechat-miniprogram',
   'ai-model-wechat',
-  'no-sql-wx-mp-sdk',
+  'cloudbase-document-database-in-wechat-miniprogram',
 ]);
 
 /**

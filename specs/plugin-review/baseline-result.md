@@ -89,7 +89,7 @@ negative     P=0.00 R=0.00 F1=0.00 (n=6)  ← 误命中集中区
 
 2. **boundary/negative 类误命中**（15 条）：
    - "云函数报错了" → 误注入 `cloud-functions`（boundary 标注为 []）
-   - "登录逻辑写错了" → 误注入 `auth-nodejs`（boundary 标注为 []）
+   - "登录逻辑写错了" → 误注入 `auth-nodejs-cloudbase`（boundary 标注为 []）
    - "这个页面的样式有问题" → 误注入 `ui-design`（boundary 标注为 []）
 
 3. **troubleshooting 误触发**（1 条）：
@@ -106,15 +106,15 @@ negative     P=0.00 R=0.00 F1=0.00 (n=6)  ← 误命中集中区
 ### 主要模式
 
 1. **多 skill 场景只注入 1 个**（7 条）：
-   - "实现用户登录认证" → 期望 `auth-tool` + `auth-web`，实际 `auth-nodejs` + `auth-tool`（漏 auth-web）
+   - "实现用户登录认证" → 期望 `auth-tool-cloudbase` + `auth-web-cloudbase`，实际 `auth-nodejs-cloudbase` + `auth-tool-cloudbase`（漏 auth-web）
    - "React 搭建 Web 应用" → 期望 `web-development`，实际 `ai-model-web`（漏 web-development）
 
 2. **期望的 skill 名与实际不符**（7 条）：
-   - 期望 `no-sql-web-sdk` 但 manifest 中 skill name 是 `cloudbase-document-database-web-sdk`
+   - 期望 `cloudbase-document-database-web-sdk` 但 manifest 中 skill name 是 `cloudbase-document-database-web-sdk`
    - 数据集中有些 expectedSkills 引用了不存在的 skill 目录名
 
 3. **phrases 未覆盖**（5 条）：
-   - "创建用户表" → 期望 `no-sql-web-sdk`，实际未命中（phrases 用 "nosql"/"文档数据库"/"collection"，不含"用户表"）
+   - "创建用户表" → 期望 `cloudbase-document-database-web-sdk`，实际未命中（phrases 用 "nosql"/"文档数据库"/"collection"，不含"用户表"）
 
 ## 五、CI 测试状态更新
 
@@ -130,7 +130,7 @@ negative     P=0.00 R=0.00 F1=0.00 (n=6)  ← 误命中集中区
 ### P0（立即可做）
 
 1. **调整 boundary 数据集标注**：部分标注过严（如"云函数报错了"注入 cloud-functions 是合理的），应改为正例
-2. **修复数据集中的 skill 名称**：确保 expectedSkills 使用目录名（如 `no-sql-web-sdk`）而不是 manifest name（如 `cloudbase-document-database-web-sdk`）
+2. **修复数据集中的 skill 名称**：确保 expectedSkills 使用目录名（如 `cloudbase-document-database-web-sdk`）而不是 manifest name（如 `cloudbase-document-database-web-sdk`）
 
 ### P1（短期）
 

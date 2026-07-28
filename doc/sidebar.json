@@ -77,11 +77,11 @@
             "collapsible": true,
             "collapsed": true,
             "items": [
-              "ai/cloudbase-ai-toolkit/prompts/auth-tool",
-              "ai/cloudbase-ai-toolkit/prompts/auth-web",
-              "ai/cloudbase-ai-toolkit/prompts/auth-wechat",
+              "ai/cloudbase-ai-toolkit/prompts/auth-tool-cloudbase",
+              "ai/cloudbase-ai-toolkit/prompts/auth-web-cloudbase",
+              "ai/cloudbase-ai-toolkit/prompts/auth-wechat-miniprogram",
               "ai/cloudbase-ai-toolkit/prompts/auth-http-api",
-              "ai/cloudbase-ai-toolkit/prompts/auth-nodejs"
+              "ai/cloudbase-ai-toolkit/prompts/auth-nodejs-cloudbase"
             ]
           },
           {
@@ -90,10 +90,10 @@
             "collapsible": true,
             "collapsed": true,
             "items": [
-              "ai/cloudbase-ai-toolkit/prompts/no-sql-web-sdk",
-              "ai/cloudbase-ai-toolkit/prompts/no-sql-wx-mp-sdk",
-              "ai/cloudbase-ai-toolkit/prompts/relational-database-tool",
-              "ai/cloudbase-ai-toolkit/prompts/relational-database-web",
+              "ai/cloudbase-ai-toolkit/prompts/cloudbase-document-database-web-sdk",
+              "ai/cloudbase-ai-toolkit/prompts/cloudbase-document-database-in-wechat-miniprogram",
+              "ai/cloudbase-ai-toolkit/prompts/relational-database-mcp-cloudbase",
+              "ai/cloudbase-ai-toolkit/prompts/relational-database-web-cloudbase",
               "ai/cloudbase-ai-toolkit/prompts/data-model-creation",
               "ai/cloudbase-ai-toolkit/prompts/database-http-api"
             ]
@@ -118,7 +118,7 @@
               "ai/cloudbase-ai-toolkit/prompts/miniprogram-development",
               "ai/cloudbase-ai-toolkit/prompts/cloudbase-wechat-integration",
               "ai/cloudbase-ai-toolkit/prompts/ui-design",
-              "ai/cloudbase-ai-toolkit/prompts/http-api"
+              "ai/cloudbase-ai-toolkit/prompts/http-api-cloudbase"
             ]
           },
           {

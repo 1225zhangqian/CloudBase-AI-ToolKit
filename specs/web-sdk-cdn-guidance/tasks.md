@@ -8,7 +8,7 @@
 - [x] 2. 更新 Web 相关源 skill 的 SDK 接入说明
   - 更新 `config/source/skills/web-development/SKILL.md`
   - 补充 npm 与 CDN 的适用边界
-  - 检查并修正 `config/source/skills/auth-web/SKILL.md` 中的对应描述，确保一致
+  - 检查并修正 `config/source/skills/auth-web-cloudbase/SKILL.md` 中的对应描述，确保一致
   - _需求: 需求 1, 需求 2
 
 - [x] 3. 修正 CloudRun 模板中的旧 CDN 地址

@@ -13,7 +13,7 @@
   - _需求: 需求 1, 需求 2, 需求 3, 需求 6
 
 - [x] 3. 为高频子 skill 增加统一的激活合同
-  - 更新 `auth-tool`、`auth-web`、`web-development`、`miniprogram-development`、`http-api`、`cloud-functions`、`relational-database-tool`、`ui-design` 等高频 skill 顶部结构。
+  - 更新 `auth-tool-cloudbase`、`auth-web-cloudbase`、`web-development`、`miniprogram-development`、`http-api-cloudbase`、`cloud-functions`、`relational-database-mcp-cloudbase`、`ui-design` 等高频 skill 顶部结构。
   - 统一补充 `Use this first when...`、`Read before writing code if...`、`Then also read...`、`Do NOT use for...`、`Common mistakes / gotchas`、`Minimal checklist` 等区块。
   - 让每个 skill 明确说明自己在决策链中的优先级、适用边界和错误近邻。
   - _需求: 需求 1, 需求 2, 需求 3, 需求 4

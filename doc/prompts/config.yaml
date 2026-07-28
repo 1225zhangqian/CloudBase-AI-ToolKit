@@ -20,7 +20,7 @@ categories:
 
 rules:
   
-  - id: auth-tool
+  - id: auth-tool-cloudbase
     title: 身份认证：配置管理
     description: 配置和管理 CloudBase 认证提供商，启用/禁用登录方式（短信、邮箱、微信、Google、匿名、用户名密码等）
     shortDescription: 配置管理认证提供商
@@ -32,7 +32,7 @@ rules:
       - "在 CloudBase 中配置微信开放平台登录"
       - "在 CloudBase 中设置匿名登录功能"
   
-  - id: auth-web
+  - id: auth-web-cloudbase
     title: 身份认证：Web SDK
     description: 使用 CloudBase Web SDK 进行前端身份认证
     shortDescription: Web SDK 身份认证
@@ -42,7 +42,7 @@ rules:
       - "帮我实现一个 Web 登录页面，使用 CloudBase Auth"
       - "在 Web 应用中创建一个使用 CloudBase Auth 的手机号注册和登录功能"
   
-  - id: auth-wechat
+  - id: auth-wechat-miniprogram
     title: 身份认证：微信小程序
     description: 微信小程序中使用 CloudBase Auth 进行身份认证
     shortDescription: 微信小程序身份认证
@@ -58,12 +58,12 @@ rules:
     shortDescription: Android、iOS 原生应用
     category: auth
     order: 4
-    ruleDir: http-api
+    ruleDir: http-api-cloudbase
     prompts:
       - "在 Android 应用中使用 CloudBase HTTP API 实现用户登录功能"
       - "在 iOS 应用中使用 CloudBase HTTP API 实现用户注册和登录"
 
-  - id: auth-nodejs
+  - id: auth-nodejs-cloudbase
     title: 身份认证：Node.js 服务端
     description: 使用 CloudBase Node SDK 进行服务端身份认证
     shortDescription: Node.js 服务端身份认证
@@ -73,7 +73,7 @@ rules:
       - "帮我实现一个云函数，验证用户身份并获取用户信息"
       - "创建一个 Node.js 后端服务，使用 CloudBase Auth 进行用户认证"
   
-  - id: no-sql-web-sdk
+  - id: cloudbase-document-database-web-sdk
     title: 文档数据库：Web SDK
     description: 使用 CloudBase 文档数据库 Web SDK 进行数据操作
     shortDescription: Web SDK 文档数据库
@@ -83,7 +83,7 @@ rules:
       - "帮我创建一个待办事项应用，使用 CloudBase 文档数据库存储数据"
       - "在 Web 应用中使用 CloudBase 文档数据库实现分页查询和复杂查询功能"
   
-  - id: no-sql-wx-mp-sdk
+  - id: cloudbase-document-database-in-wechat-miniprogram
     title: 文档数据库：小程序 SDK
     description: 微信小程序中使用 CloudBase 文档数据库 SDK
     shortDescription: 小程序 SDK 文档数据库
@@ -93,7 +93,7 @@ rules:
       - "在微信小程序中使用 CloudBase 文档数据库实现数据查询和更新"
       - "创建一个使用 CloudBase 文档数据库的小程序应用"
   
-  - id: relational-database-tool
+  - id: relational-database-mcp-cloudbase
     title: 关系型数据库：工具与规则
     description: 操作 CloudBase 关系型数据库的工具和规则,支持[连接自有数据库](https://docs.cloudbase.net/database/configuration/db/hosted-mysql/init)
     shortDescription: MySQL 关系型数据库
@@ -103,7 +103,7 @@ rules:
       - "在 CloudBase 关系型数据库中帮我创建一个用户表并设置权限"
       - "在 CloudBase 关系型数据库中执行 SQL 查询和更新操作"
   
-  - id: relational-database-web
+  - id: relational-database-web-cloudbase
     title: 关系型数据库：Web SDK
     description: 在 Web 应用中使用 CloudBase 关系型数据库,支持[连接自有数据库](https://docs.cloudbase.net/database/configuration/db/hosted-mysql/init)
     shortDescription: Web SDK 关系型数据库
@@ -129,7 +129,7 @@ rules:
     shortDescription: Android、iOS 原生应用
     category: database
     order: 6
-    ruleDir: http-api
+    ruleDir: http-api-cloudbase
     prompts:
       - "在 Android 应用中使用 CloudBase HTTP API 实现数据查询和更新"
       - "在 iOS 应用中使用 CloudBase HTTP API 实现数据库操作"
@@ -200,7 +200,7 @@ rules:
       - "帮我设计一个现代化的用户界面，用于 CloudBase 应用"
       - "创建一个美观的登录页面，集成 CloudBase Auth"
   
-  - id: http-api
+  - id: http-api-cloudbase
     title: 应用集成：App 集成
     description: 使用 CloudBase HTTP API 访问平台功能，适用于 Android、iOS 等任意原生语言开发
     shortDescription: Android、iOS 原生应用

@@ -79,7 +79,7 @@ test.skipIf(!hasNode24ViaNvm())(
     const outputDir = path.join(targetDir, 'cloudbase');
     expect(fs.existsSync(path.join(outputDir, 'SKILL.md'))).toBe(true);
     expect(
-      fs.existsSync(path.join(outputDir, 'references', 'auth-web', 'SKILL.md')),
+      fs.existsSync(path.join(outputDir, 'references', 'auth-web-cloudbase', 'SKILL.md')),
     ).toBe(true);
 
     const mainSkill = fs.readFileSync(path.join(outputDir, 'SKILL.md'), 'utf8');
@@ -89,7 +89,7 @@ test.skipIf(!hasNode24ViaNvm())(
     expect(mainSkill).toMatch(/^version:\s+\d+\.\d+\.\d+(?:-[^\s]+)?$/m);
     expect(mainSkill).not.toContain('version: v');
     expect(mainSkill).toContain(`version: ${readSourceGuidelineVersion()}`);
-    expect(mainSkill).toContain('references/auth-web/SKILL.md');
+    expect(mainSkill).toContain('references/auth-web-cloudbase/SKILL.md');
     expect(mainSkill).toContain('## Activation Contract');
     expect(mainSkill).toContain('Provider status and publishable key');
     expect(mainSkill).toContain('Serialize the object first, then retry once with the serialized text');

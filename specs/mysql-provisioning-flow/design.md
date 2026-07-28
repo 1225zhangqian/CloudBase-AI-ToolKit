@@ -9,7 +9,7 @@
 
 这样可以把 SQL 查询、MySQL 开通状态查询、实例生命周期管理、DDL 初始化全部收敛到统一的 query/manage 语义中，避免继续把“实例开通”这种控制面动作塞进 `executeWriteSQL` 这类明显不匹配的名字下。
 
-本次设计不保留旧工具别名，不为旧命名做兼容包装；同时仅要求更新 `config/source/skills/relational-database-tool/SKILL.md`，让 source skill 学到新工具和新流程。
+本次设计不保留旧工具别名，不为旧命名做兼容包装；同时仅要求更新 `config/source/skills/relational-database-mcp-cloudbase/SKILL.md`，让 source skill 学到新工具和新流程。
 
 ## 工具设计
 
@@ -225,7 +225,7 @@ flowchart TD
 
 本次仅要求更新 source skill：
 
-- `config/source/skills/relational-database-tool/SKILL.md`
+- `config/source/skills/relational-database-mcp-cloudbase/SKILL.md`
 
 更新内容：
 
@@ -270,7 +270,7 @@ flowchart TD
 
 ### skill 验证
 
-- 检查 `config/source/skills/relational-database-tool/SKILL.md` 是否只引用新工具名
+- 检查 `config/source/skills/relational-database-mcp-cloudbase/SKILL.md` 是否只引用新工具名
 - 检查 skill 中的场景示例已切换到新流程
 
 ## 非目标

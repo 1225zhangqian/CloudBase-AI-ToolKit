@@ -201,7 +201,7 @@ CloudBase（腾讯云开发）开发阶段登录与环境绑定。登录后即�
 - `EnvInfo.RuntimeBackends`：`\{postgresql, nosql, mysql\}` 三个布尔值，描述当前环境实际并存的后端。
 - `EnvInfo.RuntimeModeHints`：每个后端对应的 API/工具/skill 提示。
 
-AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业务推荐 `app.rdb()` + RLS（`managePgDatabase action=execute` 跑 `CREATE POLICY`）+ pgstore；已存在的 NoSQL 集合 / 旧 storage / `managePermissions(resourceType="noSqlDatabase")` 在 PG 环境下仍然有效。真正不适用的是 MySQL：当 `RuntimeBackends.mysql === false` 时，`manageMysqlDatabase` / `queryMysqlDatabase` / `relational-database-tool` skill 都不该使用。
+AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业务推荐 `app.rdb()` + RLS（`managePgDatabase action=execute` 跑 `CREATE POLICY`）+ pgstore；已存在的 NoSQL 集合 / 旧 storage / `managePermissions(resourceType="noSqlDatabase")` 在 PG 环境下仍然有效。真正不适用的是 MySQL：当 `RuntimeBackends.mysql === false` 时，`manageMysqlDatabase` / `queryMysqlDatabase` / `relational-database-mcp-cloudbase` skill 都不该使用。
 
 #### 参数
 
@@ -256,7 +256,7 @@ AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业
 - `EnvInfo.RuntimeBackends`：`\{postgresql, nosql, mysql\}` 三个布尔值，描述当前环境实际并存的后端。
 - `EnvInfo.RuntimeModeHints`：每个后端对应的 API/工具/skill 提示。
 
-AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业务推荐 `app.rdb()` + RLS（`managePgDatabase action=execute` 跑 `CREATE POLICY`）+ pgstore；已存在的 NoSQL 集合 / 旧 storage / `managePermissions(resourceType="noSqlDatabase")` 在 PG 环境下仍然有效。真正不适用的是 MySQL：当 `RuntimeBackends.mysql === false` 时，`manageMysqlDatabase` / `queryMysqlDatabase` / `relational-database-tool` skill 都不该使用。
+AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业务推荐 `app.rdb()` + RLS（`managePgDatabase action=execute` 跑 `CREATE POLICY`）+ pgstore；已存在的 NoSQL 集合 / 旧 storage / `managePermissions(resourceType="noSqlDatabase")` 在 PG 环境下仍然有效。真正不适用的是 MySQL：当 `RuntimeBackends.mysql === false` 时，`manageMysqlDatabase` / `queryMysqlDatabase` / `relational-database-mcp-cloudbase` skill 都不该使用。
 
 #### 参数
 
@@ -1893,7 +1893,7 @@ API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
     {
       name: "skillName",
       type: "string",
-      description: `mode=skill 时指定。技能名称。 可填写的值: "ai-model-nodejs", "ai-model-web", "ai-model-wechat", "auth-nodejs", "auth-tool", "auth-web", "auth-wechat", "cloud-functions", "cloud-storage-web", "cloudbase-agent", "cloudbase-cli", "cloudbase-code-review", "cloudbase-platform", "cloudbase-wechat-integration", "cloudrun-development", "data-model-creation", "http-api", "miniprogram-development", "no-sql-web-sdk", "no-sql-wx-mp-sdk", "ops-inspector", "postgresql-development", "relational-database-tool", "relational-database-web", "spec-workflow", "ui-design", "web-development"`,
+      description: `mode=skill 时指定。技能名称。 可填写的值: "ai-model-nodejs", "ai-model-web", "ai-model-wechat", "auth-nodejs-cloudbase", "auth-tool-cloudbase", "auth-web-cloudbase", "auth-wechat-miniprogram", "cloud-functions", "cloud-storage-web", "cloudbase-agent", "cloudbase-cli", "cloudbase-code-review", "cloudbase-platform", "cloudbase-wechat-integration", "cloudrun-development", "data-model-creation", "http-api-cloudbase", "miniprogram-development", "cloudbase-document-database-web-sdk", "cloudbase-document-database-in-wechat-miniprogram", "ops-inspector", "postgresql-development-cloudbase", "relational-database-mcp-cloudbase", "relational-database-web-cloudbase", "spec-workflow", "ui-design", "web-development"`,
     },
     {
       name: "apiName",

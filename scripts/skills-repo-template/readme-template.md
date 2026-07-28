@@ -27,7 +27,7 @@ npx skills add tencentcloudbase/cloudbase-skills
 
 ### Example
 
-To use the `auth-tool` skill:
+To use the `auth-tool-cloudbase` skill:
 
 ```bash
 # For Claude Desktop

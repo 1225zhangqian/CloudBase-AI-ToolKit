@@ -27,31 +27,31 @@ When user's application fits the above scenarios, suggest confirming the tech st
 
 ### 3. Authentication Configuration (MANDATORY)
 When user mentions login/auth requirements:
-- **MUST FIRST read `.codebuddy/rules/tcb/rules/auth-tool/rule.md`** and check/configure auth providers
+- **MUST FIRST read `.codebuddy/rules/tcb/rules/auth-tool-cloudbase/rule.md`** and check/configure auth providers
 - **MUST enable** required auth methods before implementing frontend code
 - **Platform differences**:
-  - **Web**: MUST use Web SDK built-in auth (`.codebuddy/rules/tcb/rules/auth-web/rule.md`)
-  - **Mini Program**: Naturally login-free, get OPENID in cloud functions (`.codebuddy/rules/tcb/rules/auth-wechat/rule.md`)
-  - **Native Apps**: MUST use HTTP API (`.codebuddy/rules/tcb/rules/http-api/rule.md`)
+  - **Web**: MUST use Web SDK built-in auth (`.codebuddy/rules/tcb/rules/auth-web-cloudbase/rule.md`)
+  - **Mini Program**: Naturally login-free, get OPENID in cloud functions (`.codebuddy/rules/tcb/rules/auth-wechat-miniprogram/rule.md`)
+  - **Native Apps**: MUST use HTTP API (`.codebuddy/rules/tcb/rules/http-api-cloudbase/rule.md`)
 
 ### 4. Platform-Specific Rules
 - **Web Projects**: 
   - Platform: `.codebuddy/rules/tcb/rules/web-development/rule.md` (SDK integration, static hosting, build)
-  - NoSQL: `.codebuddy/rules/tcb/rules/no-sql-web-sdk/rule.md`
-  - MySQL: `.codebuddy/rules/tcb/rules/relational-database-web/rule.md` + `.codebuddy/rules/tcb/rules/relational-database-tool/rule.md`
+  - NoSQL: `.codebuddy/rules/tcb/rules/cloudbase-document-database-web-sdk/rule.md`
+  - MySQL: `.codebuddy/rules/tcb/rules/relational-database-web-cloudbase/rule.md` + `.codebuddy/rules/tcb/rules/relational-database-mcp-cloudbase/rule.md`
   - Storage: `.codebuddy/rules/tcb/rules/cloud-storage-web/rule.md`
   - AI Models: `.codebuddy/rules/tcb/rules/ai-model-web/rule.md` (text generation, streaming - Web SDK)
 - **Mini Program**: 
   - Platform: `.codebuddy/rules/tcb/rules/miniprogram-development/rule.md` (project structure, wx.cloud)
-  - NoSQL: `.codebuddy/rules/tcb/rules/no-sql-wx-mp-sdk/rule.md`
-  - MySQL: `.codebuddy/rules/tcb/rules/relational-database-tool/rule.md` (via tools)
+  - NoSQL: `.codebuddy/rules/tcb/rules/cloudbase-document-database-in-wechat-miniprogram/rule.md`
+  - MySQL: `.codebuddy/rules/tcb/rules/relational-database-mcp-cloudbase/rule.md` (via tools)
   - AI Models: `.codebuddy/rules/tcb/rules/ai-model-wechat/rule.md` (text generation, streaming - WeChat SDK)
 - **Native Apps (iOS/Android/Flutter/React Native/etc.)**:
   - **⚠️ SDK Not Supported**: MUST use HTTP API only
   - **⚠️ Database Limitation**: Only MySQL database supported via HTTP API
   - **Required Rules**: 
-    - `.codebuddy/rules/tcb/rules/http-api/rule.md` (MANDATORY - all CloudBase operations)
-    - `.codebuddy/rules/tcb/rules/relational-database-tool/rule.md` (MANDATORY - MySQL operations)
+    - `.codebuddy/rules/tcb/rules/http-api-cloudbase/rule.md` (MANDATORY - all CloudBase operations)
+    - `.codebuddy/rules/tcb/rules/relational-database-mcp-cloudbase/rule.md` (MANDATORY - MySQL operations)
   - **MySQL Setup**: MUST prompt user to enable MySQL in console first: `https://tcb.cloud.tencent.com/dev?envId=${envId}#/db/mysql/table/default/`
   - **Optional**: `.codebuddy/rules/tcb/rules/cloudbase-platform/rule.md` (platform knowledge), `.codebuddy/rules/tcb/rules/ui-design/rule.md` (if UI involved)
 - **Cloud Functions**: 
@@ -60,7 +60,7 @@ When user mentions login/auth requirements:
   - **⚠️ Timeout Configuration**: When creating cloud functions with AI operations, set `timeout` parameter appropriately (see ai-model-nodejs rule)
 - **CloudRun Backend**: `.codebuddy/rules/tcb/rules/cloudrun-development/rule.md` (functions/containers deployment)
 - **Universal Platform**: `.codebuddy/rules/tcb/rules/cloudbase-platform/rule.md` (environment, services, console management)
-- **Additional Rules**: `.codebuddy/rules/tcb/rules/auth-nodejs/rule.md` (Node.js auth), `.codebuddy/rules/tcb/rules/auth-http-api/rule.md` (HTTP API auth), `.codebuddy/rules/tcb/rules/data-model-creation/rule.md` (data models), `.codebuddy/rules/tcb/rules/spec-workflow/rule.md` (workflow)
+- **Additional Rules**: `.codebuddy/rules/tcb/rules/auth-nodejs-cloudbase/rule.md` (Node.js auth), `.codebuddy/rules/tcb/rules/auth-http-api/rule.md` (HTTP API auth), `.codebuddy/rules/tcb/rules/data-model-creation/rule.md` (data models), `.codebuddy/rules/tcb/rules/spec-workflow/rule.md` (workflow)
 
 ### 5. Core Behavior Rules
 - **Tool Priority**: Use CloudBase tools for all CloudBase operations

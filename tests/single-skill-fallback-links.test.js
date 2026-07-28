@@ -19,7 +19,10 @@ const CLOUD_GUIDELINES_FILE = path.join(
   'cloudbase',
   'SKILL.md',
 );
-const SKILLS_REPO_OUTPUT_DIR = path.join(ROOT_DIR, '.skills-repo-output');
+const SKILLS_REPO_OUTPUT_DIR = path.join(
+  ROOT_DIR,
+  `.skills-repo-output-fallback-test-${process.pid}-${Date.now()}`,
+);
 const tempDirs = [];
 
 const RAW_SKILLS_ROOT_URL =
@@ -96,17 +99,21 @@ describe('single skill fallback raw links', () => {
     execFileSync('node', ['scripts/build-skills-repo.mjs'], {
       cwd: ROOT_DIR,
       stdio: 'pipe',
+      env: {
+        ...process.env,
+        SKILLS_REPO_OUTPUT_DIR: path.relative(ROOT_DIR, SKILLS_REPO_OUTPUT_DIR),
+      },
     });
 
     const outputSkill = fs.readFileSync(
-      path.join(SKILLS_REPO_OUTPUT_DIR, 'skills', 'auth-web', 'SKILL.md'),
+      path.join(SKILLS_REPO_OUTPUT_DIR, 'skills', 'auth-web-cloudbase', 'SKILL.md'),
       'utf8',
     );
 
     expect(outputSkill).toContain(FALLBACK_SECTION_TITLE);
     expect(outputSkill).toContain(MAIN_ENTRY_RAW_URL);
-    expect(outputSkill).toContain(buildSiblingSkillRawUrl('auth-web'));
-    expect(outputSkill).toContain(buildSiblingSkillRawUrl('auth-tool'));
+    expect(outputSkill).toContain(buildSiblingSkillRawUrl('auth-web-cloudbase'));
+    expect(outputSkill).toContain(buildSiblingSkillRawUrl('auth-tool-cloudbase'));
   });
 
   test('buildClawhubPublishArtifacts preserves fallback raw links in published skill artifacts', () => {
@@ -126,7 +133,7 @@ describe('single skill fallback raw links', () => {
     expect(outputSkill).toContain(FALLBACK_SECTION_TITLE);
     expect(outputSkill).toContain(MAIN_ENTRY_RAW_URL);
     expect(outputSkill).toContain(buildSiblingSkillRawUrl('web-development'));
-    expect(outputSkill).toContain(buildSiblingSkillRawUrl('auth-tool'));
+    expect(outputSkill).toContain(buildSiblingSkillRawUrl('auth-tool-cloudbase'));
   });
 
   test('buildCompatConfig preserves fallback raw links in IDE compatibility outputs', () => {
@@ -138,13 +145,13 @@ describe('single skill fallback raw links', () => {
     buildCompatConfig({ outputDir: compatDir });
 
     const compatSkill = fs.readFileSync(
-      path.join(compatDir, 'rules', 'auth-web', 'rule.md'),
+      path.join(compatDir, 'rules', 'auth-web-cloudbase', 'rule.md'),
       'utf8',
     );
 
     expect(compatSkill).toContain(FALLBACK_SECTION_TITLE);
     expect(compatSkill).toContain(MAIN_ENTRY_RAW_URL);
-    expect(compatSkill).toContain(buildSiblingSkillRawUrl('auth-web'));
-    expect(compatSkill).toContain(buildSiblingSkillRawUrl('auth-tool'));
+    expect(compatSkill).toContain(buildSiblingSkillRawUrl('auth-web-cloudbase'));
+    expect(compatSkill).toContain(buildSiblingSkillRawUrl('auth-tool-cloudbase'));
   });
 });

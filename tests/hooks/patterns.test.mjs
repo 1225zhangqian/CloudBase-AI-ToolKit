@@ -14,7 +14,7 @@ import {
 
 describe("parseSeenSkills", () => {
   it("parses comma-separated skills", () => {
-    expect(parseSeenSkills("web-development,auth-tool")).toEqual(["web-development", "auth-tool"]);
+    expect(parseSeenSkills("web-development,auth-tool")).toEqual(["web-development", "auth-tool-cloudbase"]);
   });
 
   it("handles empty string", () => {
@@ -38,7 +38,7 @@ describe("parseSeenSkills", () => {
 describe("mergeSeenSkills", () => {
   it("merges multiple sources", () => {
     const result = mergeSeenSkills("web-development", "auth-tool,cloud-functions", "");
-    expect(result.sort()).toEqual(["auth-tool", "cloud-functions", "web-development"]);
+    expect(result.sort()).toEqual(["auth-tool-cloudbase", "cloud-functions", "web-development"]);
   });
 
   it("deduplicates", () => {

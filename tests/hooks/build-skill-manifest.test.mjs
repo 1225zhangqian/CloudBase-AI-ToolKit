@@ -23,7 +23,7 @@ describe("skill-manifest.json", () => {
 
   it("has 28 skills", () => {
     const manifest = JSON.parse(readFileSync(MANIFEST_PATH, "utf-8"));
-    // 3 deprecated skills (relational-database-tool, relational-database-web, data-model-creation)
+    // 3 deprecated skills (relational-database-mcp-cloudbase, relational-database-web-cloudbase, data-model-creation)
     // are excluded from the manifest. Total: 28 - 3 = 25.
     expect(Object.keys(manifest.skills).length).toBe(25);
   });
@@ -79,12 +79,12 @@ describe("skill-manifest.json", () => {
     const coreSkills = [
       "web-development",
       "miniprogram-development",
-      "auth-tool",
+      "auth-tool-cloudbase",
       "cloudbase-platform",
       "cloud-functions",
       "cloudrun-development",
-      "no-sql-web-sdk",
-      "postgresql-development",
+      "cloudbase-document-database-web-sdk",
+      "postgresql-development-cloudbase",
     ];
     for (const name of coreSkills) {
       expect(manifest.skills[name].metadata.priority, `${name}`).toBeGreaterThanOrEqual(7);

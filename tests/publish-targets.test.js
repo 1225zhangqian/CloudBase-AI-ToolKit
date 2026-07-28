@@ -19,7 +19,7 @@ test('parseTargetInput accepts explicit target list and de-duplicates order-pres
 });
 
 test('parseTargetInput rejects unknown publish targets', () => {
-  expect(() => parseTargetInput('auth-web')).toThrow(/Unknown publish targets/);
+  expect(() => parseTargetInput('auth-web-cloudbase')).toThrow(/Unknown publish targets/);
 });
 
 test('resolvePublishTargets only returns whitelisted publish units', () => {

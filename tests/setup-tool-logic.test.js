@@ -90,7 +90,7 @@ test('downloadTemplate filtering keeps only Claude Code files from generated com
   expect(filtered).toContain('.claude/commands/spec.md');
 
   expect(filtered).not.toContain('.cursor/mcp.json');
-  expect(filtered).not.toContain('.cursor/rules/auth-web/rule.mdc');
+  expect(filtered).not.toContain('.cursor/rules/auth-web-cloudbase/rule.mdc');
   expect(filtered).not.toContain('.kiro/settings/mcp.json');
 });
 

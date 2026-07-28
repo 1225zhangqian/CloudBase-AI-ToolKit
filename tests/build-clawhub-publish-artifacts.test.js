@@ -80,7 +80,7 @@ test('buildClawhubPublishArtifacts builds all-in-one artifact', () => {
         'skills',
         'cloudbase',
         'references',
-        'auth-web',
+        'auth-web-cloudbase',
         'SKILL.md',
       ),
     ),
@@ -91,7 +91,7 @@ test('buildClawhubPublishArtifacts builds all-in-one artifact', () => {
   // the activation trigger vocabulary block from activation-map.yaml.
   const mainSkillContent = fs.readFileSync(mainSkillPath, 'utf8');
   expect(mainSkillContent).toContain('<!-- DO NOT EDIT: auto-generated from references/activation-map.yaml -->');
-  expect(mainSkillContent).toContain('| `auth-tool` | `auth-web`, `web-development` |');
+  expect(mainSkillContent).toContain('| `auth-tool-cloudbase` | `auth-web-cloudbase`, `web-development` |');
   expect(mainSkillContent).toContain('#### Activation triggers (derived from `references/activation-map.yaml`)');
   expect(mainSkillContent).toContain('CloudBase Web 登录');
   expect(mainSkillContent).toContain('wx.cloud');
@@ -163,7 +163,7 @@ test('buildClawhubPublishArtifacts rejects invalid targets', () => {
 
   expect(() =>
     buildClawhubPublishArtifacts({
-      targets: 'auth-web',
+      targets: 'auth-web-cloudbase',
       outputDir,
     }),
   ).toThrow(/Unknown publish targets/);

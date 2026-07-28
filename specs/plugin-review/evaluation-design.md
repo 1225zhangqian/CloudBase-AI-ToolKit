@@ -118,7 +118,7 @@ specs/plugin-review/baseline-result.md  ← 基线结果
 
 漏命中清单:
   [1] prompt: "cloudbase 总入口"
-      expected: ["cloudbase-guidelines"]
+      expected: ["cloudbase"]
       actual:   []
       issue:    minScore=8 但单 phrase +6 不够
   ...

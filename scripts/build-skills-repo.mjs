@@ -25,7 +25,7 @@ const colors = {
 
 // Configuration
 const SKILLS_SOURCE_DIR = path.join("config", "source", "skills");
-const OUTPUT_DIR = ".skills-repo-output";
+const OUTPUT_DIR = process.env.SKILLS_REPO_OUTPUT_DIR || ".skills-repo-output";
 const SKILLS_OUTPUT_DIR = path.join(OUTPUT_DIR, "skills");
 const README_TEMPLATE_PATH = path.join(
   __dirname,
@@ -253,10 +253,10 @@ async function buildSkillsRepo() {
   // Process additional skills from template directory
   if (fs.existsSync(GUIDELINE_SOURCE_DIR)) {
     console.log(
-      `\n${colors.BLUE}📦 处理额外技能: cloudbase-guidelines${colors.NC}`,
+      `\n${colors.BLUE}📦 处理额外技能: cloudbase${colors.NC}`,
     );
 
-    const skillDir = "cloudbase-guidelines";
+    const skillDir = "cloudbase";
     const skillSourcePath = GUIDELINE_SOURCE_DIR;
     const skillOutputPath = path.join(skillsOutputPath, skillDir);
 
