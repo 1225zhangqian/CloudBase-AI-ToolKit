@@ -2,7 +2,7 @@ import ParameterTable from '../../api-reference/components/ApiContainer';
 
 # MCP 工具
 
-当前包含 40 个工具，按功能分组如下。
+当前包含 39 个工具，按功能分组如下。
 
 源数据: [tools.json](https://github.com/TencentCloudBase/CloudBase-AI-ToolKit/blob/main/scripts/tools.json)
 
@@ -104,10 +104,6 @@ import ParameterTable from '../../api-reference/components/ApiContainer';
 
 - [`queryAgents`](#queryagents)
 - [`manageAgents`](#manageagents)
-
-### 激励计划
-
-- [`activateInviteCode`](#activateinvitecode)
 
 ### 云 API
 
@@ -1803,7 +1799,7 @@ CloudBase 云函数统一写入口。支持创建函数、更新代码、更新�
 - aider: Aider AI编辑器
 
 特别说明：
-- rules 模板会自动包含当前 mcp 版本号信息（版本号：2.24.1），便于后续维护和版本追踪
+- rules 模板会自动包含当前 mcp 版本号信息（版本号：2.25.0），便于后续维护和版本追踪
 - 下载 rules 模板时，如果项目中已存在 README.md 文件，系统会自动保护该文件不被覆盖（除非设置 overwrite=true）
 
 #### 参数
@@ -2348,7 +2344,7 @@ API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
 ---
 
 ### `queryGateway`
-CloudBase 网关统一只读入口（Domain/Route 模型）。通过 listRoutes / getRoute / listCustomDomains 查询域名与路由；主键为 Domain + Path，上游类型为 SCF / WEB_SCF / CBR / STATIC_STORE / LH。
+CloudBase HTTP 网关统一只读入口（Domain/Route）。查询域名下路径路由及其上游：WEB_SCF/SCF=云函数，CBR=云托管，STATIC_STORE=静态托管，LH=轻量应用服务器。主键为 Domain + Path；listRoutes / getRoute / listCustomDomains。
 
 #### 参数
 
@@ -2361,14 +2357,9 @@ CloudBase 网关统一只读入口（Domain/Route 模型）。通过 listRoutes 
       description: `只读操作类型：listRoutes、getRoute、listCustomDomains 可填写的值: "listRoutes", "getRoute", "listCustomDomains"`,
     },
     {
-      name: "targetType",
-      type: "string",
-      description: `目标资源类型。当前支持 function 可填写的值: "function"`,
-    },
-    {
       name: "targetName",
       type: "string",
-      description: `上游资源名称。getRoute 时可按云函数名过滤`,
+      description: `上游资源名过滤（UpstreamResourceName）：云函数名、云托管服务名，或静态托管实例名（常见 staticstore）。`,
     },
     {
       name: "routeId",
@@ -2391,7 +2382,7 @@ CloudBase 网关统一只读入口（Domain/Route 模型）。通过 listRoutes 
 ---
 
 ### `manageGateway`
-CloudBase 网关统一写入口（Domain/Route 模型）。为已存在的 HTTP 云函数补默认域名访问时，使用 createRoute，并提供 targetType="function"、targetName、type="HTTP"（映射 WEB_SCF）与期望 path；Event 函数传 type="Event"（映射 SCF）。未传 domain 时自动解析 IsDefault 默认域名。注意 createRoute 只创建网关入口，不会自动修改函数资源权限。更新鉴权用 updateRoute；删除用 deleteRoute（Domain+Path）。⚠️ 绑定带 SSL 证书的自定义域名用 bindCustomDomain；CORS/安全域名请使用 envDomainManagement。
+CloudBase HTTP 网关统一写入口（Domain/Route）。createRoute/updateRoute/deleteRoute 把域名下的 path 转到上游；未传 domain 时用 IsDefault 默认域名。上游类型只用一个参数 upstreamResourceType（也可写在 route.upstreamResourceType，route 优先）：WEB_SCF=HTTP云函数，SCF=Event云函数，CBR=云托管，STATIC_STORE=静态托管，LH=轻量应用服务器；配合 targetName 或 route.serviceName（云函数名/云托管服务名/静态托管实例名，常见 staticstore）。createRoute 只建网关入口，不改上游权限。enablePathTransmission：默认 false 剥触发路径前缀；true 透传完整路径（CBR 多路由、WEB_SCF 自管子路径常需 true；STATIC_STORE 自定义触发路径映射站点根通常 false）。⚠️ SSL 自定义域名用 bindCustomDomain；CORS/安全域名用 envDomainManagement。
 
 #### 参数
 
@@ -2401,37 +2392,37 @@ CloudBase 网关统一写入口（Domain/Route 模型）。为已存在的 HTTP 
       name: "action",
       type: "string",
       required: true,
-      description: `写操作类型。为已有函数补默认域名访问入口时使用 createRoute；函数场景必须显式提供 type（HTTP→WEB_SCF，Event→SCF）或 route.upstreamResourceType。 可填写的值: "createRoute", "updateRoute", "deleteRoute", "bindCustomDomain", "deleteCustomDomain"`,
-    },
-    {
-      name: "targetType",
-      type: "string",
-      description: `目标资源类型。当前支持 function 可填写的值: "function"`,
+      description: `写操作：createRoute/updateRoute/deleteRoute 管理路由；bindCustomDomain/deleteCustomDomain 管理自定义域名。createRoute/updateRoute 必须提供 upstreamResourceType。 可填写的值: "createRoute", "updateRoute", "deleteRoute", "bindCustomDomain", "deleteCustomDomain"`,
     },
     {
       name: "targetName",
       type: "string",
-      description: `目标资源名称。createRoute 到云函数时填写函数名`,
+      description: `上游资源名称（UpstreamResourceName），与 route.serviceName 二选一（route 优先）。云函数=函数名；云托管=服务名；静态托管=实例名（常见 staticstore）。不会自动推断上游类型。`,
     },
     {
       name: "path",
       type: "string",
-      description: `访问路径，默认 /{targetName}。例如为 HTTP 函数暴露 /api/hello 时传 /api/hello。该参数只创建网关入口，不会自动放开函数资源权限。`,
+      description: `触发路径（网关匹配前缀），默认 /{上游名}。例：云函数 /api/hello、云托管 /api、静态托管 / 或 /app。只建网关入口；与 enablePathTransmission 共同决定上游实际收到的路径。`,
     },
     {
-      name: "type",
+      name: "upstreamResourceType",
       type: "string",
-      description: `目标函数运行时类型，不是接入协议。HTTP 云函数传 HTTP（UpstreamResourceType=WEB_SCF）；Event 函数传 Event（SCF）。误标会导致 FUNCTION_PARAM_INVALID 或网关错误。函数路由场景必须显式提供 type 或 route.upstreamResourceType。 可填写的值: "Event", "HTTP"`,
+      description: `上游类型（与 route.upstreamResourceType 二选一，route 优先）。WEB_SCF=HTTP云函数，SCF=Event云函数，CBR=云托管，STATIC_STORE=静态托管，LH=轻量应用服务器。createRoute/updateRoute 必填其一；勿把 manageFunctions 的 type=HTTP|Event 传到本字段。 可填写的值: "SCF", "WEB_SCF", "CBR", "STATIC_STORE", "LH"`,
     },
     {
       name: "auth",
       type: "boolean",
-      description: `是否开启网关路径鉴权（EnableAuth）。若要走默认域名做匿名或浏览器访问，通常设为 false；该开关仅控制网关入口本身，不会修改函数资源权限。`,
+      description: `网关路径鉴权（EnableAuth）。匿名/浏览器公网访问通常 false。只控制网关入口；云函数安全规则、云托管鉴权、静态托管权限需各自工具另行配置。`,
+    },
+    {
+      name: "enablePathTransmission",
+      type: "boolean",
+      description: `路径透传（EnablePathTransmission），平台默认 false。例 path=/api 且请求 /api/users：false→上游收到 /users；true→上游收到 /api/users。CBR 云托管（Express 等自管子路由）与 WEB_SCF 多路径函数常需 true；STATIC_STORE 把触发路径映射到站点根目录（如 /app → 托管 /）时通常 false；单入口/根路径处理保持 false。也可用 route.enablePathTransmission（route 优先）。`,
     },
     {
       name: "route",
       type: "object",
-      description: `HTTP 路由配置。upstreamResourceType 可选 SCF / WEB_SCF / CBR / STATIC_STORE / LH`,
+      description: `路由对象（可选写法）。例：云函数 {upstreamResourceType:"WEB_SCF",serviceName:"fn",path:"/api"}；云托管 {upstreamResourceType:"CBR",serviceName:"svc",path:"/api"}；静态托管 {upstreamResourceType:"STATIC_STORE",serviceName:"staticstore",path:"/"}。`,
       children: [
         {
           name: "path",
@@ -2440,15 +2431,21 @@ CloudBase 网关统一写入口（Domain/Route 模型）。为已存在的 HTTP 
         {
           name: "serviceName",
           type: "string",
+          description: `上游实例名：云函数名 / 云托管服务名 / 静态托管实例名（常见 staticstore）/ LH 实例。优先于顶层 targetName。`,
         },
         {
           name: "upstreamResourceType",
           type: "string",
-          description: ` 可填写的值: "SCF", "WEB_SCF", "CBR", "STATIC_STORE", "LH"`,
+          description: `同顶层 upstreamResourceType。route 内设置时优先于顶层。 可填写的值: "SCF", "WEB_SCF", "CBR", "STATIC_STORE", "LH"`,
         },
         {
           name: "auth",
           type: "boolean",
+        },
+        {
+          name: "enablePathTransmission",
+          type: "boolean",
+          description: `同顶层 enablePathTransmission。route 内设置时优先于顶层。`,
         }
       ],
     },
@@ -3084,24 +3081,6 @@ CloudBase Agent 域统一写入口。支持创建、更新和删除远端 Agent�
       type: "string",
       required: true,
       description: `相对于项目根目录的路径，例如：'assets/images/logo.png' 或 'docs/api.md'。不允许使用 ../ 等路径遍历操作。`,
-    }
-  ]}
-/>
-
----
-
-### `activateInviteCode`
-云开发 AI编程激励计划，通过邀请码激活用户激励。
-
-#### 参数
-
-<ParameterTable
-  parameters={[
-    {
-      name: "InviteCode",
-      type: "string",
-      required: true,
-      description: `待激活的邀请码`,
     }
   ]}
 />
