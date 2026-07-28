@@ -76,6 +76,12 @@ jobs:
           node scripts/push-plugin-repos.mjs
           node scripts/push-plugin-repos.mjs --check
 
+      # Same topology as cloudbase-skills:
+      #   MCP → GitHub dedicated OPS repo (this job)
+      #   GitHub dedicated repo → CNB via .github/workflows/sync-to-cnb.yml (git-sync)
+      # Do NOT use [skip ci] — the dedicated repo's Sync to CNB must run on push.
+      # CNB empty repos + CNB_TOKEN on the dedicated GitHub repos are prerequisites
+      # (same as TencentCloudBase/cloudbase-skills).
       - name: Sync cloudbase-plugin repo
         env:
           PLUGINS_REPO_TOKEN: ${{ secrets.PLUGINS_REPO_TOKEN }}
@@ -86,6 +92,7 @@ jobs:
 
           # Clear target (keep .git). Use rsync so Open Plugin Spec dotdirs (.plugin) are included.
           # `cp -r src/* dest` silently drops hidden paths.
+          # Output includes .github/workflows/sync-to-cnb.yml (skills-style CNB mirror).
           rsync -a --delete --exclude='.git' \
             "${{ github.workspace }}/.plugin-repo-output/cloudbase/" \
             /tmp/cloudbase-plugin/
@@ -95,6 +102,7 @@ jobs:
           test -f /tmp/cloudbase-plugin/mcp.json
           test -f /tmp/cloudbase-plugin/generated/skill-manifest.json
           test -f /tmp/cloudbase-plugin/generated/synonyms.json
+          test -f /tmp/cloudbase-plugin/.github/workflows/sync-to-cnb.yml
           test ! -f /tmp/cloudbase-plugin/marketplace.json
           test ! -d /tmp/cloudbase-plugin/.claude-plugin
           test ! -d /tmp/cloudbase-plugin/.codex-plugin
@@ -106,7 +114,8 @@ jobs:
 
           if [ -n "$(git status --porcelain)" ]; then
             git add -A
-            git commit -m "chore: sync from CloudBase-MCP [skip ci]"
+            # No [skip ci]: must trigger Sync to CNB on the dedicated repo (skills pattern).
+            git commit -m "chore: sync from CloudBase-MCP"
             git push
             echo "✓ Pushed to cloudbase-plugin"
           else
@@ -127,6 +136,7 @@ jobs:
 
           test -f /tmp/cloudbase-sites-plugin/.plugin/plugin.json
           test -f /tmp/cloudbase-sites-plugin/mcp.json
+          test -f /tmp/cloudbase-sites-plugin/.github/workflows/sync-to-cnb.yml
           test ! -f /tmp/cloudbase-sites-plugin/marketplace.json
           test ! -d /tmp/cloudbase-sites-plugin/.claude-plugin
           test ! -d /tmp/cloudbase-sites-plugin/.codex-plugin
@@ -138,7 +148,7 @@ jobs:
 
           if [ -n "$(git status --porcelain)" ]; then
             git add -A
-            git commit -m "chore: sync from CloudBase-MCP [skip ci]"
+            git commit -m "chore: sync from CloudBase-MCP"
             git push
             echo "✓ Pushed to cloudbase-sites-plugin"
           else

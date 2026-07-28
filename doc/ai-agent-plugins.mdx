@@ -55,6 +55,21 @@ npx plugins add TencentCloudBase/cloudbase-plugin -y --scope user --target curso
 
 > ⚠️ 已通过方式 2（`claude plugin install` / `codex plugin add` 等）安装过时，**不要**再对同一 IDE 执行 `npx plugins add`，以免重复实例。二选一即可。
 
+### GitHub 不可达时（CNB 镜像）
+
+`owner/repo` 短名会固定解析到 GitHub。若 `git clone` GitHub 失败，改用 **完整 CNB URL**（由 CI 从 OPS 产物同步，不含 marketplace 元数据）：
+
+```bash
+npx plugins add https://cnb.cool/tencent/cloud/cloudbase/cloudbase-plugin.git -y --scope user
+
+# Sites 插件（可选）
+npx plugins add https://cnb.cool/tencent/cloud/cloudbase/cloudbase-sites-plugin.git -y --scope user
+```
+
+> 不要用 monorepo 镜像 `CloudBase-AI-ToolKit` 做 `npx plugins add`：其 marketplace 结构与 OPS 专用仓不同，CLI 可能装不上。
+
+若插件仍无法安装，可退回 Skills CNB 或 npm MCP，见 [skill.md](https://docs.cloudbase.net/skill.md)。
+
 ### 方式 2：按 IDE 手动安装
 
 适用于 CodeBuddy、WorkBuddy、ZCode，或希望走 IDE 原生插件机制的场景：

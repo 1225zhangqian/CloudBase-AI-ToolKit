@@ -10,6 +10,9 @@
  *   - `.cursor-plugin/`  → Cursor Marketplace
  *   - `marketplace.json` → would make plugins CLI treat the repo as a marketplace
  *
+ * Also emits `.github/workflows/sync-to-cnb.yml` (same as cloudbase-skills) so the
+ * dedicated GitHub repo can mirror itself to CNB via tencentcom/git-sync.
+ *
  * Output: .plugin-repo-output/cloudbase/ and .plugin-repo-output/cloudbase-sites/
  *
  * Usage:
@@ -90,7 +93,42 @@ function copyDir(src, dest, base) {
   return count;
 }
 
+function generateCnbSyncWorkflow(plugin) {
+  const shortName = plugin.repoName.split("/")[1];
+  const cnbGitUrl = `https://cnb.cool/tencent/cloud/cloudbase/${shortName}.git`;
+  // Same shape as TencentCloudBase/cloudbase-skills/.github/workflows/sync-to-cnb.yml
+  return `name: Sync to CNB
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync to CNB Repository
+        run: |
+          docker run --rm \\
+            -v \${{ github.workspace }}:\${{ github.workspace }} \\
+            -w \${{ github.workspace }} \\
+            -e PLUGIN_TARGET_URL="${cnbGitUrl}" \\
+            -e PLUGIN_AUTH_TYPE="https" \\
+            -e PLUGIN_USERNAME="cnb" \\
+            -e PLUGIN_PASSWORD=\${{ secrets.CNB_TOKEN }} \\
+            -e PLUGIN_FORCE="true" \\
+            tencentcom/git-sync
+`;
+}
+
 function generateReadme(plugin) {
+  const shortName = plugin.repoName.split("/")[1];
+  const cnbUrl = `https://cnb.cool/tencent/cloud/cloudbase/${shortName}.git`;
   return `# ${plugin.name}
 
 ${plugin.description}
@@ -98,13 +136,21 @@ ${plugin.description}
 This repository is automatically synced from [${plugin.repoName.split("/")[0]}/CloudBase-MCP](https://github.com/${plugin.repoName.split("/")[0]}/CloudBase-MCP)
 (\`plugin/${plugin.name}/\`, Open Plugin Spec artifacts only).
 
+A CNB mirror is synced the same way as [cloudbase-skills](https://github.com/TencentCloudBase/cloudbase-skills):
+this repo's \`.github/workflows/sync-to-cnb.yml\` mirrors to
+[${cnbUrl.replace(/\.git$/, "")}](${cnbUrl.replace(/\.git$/, "")}).
+
 Claude Code / Codex native marketplace install continues to use the main
 [CloudBase-MCP](https://github.com/${plugin.repoName.split("/")[0]}/CloudBase-MCP) repository.
 
 ## Installation
 
 \`\`\`bash
-npx plugins add ${plugin.repoName}
+# Default (GitHub)
+npx plugins add ${plugin.repoName} -y --scope user
+
+# Fallback when GitHub clone fails (CNB mirror — use full URL; short owner/repo always hits GitHub)
+npx plugins add ${cnbUrl} -y --scope user
 \`\`\`
 
 ## Open Plugin Specification
@@ -132,8 +178,13 @@ function buildPlugin(plugin) {
   // Generate README
   fs.writeFileSync(path.join(outDir, "README.md"), generateReadme(plugin));
 
-  console.log(`✓ [${plugin.name}] ${count} files copied to ${path.relative(ROOT_DIR, outDir)}/`);
-  return count;
+  // Skills-style CNB mirror workflow (lives in dedicated OPS repo, not MCP monorepo)
+  const workflowDir = path.join(outDir, ".github", "workflows");
+  fs.mkdirSync(workflowDir, { recursive: true });
+  fs.writeFileSync(path.join(workflowDir, "sync-to-cnb.yml"), generateCnbSyncWorkflow(plugin));
+
+  console.log(`✓ [${plugin.name}] ${count} files copied to ${path.relative(ROOT_DIR, outDir)}/ (+ sync-to-cnb.yml)`);
+  return count + 1;
 }
 
 function checkPlugin(plugin) {
@@ -166,6 +217,7 @@ function checkPlugin(plugin) {
   const required = [
     [".plugin/plugin.json", path.join(outDir, ".plugin", "plugin.json")],
     ["mcp.json", path.join(outDir, "mcp.json")],
+    [".github/workflows/sync-to-cnb.yml", path.join(outDir, ".github", "workflows", "sync-to-cnb.yml")],
   ];
   for (const [label, p] of required) {
     if (!fs.existsSync(p)) {

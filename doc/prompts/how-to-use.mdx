@@ -26,6 +26,14 @@ npx skills add https://github.com/tencentcloudbase/skills --skill auth-tool
 
 在线预览示例：[cloudbase-platform](https://skills.sh/tencentcloudbase/skills/cloudbase-platform)
 
+### GitHub 不可达时（CNB 镜像）
+
+短名 `owner/repo` 会走 GitHub。clone 失败时用完整 CNB URL：
+
+```bash
+npx skills add https://cnb.cool/tencent/cloud/cloudbase/cloudbase-skills.git -y
+```
+
 ### 提升激活率
 
 单独安装 Skills 时，AI 是否自动选用取决于模型和工具，不一定稳定。若希望更稳定地生效，建议直接安装 [CloudBase AI 插件](/ai/cloudbase-ai-toolkit/ai-agent-plugins)：一次安装同时获得 MCP、Skills 与 Hooks。
