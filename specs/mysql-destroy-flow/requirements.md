@@ -58,6 +58,6 @@
 
 #### 验收标准
 
-1. When MySQL 销毁能力加入 SQL 工具后, the 项目 shall 更新 `config/source/skills/relational-database-tool/SKILL.md`，说明新的销毁 action 与调用边界。
+1. When MySQL 销毁能力加入 SQL 工具后, the 项目 shall 更新 `config/source/skills/relational-database-mcp-cloudbase/SKILL.md`，说明新的销毁 action 与调用边界。
 2. When source skill 更新销毁流程时, the source skill shall 明确描述“查询实例 -> 发起销毁 -> 查询任务状态/确认实例已不存在”的推荐调用顺序。
 3. When source skill 已更新时, the 项目 shall 不把 `.generated/compat-config/`、`config/.claude/skills/` 或其他兼容镜像的手工编辑作为本次需求确认阶段的前置工作。

@@ -15,7 +15,7 @@
 
 - `config/source/guideline/cloudbase/SKILL.md`
 - `config/source/skills/web-development/SKILL.md`
-- `config/source/skills/auth-web/SKILL.md`
+- `config/source/skills/auth-web-cloudbase/SKILL.md`
 
 ### 模板层
 
@@ -30,9 +30,9 @@
 
 因此本次将采用以下放置策略：
 
-- `cloudbase` 总入口：增加一条 Web SDK 快速提醒，告知 CloudBase Web 项目接入 BaaS 时优先查看 `web-development` / `auth-web`，并直接给出 CDN 地址
+- `cloudbase` 总入口：增加一条 Web SDK 快速提醒，告知 CloudBase Web 项目接入 BaaS 时优先查看 `web-development` / `auth-web-cloudbase`，并直接给出 CDN 地址
 - `web-development`：在 `CloudBase Web SDK Usage` 前置写明 npm 与 CDN 两种接入方式，并给出正确 CDN 地址
-- `auth-web`：保留现有正确地址，并补一句“与 `web-development` 保持一致”
+- `auth-web-cloudbase`：保留现有正确地址，并补一句“与 `web-development` 保持一致”
 
 ### 2. 明确 npm 与 CDN 的适用边界
 
@@ -61,7 +61,7 @@
 
 在 Web 项目相关入口附近加入“CloudBase Web SDK quick reminder”：
 
-- 提醒 Web + BaaS 场景优先查看 `web-development` 与 `auth-web`
+- 提醒 Web + BaaS 场景优先查看 `web-development` 与 `auth-web-cloudbase`
 - 明确官方 CDN 地址
 - 提示工程化项目优先 npm，纯静态页/快速接入可使用 CDN
 
@@ -73,7 +73,7 @@
 - npm 与 CDN 的选择原则
 - 如果用户需要“立刻可运行的静态页示例”，允许优先给 CDN 版本
 
-#### `config/source/skills/auth-web/SKILL.md`
+#### `config/source/skills/auth-web-cloudbase/SKILL.md`
 
 保持现有 CDN 地址，并略微强化：
 
@@ -97,7 +97,7 @@
 
 ### 文档检查
 
-1. `cloudbase` / `web-development` / `auth-web` 中出现一致的正确 CDN 地址
+1. `cloudbase` / `web-development` / `auth-web-cloudbase` 中出现一致的正确 CDN 地址
 2. `web-development` 明确说明 npm 与 CDN 的适用边界
 3. 不新增互相冲突的描述
 

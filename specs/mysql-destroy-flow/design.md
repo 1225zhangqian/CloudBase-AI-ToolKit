@@ -231,7 +231,7 @@ flowchart TD
 
 更新：
 
-- `config/source/skills/relational-database-tool/SKILL.md`
+- `config/source/skills/relational-database-mcp-cloudbase/SKILL.md`
 
 新增说明：
 

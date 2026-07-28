@@ -30,7 +30,7 @@ test('buildCompatConfig generates compatibility artifacts from minimal sources',
     'utf8',
   );
   const authWebSkill = fs.readFileSync(
-    path.join(ROOT_DIR, 'config', 'source', 'skills', 'auth-web', 'SKILL.md'),
+    path.join(ROOT_DIR, 'config', 'source', 'skills', 'auth-web-cloudbase', 'SKILL.md'),
     'utf8',
   );
 
@@ -46,17 +46,17 @@ test('buildCompatConfig generates compatibility artifacts from minimal sources',
   expect(compatGuide).toContain('actually passes the serialized string rather than the original object');
 
   expect(
-    fs.readFileSync(path.join(compatDir, 'rules', 'auth-web', 'rule.md'), 'utf8'),
+    fs.readFileSync(path.join(compatDir, 'rules', 'auth-web-cloudbase', 'rule.md'), 'utf8'),
   ).toBe(authWebSkill);
   expect(
-    fs.readFileSync(path.join(compatDir, '.cursor', 'rules', 'auth-web', 'rule.mdc'), 'utf8'),
+    fs.readFileSync(path.join(compatDir, '.cursor', 'rules', 'auth-web-cloudbase', 'rule.mdc'), 'utf8'),
   ).toBe(authWebSkill);
   expect(
-    fs.readFileSync(path.join(compatDir, '.codebuddy', 'skills', 'auth-web', 'SKILL.md'), 'utf8'),
+    fs.readFileSync(path.join(compatDir, '.codebuddy', 'skills', 'auth-web-cloudbase', 'SKILL.md'), 'utf8'),
   ).toBe(authWebSkill);
   expect(authWebSkill).toContain('## Activation Contract');
 
   expect(fs.existsSync(path.join(compatDir, '.mcp.json'))).toBe(true);
   expect(fs.existsSync(path.join(compatDir, '.claude', 'commands', 'spec.md'))).toBe(true);
-  expect(fs.existsSync(path.join(compatDir, '.kiro', 'steering', 'auth-web', 'rule.md'))).toBe(true);
+  expect(fs.existsSync(path.join(compatDir, '.kiro', 'steering', 'auth-web-cloudbase', 'rule.md'))).toBe(true);
 });

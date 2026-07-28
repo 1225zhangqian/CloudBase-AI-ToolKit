@@ -16,7 +16,7 @@ Both protocols are now referenced (with low token cost) in:
 - `cloud-functions`
 - `web-development`
 - `miniprogram-development`
-- `auth-tool`
+- `auth-tool-cloudbase`
 
 Standalone Install Notes updated in all above skills with fallback URLs.
 

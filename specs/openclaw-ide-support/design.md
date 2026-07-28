@@ -44,7 +44,7 @@ OpenClaw 作为“命令安装型 AI 工具”接入，而不是“项目级 MCP
 原因：
 
 - issue 讨论与现有仓库口径都指向 Skills 安装而非本地 MCP JSON 文件
-- 仓库现有 `cloudbase-guidelines` 模板已明确将 OpenClaw 视为不以 MCP 配置为主的场景
+- 仓库现有 `cloudbase` 模板已明确将 OpenClaw 视为不以 MCP 配置为主的场景
 - 若接入 `setup.ts` 的 IDE 模板映射，会导致 `downloadTemplate`、`config/` 和硬链接链路被错误扩展
 
 ### 2. 页面与组件复用

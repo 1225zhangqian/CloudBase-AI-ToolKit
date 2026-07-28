@@ -20,7 +20,7 @@ test('sync-codebuddy-plugin copies generated all-in-one skill into the plugin sk
     expect(result.fileCount).toBeGreaterThan(0);
     expect(fs.existsSync(path.join(destinationDir, 'SKILL.md'))).toBe(true);
     expect(
-      fs.existsSync(path.join(destinationDir, 'references', 'auth-web', 'SKILL.md')),
+      fs.existsSync(path.join(destinationDir, 'references', 'auth-web-cloudbase', 'SKILL.md')),
     ).toBe(true);
 
     const mainSkill = fs.readFileSync(path.join(destinationDir, 'SKILL.md'), 'utf8');

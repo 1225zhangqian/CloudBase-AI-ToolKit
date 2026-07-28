@@ -45,7 +45,7 @@
   - _需求: 需求4
 
 - [x] 7. 更新 source skill 中的 SQL 工具说明
-  - 更新 `config/source/skills/relational-database-tool/SKILL.md`
+  - 更新 `config/source/skills/relational-database-mcp-cloudbase/SKILL.md`
   - 将工具说明替换为 `querySqlDatabase` 和 `manageSqlDatabase`
   - 增加“开通 MySQL -> 查询状态 -> 初始化表结构”的推荐调用顺序
   - 移除对旧工具名的引用，避免 agent 继续使用历史接口

@@ -61,9 +61,9 @@ const SKILL_METADATA = {
       examples: ["make a mini program", "add tabBar", "deploy cloud function"],
     },
   },
-  "auth-tool": {
+  "auth-tool-cloudbase": {
     priority: 8,
-    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/auth-tool"],
+    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/auth-tool-cloudbase"],
     phrases: ["登录", "认证", "auth", "login", "signin", "openid", "unionid", "jwt", "token"],
     anyOf: ["配置", "config", "provider", "sms", "email"],
     noneOf: ["登出", "logout"],
@@ -134,9 +134,9 @@ const SKILL_METADATA = {
       examples: ["design database schema", "create er diagram", "model data"],
     },
   },
-  "no-sql-web-sdk": {
+  "cloudbase-document-database-web-sdk": {
     priority: 7,
-    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/no-sql-web-sdk"],
+    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/cloudbase-document-database-web-sdk"],
     phrases: ["文档数据库", "nosql", "collection", "web sdk"],
     anyOf: ["数据库", "database", "db"],
     noneOf: ["小程序", "miniprogram"],
@@ -148,9 +148,9 @@ const SKILL_METADATA = {
       examples: ["query collection", "add document", "update nosql"],
     },
   },
-  "relational-database-tool": {
+  "relational-database-mcp-cloudbase": {
     priority: 7,
-    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/relational-database-tool"],
+    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/relational-database-mcp-cloudbase"],
     phrases: ["mysql", "关系型数据库", "sql", "queryMysqlDatabase", "manageMysqlDatabase"],
     noneOf: [],
     minScore: 6,
@@ -161,9 +161,9 @@ const SKILL_METADATA = {
       examples: ["query mysql", "create table", "run sql"],
     },
   },
-  "auth-web": {
+  "auth-web-cloudbase": {
     priority: 6,
-    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/auth-web"],
+    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/auth-web-cloudbase"],
     phrases: ["web 登录", "前端认证", "web sdk auth", "web auth"],
     noneOf: ["小程序", "miniprogram"],
     minScore: 6,
@@ -174,9 +174,9 @@ const SKILL_METADATA = {
       examples: ["add login to web app", "web auth flow"],
     },
   },
-  "auth-wechat": {
+  "auth-wechat-miniprogram": {
     priority: 6,
-    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/auth-wechat"],
+    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/auth-wechat-miniprogram"],
     phrases: ["小程序认证", "openid", "unionid", "wx.cloud auth", "微信登录"],
     noneOf: [],
     minScore: 6,
@@ -187,9 +187,9 @@ const SKILL_METADATA = {
       examples: ["get openid", "mini program login"],
     },
   },
-  "auth-nodejs": {
+  "auth-nodejs-cloudbase": {
     priority: 6,
-    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/auth-nodejs"],
+    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/auth-nodejs-cloudbase"],
     phrases: ["服务端认证", "node 认证", "custom login ticket", "服务端 auth"],
     noneOf: [],
     minScore: 6,
@@ -200,9 +200,9 @@ const SKILL_METADATA = {
       examples: ["create custom login", "server auth"],
     },
   },
-  "no-sql-wx-mp-sdk": {
+  "cloudbase-document-database-in-wechat-miniprogram": {
     priority: 6,
-    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/no-sql-wx-mp-sdk"],
+    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/cloudbase-document-database-in-wechat-miniprogram"],
     phrases: ["小程序数据库", "wx.cloud database", "小程序 nosql"],
     noneOf: [],
     minScore: 6,
@@ -213,9 +213,9 @@ const SKILL_METADATA = {
       examples: ["query mini program database", "wx cloud db"],
     },
   },
-  "relational-database-web": {
+  "relational-database-web-cloudbase": {
     priority: 6,
-    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/relational-database-web"],
+    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/relational-database-web-cloudbase"],
     phrases: ["web mysql", "web 关系型", "web relational"],
     noneOf: [],
     minScore: 6,
@@ -226,9 +226,9 @@ const SKILL_METADATA = {
       examples: ["query mysql from web", "web relational db"],
     },
   },
-  "postgresql-development": {
+  "postgresql-development-cloudbase": {
     priority: 6,
-    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/postgresql-development"],
+    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/postgresql-development-cloudbase"],
     phrases: ["postgresql", "postgres", "pg", "rls", "app.rdb()"],
     noneOf: [],
     minScore: 6,
@@ -343,7 +343,7 @@ const SKILL_METADATA = {
       examples: ["write spec", "plan feature with requirements"],
     },
   },
-  "cloudbase-guidelines": {
+  "cloudbase": {
     priority: 5,
     docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/cloudbase-platform"],
     phrases: ["cloudbase 总入口", "云开发指南"],
@@ -370,9 +370,9 @@ const SKILL_METADATA = {
       examples: ["tcb deploy", "tcb fn list"],
     },
   },
-  "http-api": {
+  "http-api-cloudbase": {
     priority: 5,
-    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/http-api"],
+    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/http-api-cloudbase"],
     phrases: ["http api", "非 sdk", "原生 app"],
     noneOf: [],
     minScore: 6,

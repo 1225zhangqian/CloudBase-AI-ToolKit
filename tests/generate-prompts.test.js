@@ -28,14 +28,14 @@ test('generate-prompts builds prompt docs from skills source', () => {
   runScript('scripts/generate-prompts.mjs');
 
   const authWebPrompt = fs.readFileSync(
-    path.join(ROOT_DIR, 'doc', 'prompts', 'auth-web.mdx'),
+    path.join(ROOT_DIR, 'doc', 'prompts', 'auth-web-cloudbase.mdx'),
     'utf8',
   );
 
   expect(authWebPrompt).toContain('# 身份认证：Web SDK');
   expect(authWebPrompt).toContain('AIDevelopmentPrompt');
   expect(authWebPrompt).toContain('npx skills add tencentcloudbase/cloudbase-skills');
-  expect(authWebPrompt).toContain('npx skills add https://github.com/tencentcloudbase/skills --skill auth-web');
+  expect(authWebPrompt).toContain('npx skills add https://github.com/tencentcloudbase/skills --skill auth-web-cloudbase');
   expect(authWebPrompt).toContain('https://skills.sh/tencentcloudbase/skills/auth-web-cloudbase');
   expect(authWebPrompt).not.toContain('title="rule.md"');
 
@@ -44,6 +44,6 @@ test('generate-prompts builds prompt docs from skills source', () => {
     'utf8',
   );
 
-  expect(authHttpApiPrompt).toContain('npx skills add https://github.com/tencentcloudbase/skills --skill http-api');
+  expect(authHttpApiPrompt).toContain('npx skills add https://github.com/tencentcloudbase/skills --skill http-api-cloudbase');
   expect(authHttpApiPrompt).toContain('https://skills.sh/tencentcloudbase/skills/http-api-cloudbase');
 });

@@ -16,7 +16,7 @@ const GUIDELINE_DIR = path.join(
 );
 const GUIDELINE_FILE = path.join(GUIDELINE_DIR, 'SKILL.md');
 const ALL_IN_ONE_FILE = path.join(ROOT_DIR, 'config', 'source', 'skills', 'SKILL.md');
-const POSTGRESQL_SKILL_DIR = path.join(ROOT_DIR, 'config', 'source', 'skills', 'postgresql-development');
+const POSTGRESQL_SKILL_DIR = path.join(ROOT_DIR, 'config', 'source', 'skills', 'postgresql-development-cloudbase');
 const POSTGRESQL_SKILL_FILE = path.join(POSTGRESQL_SKILL_DIR, 'SKILL.md');
 const POSTGRESQL_REFERENCE_INDEX_FILE = path.join(POSTGRESQL_SKILL_DIR, 'references', 'index.md');
 const POSTGRESQL_AUTH_RLS_FILE = path.join(POSTGRESQL_SKILL_DIR, 'references', 'auth-and-rls.md');
@@ -77,13 +77,13 @@ describe('skill activation routing contract', async () => {
   test('locks critical routing boundaries', () => {
     const byId = new Map(activationMap.scenarios.map((scenario) => [scenario.id, scenario]));
 
-    expect(byId.get('web-auth').firstRead).toBe('auth-tool');
+    expect(byId.get('web-auth').firstRead).toBe('auth-tool-cloudbase');
     expect(byId.get('web-auth').doNotUse).toContain('cloud-functions');
-    expect(byId.get('native-http-api').firstRead).toBe('http-api');
-    expect(byId.get('native-http-api').doNotUse).toContain('auth-web');
-    expect(byId.get('postgresql-development').firstRead).toBe('postgresql-development');
-    expect(byId.get('postgresql-development').doNotUse).toContain('relational-database-tool');
-    expect(byId.get('postgresql-development').doNotUse).toContain('no-sql-web-sdk');
+    expect(byId.get('native-http-api').firstRead).toBe('http-api-cloudbase');
+    expect(byId.get('native-http-api').doNotUse).toContain('auth-web-cloudbase');
+    expect(byId.get('postgresql-development-cloudbase').firstRead).toBe('postgresql-development-cloudbase');
+    expect(byId.get('postgresql-development-cloudbase').doNotUse).toContain('relational-database-mcp-cloudbase');
+    expect(byId.get('postgresql-development-cloudbase').doNotUse).toContain('cloudbase-document-database-web-sdk');
     expect(byId.get('cloud-functions').doNotUse).toContain('cloudrun-development');
     expect(byId.get('ui-first').firstRead).toBe('ui-design');
   });
@@ -94,10 +94,10 @@ describe('skill activation routing contract', async () => {
     const header = '| Scenario | Read first | Then read | Do NOT route to first | Must check before action |';
     expect(source).toContain(header);
     expect(source.split(header).length - 1).toBe(1);
-    expect(source).toContain('| Web login / registration / auth UI | `auth-tool` | auth-web, web-development | cloud-functions, http-api | Provider status and publishable key |');
-    expect(source).toContain('| CloudBase PostgreSQL / PG | `postgresql-development` | auth-tool, auth-web, web-development, miniprogram-development, cloud-storage-web, http-api | relational-database-tool, no-sql-web-sdk | PG schema, usernamePassword login, backend/RLS permission model |');
+    expect(source).toContain('| Web login / registration / auth UI | `auth-tool-cloudbase` | auth-web, web-development | cloud-functions, http-api | Provider status and publishable key |');
+    expect(source).toContain('| CloudBase PostgreSQL / PG | `postgresql-development-cloudbase` | auth-tool, auth-web-cloudbase, web-development, miniprogram-development, cloud-storage-web, http-api | relational-database-tool, no-sql-web-sdk | PG schema, usernamePassword login, backend/RLS permission model |');
     expect(source).toContain('| AI Agent (智能体开发) | `cloudbase-agent` | cloud-functions, cloudrun-development |');
-    expect(source).not.toContain('| web-auth | `auth-tool` |');
+    expect(source).not.toContain('| web-auth | `auth-tool-cloudbase` |');
   });
 
   test('keeps PG and old-auth guardrails visible in source skills', () => {

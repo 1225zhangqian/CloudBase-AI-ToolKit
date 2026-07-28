@@ -62,7 +62,7 @@ graph TD
     "没有使用 _openid（这是 NoSQL 概念，PG 不适用）",
     "没有使用 db.collection()（NoSQL API）"
   ],
-  "skillsExpected": ["postgresql-development"],
+  "skillsExpected": ["postgresql-development-cloudbase"],
   "category": "database",
   "differentiator": "baseline 会建表但不知道 PG 要用 auth.uid() + RLS；MCP only 可能用 MySQL API 或 _openid；只有 skill 知道 PG 的正确安全模式"
 }

@@ -2,7 +2,7 @@
 
 ## 概述
 
-本次变更只更新 `config/source/skills/auth-tool/SKILL.md`，不修改工具实现，也不生成兼容产物。目标是把 skill 中“基础登录策略”和“provider / client 配置”三类能力重新归位：
+本次变更只更新 `config/source/skills/auth-tool-cloudbase/SKILL.md`，不修改工具实现，也不生成兼容产物。目标是把 skill 中“基础登录策略”和“provider / client 配置”三类能力重新归位：
 
 - 基础登录策略：使用 `tcb/DescribeLoginConfig` 与 `tcb/ModifyLoginConfig`
 - 第三方认证源与邮箱 provider：继续使用 `tcb/GetProviders`、`tcb/ModifyProvider`、`tcb/AddProvider`、`tcb/DeleteProvider`
@@ -63,7 +63,7 @@
 - `GetProviders` / `ModifyProvider` / `AddProvider` / `DeleteProvider`：用于第三方认证源和邮箱 provider
 - `DescribeClient` / `ModifyClient`：用于应用客户端配置，例如 ClientId、安全域名、Scope、Token 有效期等
 
-本次只在 skill 中补充边界说明，不增加新的复杂操作章节，避免让 `auth-tool` 继续膨胀。
+本次只在 skill 中补充边界说明，不增加新的复杂操作章节，避免让 `auth-tool-cloudbase` 继续膨胀。
 
 ## 示例编写规则
 

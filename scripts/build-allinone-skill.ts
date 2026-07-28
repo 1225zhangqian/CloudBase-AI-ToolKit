@@ -96,7 +96,7 @@ cloudbase/
     └── ...               # Other reference docs
 \`\`\`
 
-**How to use:** When this document mentions reading a reference file like \`references/auth-web/${subSkillFile}\`, simply read that file from the \`references/\` subdirectory.
+**How to use:** When this document mentions reading a reference file like \`references/auth-web-cloudbase/${subSkillFile}\`, simply read that file from the \`references/\` subdirectory.
 
 ---
 

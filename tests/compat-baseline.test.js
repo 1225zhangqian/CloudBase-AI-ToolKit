@@ -47,7 +47,7 @@ describe("compat baseline tiers", () => {
     const compatDir = createCompatDir();
     const manifest = buildCompatBaselineManifest(compatDir);
 
-    const textFile = path.join(compatDir, ".cursor", "rules", "auth-web", "rule.mdc");
+    const textFile = path.join(compatDir, ".cursor", "rules", "auth-web-cloudbase", "rule.mdc");
     fs.appendFileSync(textFile, "\n<!-- advisory drift -->\n", "utf8");
 
     const result = compareCompatBaseline(manifest, compatDir);
@@ -55,7 +55,7 @@ describe("compat baseline tiers", () => {
     expect(result.hasBlockingDiff).toBe(false);
     expect(result.hasAdvisoryDiff).toBe(true);
     expect(result.groups.textSurface.advisoryChanged).toContain(
-      ".cursor/rules/auth-web/rule.mdc",
+      ".cursor/rules/auth-web-cloudbase/rule.mdc",
     );
   });
 
@@ -63,14 +63,14 @@ describe("compat baseline tiers", () => {
     const compatDir = createCompatDir();
     const manifest = buildCompatBaselineManifest(compatDir);
 
-    const textFile = path.join(compatDir, ".codebuddy", "skills", "auth-web", "SKILL.md");
+    const textFile = path.join(compatDir, ".codebuddy", "skills", "auth-web-cloudbase", "SKILL.md");
     fs.rmSync(textFile);
 
     const result = compareCompatBaseline(manifest, compatDir);
 
     expect(result.hasBlockingDiff).toBe(true);
     expect(result.groups.textSurface.blockingMissing).toContain(
-      ".codebuddy/skills/auth-web/SKILL.md",
+      ".codebuddy/skills/auth-web-cloudbase/SKILL.md",
     );
   });
 });

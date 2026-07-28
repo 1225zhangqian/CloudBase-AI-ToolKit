@@ -9,7 +9,7 @@ const SCENARIO_CONFIG = {
     buttonPosition: '表管理页面，"表管理"标题右侧',
     pagePath: '/db/mysql/table/default/',
     mcpTools: ['executeWriteSQL', 'writeSecurityRule'],
-    capabilityDocs: ['relational-database-tool', 'relational-database-web'],
+    capabilityDocs: ['relational-database-mcp-cloudbase', 'relational-database-web-cloudbase'],
     promptTemplate: `我正在使用云开发平台的MySQL数据库创建数据表，需要你的帮助：
 
 1. **分析业务需求并设计表结构**：
@@ -70,7 +70,7 @@ const SCENARIO_CONFIG = {
     buttonPosition: '"快速开始"区域，"选择开发语言"下方',
     pagePath: '/identity/quick-start',
     mcpTools: ['readSecurityRule', 'writeSecurityRule'],
-    capabilityDocs: ['auth-web', 'auth-wechat', 'auth-nodejs', 'auth-tool'],
+    capabilityDocs: ['auth-web-cloudbase', 'auth-wechat-miniprogram', 'auth-nodejs-cloudbase', 'auth-tool-cloudbase'],
     promptTemplate: `我看到云开发平台提供了身份认证功能，但不知道如何集成到我的项目中。请帮助我：
 
 1. **了解登录功能**：

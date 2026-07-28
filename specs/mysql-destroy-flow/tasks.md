@@ -18,7 +18,7 @@
   - _需求: 需求2, 需求3
 
 - [x] 4. 更新 source skill 中的 SQL 生命周期说明
-  - 更新 `config/source/skills/relational-database-tool/SKILL.md`
+  - 更新 `config/source/skills/relational-database-mcp-cloudbase/SKILL.md`
   - 增加“查询实例 -> 发起销毁 -> 查询任务状态 -> 可选确认实例不存在”的推荐顺序
   - 明确销毁失败时通过结构化错误暴露给上层
   - _需求: 需求5

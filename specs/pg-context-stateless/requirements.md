@@ -79,7 +79,7 @@ CloudBase MCP 的 PostgreSQL 工具（`queryPgDatabase` / `managePgDatabase`）�
 
 2. The 系统 shall 更新 `scripts/tools.json` 生成产物中 `managePgDatabase` 的 action enum，移除 `init`。
 
-3. The 系统 shall 更新 `config/source/skills/postgresql-development/` 下的 SKILL.md（如存在），移除所有 "先调用 init" 的指引。
+3. The 系统 shall 更新 `config/source/skills/postgresql-development-cloudbase/` 下的 SKILL.md（如存在），移除所有 "先调用 init" 的指引。
 
 4. The 系统 shall 更新 `mcp/src/tools/databasePG.ts` 顶部的工具 description，移除 "init=初始化或绑定 PostgreSQL 上下文" 字样。
 

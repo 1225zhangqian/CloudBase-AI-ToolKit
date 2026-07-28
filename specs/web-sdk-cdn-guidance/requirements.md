@@ -26,7 +26,7 @@
 
 1. When CloudBase 总入口规则涉及 Web 开发或 Web SDK 集成时，the guideline shall 明确指出需要读取 Web 相关 skill，并可快速获取正确 CDN 地址。
 2. When `web-development` skill 描述 CloudBase Web SDK 集成时，the skill shall 明确给出正确 CDN 地址，并说明适用场景。
-3. When `auth-web` skill 描述 Web 认证初始化时，the skill shall 保持与 `web-development` skill 一致的 CDN 地址，不得出现旧版本地址。
+3. When `auth-web-cloudbase` skill 描述 Web 认证初始化时，the skill shall 保持与 `web-development` skill 一致的 CDN 地址，不得出现旧版本地址。
 
 ### 需求 3 - 生成类模板和示例不再传播旧地址
 

@@ -1,6 +1,6 @@
 [
   {
-    "id": "auth-tool",
+    "id": "auth-tool-cloudbase",
     "title": "身份认证：配置管理",
     "description": "配置和管理 CloudBase 认证提供商，启用/禁用登录方式（短信、邮箱、微信、Google、匿名、用户名密码等）",
     "shortDescription": "配置管理认证提供商",
@@ -14,7 +14,7 @@
     ]
   },
   {
-    "id": "auth-web",
+    "id": "auth-web-cloudbase",
     "title": "身份认证：Web SDK",
     "description": "使用 CloudBase Web SDK 进行前端身份认证",
     "shortDescription": "Web SDK 身份认证",
@@ -26,7 +26,7 @@
     ]
   },
   {
-    "id": "auth-wechat",
+    "id": "auth-wechat-miniprogram",
     "title": "身份认证：微信小程序",
     "description": "微信小程序中使用 CloudBase Auth 进行身份认证",
     "shortDescription": "微信小程序身份认证",
@@ -50,7 +50,7 @@
     ]
   },
   {
-    "id": "auth-nodejs",
+    "id": "auth-nodejs-cloudbase",
     "title": "身份认证：Node.js 服务端",
     "description": "使用 CloudBase Node SDK 进行服务端身份认证",
     "shortDescription": "Node.js 服务端身份认证",
@@ -62,7 +62,7 @@
     ]
   },
   {
-    "id": "no-sql-web-sdk",
+    "id": "cloudbase-document-database-web-sdk",
     "title": "文档数据库：Web SDK",
     "description": "使用 CloudBase 文档数据库 Web SDK 进行数据操作",
     "shortDescription": "Web SDK 文档数据库",
@@ -74,7 +74,7 @@
     ]
   },
   {
-    "id": "no-sql-wx-mp-sdk",
+    "id": "cloudbase-document-database-in-wechat-miniprogram",
     "title": "文档数据库：小程序 SDK",
     "description": "微信小程序中使用 CloudBase 文档数据库 SDK",
     "shortDescription": "小程序 SDK 文档数据库",
@@ -86,7 +86,7 @@
     ]
   },
   {
-    "id": "relational-database-tool",
+    "id": "relational-database-mcp-cloudbase",
     "title": "关系型数据库：工具与规则",
     "description": "操作 CloudBase 关系型数据库的工具和规则,支持[连接自有数据库](https://docs.cloudbase.net/database/configuration/db/hosted-mysql/init)",
     "shortDescription": "MySQL 关系型数据库",
@@ -98,7 +98,7 @@
     ]
   },
   {
-    "id": "relational-database-web",
+    "id": "relational-database-web-cloudbase",
     "title": "关系型数据库：Web SDK",
     "description": "在 Web 应用中使用 CloudBase 关系型数据库,支持[连接自有数据库](https://docs.cloudbase.net/database/configuration/db/hosted-mysql/init)",
     "shortDescription": "Web SDK 关系型数据库",
@@ -212,7 +212,7 @@
     ]
   },
   {
-    "id": "http-api",
+    "id": "http-api-cloudbase",
     "title": "应用集成：App 集成",
     "description": "使用 CloudBase HTTP API 访问平台功能，适用于 Android、iOS 等任意原生语言开发",
     "shortDescription": "Android、iOS 原生应用",

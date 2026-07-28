@@ -30,7 +30,7 @@
 
 ### 3. 子 skill 更像“内容说明”，还不是统一的“入口合同”
 
-例如 `auth-tool`、`web-development`、`cloud-functions` 等 skill 已经具备较强知识密度，但 skill 顶部缺少统一的激活合同：
+例如 `auth-tool-cloudbase`、`web-development`、`cloud-functions` 等 skill 已经具备较强知识密度，但 skill 顶部缺少统一的激活合同：
 
 - 什么时候它应该成为 first read
 - 什么时候它必须在写代码前被读
@@ -139,13 +139,13 @@ graph TD
 
 对高频 skill 统一增加顶部结构，优先处理以下文件：
 
-- `config/source/skills/auth-tool/SKILL.md`
-- `config/source/skills/auth-web/SKILL.md`
+- `config/source/skills/auth-tool-cloudbase/SKILL.md`
+- `config/source/skills/auth-web-cloudbase/SKILL.md`
 - `config/source/skills/web-development/SKILL.md`
 - `config/source/skills/miniprogram-development/SKILL.md`
-- `config/source/skills/http-api/SKILL.md`
+- `config/source/skills/http-api-cloudbase/SKILL.md`
 - `config/source/skills/cloud-functions/SKILL.md`
-- `config/source/skills/relational-database-tool/SKILL.md`
+- `config/source/skills/relational-database-mcp-cloudbase/SKILL.md`
 - `config/source/skills/ui-design/SKILL.md`
 
 统一顶部模板建议为：
@@ -161,9 +161,9 @@ graph TD
 
 例如：
 
-- `auth-tool` 必须明确“只要用户提到登录/注册/认证配置，就要先检查 provider，再写前端代码”
+- `auth-tool-cloudbase` 必须明确“只要用户提到登录/注册/认证配置，就要先检查 provider，再写前端代码”
 - `web-development` 必须明确“Web 登录不能转去云函数实现认证逻辑”
-- `http-api` 必须明确“原生 App 不支持 CloudBase SDK，不要误走 Web SDK 路径”
+- `http-api-cloudbase` 必须明确“原生 App 不支持 CloudBase SDK，不要误走 Web SDK 路径”
 - `cloud-functions` 必须明确“云函数与 CloudRun 的边界，以及 runtime 不可变限制”
 
 ### 第四层：为高频失败场景补充最小可执行资产
@@ -177,10 +177,10 @@ graph TD
 
 首批建议资产：
 
-- 认证配置检查清单：放在 `auth-tool` 相关目录
-- Web 登录实现前置清单：放在 `auth-web` 或 `web-development`
+- 认证配置检查清单：放在 `auth-tool-cloudbase` 相关目录
+- Web 登录实现前置清单：放在 `auth-web-cloudbase` 或 `web-development`
 - 云函数 runtime / HTTP 函数检查清单：放在 `cloud-functions`
-- 原生 App 接入限制清单：放在 `http-api`
+- 原生 App 接入限制清单：放在 `http-api-cloudbase`
 - UI 输出前置设计清单：放在 `ui-design`
 
 主 `SKILL.md` 只保留何时使用这些资产、何时强制阅读，避免正文继续膨胀。
