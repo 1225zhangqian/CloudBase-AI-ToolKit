@@ -106,6 +106,6 @@ test('downloadTemplate filtering keeps all generated files when ide=all', () => 
 
   expect(filtered).toEqual(files);
   expect(filtered).toContain('.cursor/rules/cloudbase-rules.mdc');
-  expect(filtered).toContain('.kiro/steering/auth-web/rule.md');
+  expect(filtered).toContain('.kiro/steering/auth-web-cloudbase/rule.md');
   expect(filtered).toContain('CODEBUDDY.md');
 });
