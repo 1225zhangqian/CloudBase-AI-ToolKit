@@ -33,8 +33,9 @@ Official Cursor Marketplace publisher application already submitted separately f
 
 - [x] `cloudbase-plugin` public + root `.mcp.json` present
 - [x] Not found in cursor.directory search for `cloudbase` (checked 2026-07-28)
-- [ ] Human submits at https://cursor.directory/plugins/new
-- [ ] After listing: verify search / plugin page; update `markets.yaml` → `listed`
+- [x] Human submits at https://cursor.directory/plugins/new (2026-07-28)
+- [x] Plugin page live: https://cursor.directory/plugins/cloudbase (status: being verified)
+- [ ] After verification clears: update `markets.yaml` `community_directory` → `listed`
 
 ## After submit
 

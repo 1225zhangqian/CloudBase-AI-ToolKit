@@ -66,15 +66,19 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 
 | Field | Value |
 |-------|-------|
-| Status | Packet ready — awaiting human form submit |
+| Status | **Submitted** — page live, plugin being verified |
+| Listing URL | https://cursor.directory/plugins/cloudbase |
 | Form | https://cursor.directory/plugins/new |
 | Packet | `specs/plugin-marketplace-listing/cursor-directory-submission-packet.md` |
-| Repo to paste | https://github.com/TencentCloudBase/cloudbase-plugin (has root `.mcp.json`) |
+| Repo | https://github.com/TencentCloudBase/cloudbase-plugin |
+| Submitted at | 2026-07-28 |
+| Detected | MCP 1 · Agents 2 · Skills 28 · Commands 4 · Hooks 1 |
 
 ### How to check progress (cursor.directory)
 
-1. After submit, search https://cursor.directory/?q=cloudbase
-2. Flip `markets.yaml` `cursor-directory` → `listed` when live
+1. Open https://cursor.directory/plugins/cloudbase — wait until “Plugin is being verified” clears
+2. Search https://cursor.directory/?q=cloudbase
+3. Flip `markets.yaml` `cursor-directory.community_directory` → `listed` when fully verified
 
 ## Awesome Copilot (VS Code / Copilot default marketplace)
 

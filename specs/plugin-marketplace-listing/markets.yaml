@@ -127,11 +127,12 @@ markets:
       docs_only: listed
     submit_url_or_process: |
       Community listing via cursor.directory (plugin discovery). Prefer official Cursor Marketplace for primary listing.
-      Status 2026-07-28: packet ready — submit https://github.com/TencentCloudBase/cloudbase-plugin at https://cursor.directory/plugins/new
-      (Use dedicated OPS repo: has root .mcp.json for auto-detect; monorepo does not.)
+      Status 2026-07-28: submitted — https://cursor.directory/plugins/cloudbase (being verified).
+      Source repo: https://github.com/TencentCloudBase/cloudbase-plugin (root .mcp.json).
     eligibility: public_github_repo_required
     blockers: []
     evidence_links:
+      - https://cursor.directory/plugins/cloudbase
       - https://cursor.directory
       - https://cursor.directory/plugins/new
       - https://cursor.com/docs/plugins
@@ -146,7 +147,9 @@ markets:
     last_reviewed_at: "2026-07-28"
     owner: cloudbase-ai-toolkit
     notes: |
-      2026-07-28: Packet at specs/plugin-marketplace-listing/cursor-directory-submission-packet.md. Awaiting human login submit.
+      2026-07-28: Submitted. Page live at /plugins/cloudbase with “Plugin is being verified”.
+      Auto-detect: MCP 1, Agents 2, Skills 28, Commands 4, Hooks 1.
+      Flip community_directory → listed once verification clears.
 
   - id: codex-universal
     product: Codex / ChatGPT Work

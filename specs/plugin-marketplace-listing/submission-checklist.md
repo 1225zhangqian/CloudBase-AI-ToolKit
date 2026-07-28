@@ -33,8 +33,10 @@ Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
   - Repo: https://github.com/TencentCloudBase/CloudBase-AI-Toolkit
   - Confirmation: "Thanks for applying" — awaiting `marketplace-publishing@cursor.com`
 - [ ] After approval: verify listing appears on https://cursor.com/marketplace
-- [ ] Secondary listing: cursor.directory (packet ready — see `cursor-directory-submission-packet.md`)
-  - Submit https://github.com/TencentCloudBase/cloudbase-plugin at https://cursor.directory/plugins/new
+- [x] Secondary listing: cursor.directory submitted (2026-07-28)
+  - Live (verifying): https://cursor.directory/plugins/cloudbase
+  - Repo: https://github.com/TencentCloudBase/cloudbase-plugin
+- [ ] After cursor.directory verification: mark `markets.yaml` → `listed`
 
 ### 3. Codex / ChatGPT — git marketplace (ready) vs Universal portal (blocked)
 
