@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-27T09:57:22.958Z",
+  "generated_at": "2026-07-28T03:32:40.305Z",
   "matrix_version": 1,
   "reviewed_stale_days": 90,
   "total_markets": 42,
@@ -37,9 +37,9 @@
           "https://platform.claude.com/plugins/submit",
           "https://claude.ai/admin-settings/directory/submissions/plugins/new"
         ],
-        "submit_url_or_process": "Submit public GitHub plugin via claude.ai or platform.claude.com forms; lands in anthropics/claude-plugins-community after review.\n",
+        "submit_url_or_process": "Submit public GitHub plugin via claude.ai or platform.claude.com forms; lands in anthropics/claude-plugins-community after review.\nStatus 2026-07-28: human submit deferred; packet ready at specs/plugin-marketplace-listing/claude-submission-packet.md\n",
         "recommended_install_path": "doc/ide-setup/claude-code.mdx",
-        "last_reviewed_at": "2026-07-27",
+        "last_reviewed_at": "2026-07-28",
         "owner": "cloudbase-ai-toolkit",
         "local_evidence": [
           {
@@ -116,9 +116,9 @@
           "https://cursor.com/marketplace/publish",
           "https://cursor.com/docs/reference/plugins"
         ],
-        "submit_url_or_process": "Submit repo at https://cursor.com/marketplace/publish (manual review). Needs .cursor-plugin/plugin.json (and marketplace.json for multi-plugin repos).\n",
+        "submit_url_or_process": "Submit publisher application at https://cursor.com/marketplace/publish (manual review).\nNeeds .cursor-plugin/plugin.json (and marketplace.json for multi-plugin repos).\nStatus 2026-07-28: publisher application submitted (Tencent CloudBase / @tencent-cloudbase).\nAwaiting follow-up from marketplace-publishing@cursor.com. Not yet listed.\n",
         "recommended_install_path": "doc/ide-setup/cursor.mdx",
-        "last_reviewed_at": "2026-07-27",
+        "last_reviewed_at": "2026-07-28",
         "owner": "cloudbase-ai-toolkit",
         "local_evidence": [
           {
@@ -190,11 +190,12 @@
         "blockers": [],
         "evidence_links": [
           "https://cursor.directory",
+          "https://cursor.directory/plugins/new",
           "https://cursor.com/docs/plugins"
         ],
-        "submit_url_or_process": "Community listing via cursor.directory (plugin discovery). Prefer official Cursor Marketplace for primary listing.\n",
+        "submit_url_or_process": "Community listing via cursor.directory (plugin discovery). Prefer official Cursor Marketplace for primary listing.\nStatus 2026-07-28: packet ready — submit https://github.com/TencentCloudBase/cloudbase-plugin at https://cursor.directory/plugins/new\n(Use dedicated OPS repo: has root .mcp.json for auto-detect; monorepo does not.)\n",
         "recommended_install_path": "doc/ide-setup/cursor.mdx",
-        "last_reviewed_at": "2026-07-27",
+        "last_reviewed_at": "2026-07-28",
         "owner": "cloudbase-ai-toolkit",
         "local_evidence": [
           {
@@ -205,15 +206,23 @@
               "plugin/cloudbase/.cursor-plugin/plugin.json",
               ".cursor-plugin/marketplace.json"
             ]
+          },
+          {
+            "id": "open_plugin_spec_cloudbase",
+            "status": "present",
+            "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+            "paths": [
+              "plugin/cloudbase/.plugin/plugin.json"
+            ]
           }
         ],
         "submit_checklist": [
-          "Public repo with .cursor-plugin layout",
+          "Public repo with root .mcp.json (cloudbase-plugin)",
           "Listing on cursor.directory"
         ],
         "materials": [
           {
-            "item": "Public repo with .cursor-plugin layout",
+            "item": "Public repo with root .mcp.json (cloudbase-plugin)",
             "status": "repo_ready_or_external"
           },
           {
@@ -253,9 +262,9 @@
           {
             "id": "self_marketplace_codex",
             "status": "present",
-            "detail": "marketplace.json lists cloudbase",
+            "detail": ".agents/plugins/marketplace.json lists cloudbase",
             "paths": [
-              "marketplace.json"
+              ".agents/plugins/marketplace.json"
             ]
           },
           {
@@ -326,11 +335,12 @@
         "blockers": [],
         "evidence_links": [
           "https://github.com/xai-org/plugin-marketplace",
+          "https://github.com/xai-org/plugin-marketplace/pull/151",
           "https://x.ai/news/grok-plugin-marketplace"
         ],
-        "submit_url_or_process": "Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.\n",
+        "submit_url_or_process": "Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.\nStatus 2026-07-28: PR opened https://github.com/xai-org/plugin-marketplace/pull/151\nSource: TencentCloudBase/cloudbase-plugin @ 93b747b3287787b8c3ad0811ef4f9b51e2479ec9\n",
         "recommended_install_path": null,
-        "last_reviewed_at": "2026-07-27",
+        "last_reviewed_at": "2026-07-28",
         "owner": "cloudbase-ai-toolkit",
         "local_evidence": [
           {
@@ -382,11 +392,12 @@
         "eligibility": "marketplace_add_or_catalog_pr",
         "blockers": [],
         "evidence_links": [
-          "https://code.visualstudio.com/docs/agent-customization/agent-plugins"
+          "https://code.visualstudio.com/docs/agent-customization/agent-plugins",
+          "https://github.com/github/awesome-copilot/issues/2459"
         ],
-        "submit_url_or_process": "Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.\n",
+        "submit_url_or_process": "Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.\nStatus 2026-07-28: Awesome Copilot external plugin issue opened https://github.com/github/awesome-copilot/issues/2459\n",
         "recommended_install_path": "doc/ide-setup/vscode.mdx",
-        "last_reviewed_at": "2026-07-27",
+        "last_reviewed_at": "2026-07-28",
         "owner": "cloudbase-ai-toolkit",
         "local_evidence": [
           {
@@ -728,16 +739,17 @@
         },
         "eligibility": "partner_outreach_required",
         "blockers": [
-          "No public developer submit form for Trae MCP marketplace"
+          "No public developer submit form for Trae official MCP marketplace"
         ],
         "evidence_links": [
           "https://docs.trae.cn/work_remote-mcp-server",
           "https://docs.trae.cn/ide_model-context-protocol",
+          "https://github.com/trae-community/trae-mcp/pull/4",
           "doc/ide-setup/trae.mdx"
         ],
-        "submit_url_or_process": "Users can add MCP from Trae built-in MCP marketplace or manual config. Third-party submission into Trae MCP marketplace is not publicly documented.\n",
+        "submit_url_or_process": "Users can add MCP from Trae built-in MCP marketplace or manual config. Third-party submission into Trae MCP marketplace is not publicly documented.\nStatus 2026-07-28: Community list PR opened https://github.com/trae-community/trae-mcp/pull/4 (README catalog; not official Trae store).\n",
         "recommended_install_path": "doc/ide-setup/trae.mdx",
-        "last_reviewed_at": "2026-07-27",
+        "last_reviewed_at": "2026-07-28",
         "owner": "cloudbase-ai-toolkit",
         "local_evidence": [
           {
@@ -750,16 +762,21 @@
           }
         ],
         "submit_checklist": [
-          "Partner outreach for MCP marketplace inclusion",
-          "Provide stdio npx config for CloudBase MCP"
+          "Partner outreach for official MCP marketplace inclusion",
+          "Provide stdio npx config for CloudBase MCP",
+          "Community README PR to trae-community/trae-mcp"
         ],
         "materials": [
           {
-            "item": "Partner outreach for MCP marketplace inclusion",
+            "item": "Partner outreach for official MCP marketplace inclusion",
             "status": "repo_ready_or_external"
           },
           {
             "item": "Provide stdio npx config for CloudBase MCP",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "Community README PR to trae-community/trae-mcp",
             "status": "repo_ready_or_external"
           }
         ],
@@ -1280,10 +1297,12 @@
         "eligibility": "n_a",
         "blockers": [],
         "evidence_links": [
+          ".agents/plugins/marketplace.json",
           "marketplace.json",
-          "doc/ide-setup/codex.mdx"
+          "doc/ide-setup/codex.mdx",
+          "doc/ai-agent-plugins.mdx"
         ],
-        "submit_url_or_process": "Users add marketplace from this repo root marketplace.json.",
+        "submit_url_or_process": "Users add marketplace from this repo. Codex prefers .agents/plugins/marketplace.json (root marketplace.json kept for compat). Recommended: --sparse .agents/plugins --sparse plugin.\n",
         "recommended_install_path": "doc/ide-setup/codex.mdx",
         "last_reviewed_at": "2026-07-27",
         "owner": "cloudbase-ai-toolkit",
@@ -1291,9 +1310,9 @@
           {
             "id": "self_marketplace_codex",
             "status": "present",
-            "detail": "marketplace.json lists cloudbase",
+            "detail": ".agents/plugins/marketplace.json lists cloudbase",
             "paths": [
-              "marketplace.json"
+              ".agents/plugins/marketplace.json"
             ]
           },
           {
@@ -1874,9 +1893,9 @@
         "https://platform.claude.com/plugins/submit",
         "https://claude.ai/admin-settings/directory/submissions/plugins/new"
       ],
-      "submit_url_or_process": "Submit public GitHub plugin via claude.ai or platform.claude.com forms; lands in anthropics/claude-plugins-community after review.\n",
+      "submit_url_or_process": "Submit public GitHub plugin via claude.ai or platform.claude.com forms; lands in anthropics/claude-plugins-community after review.\nStatus 2026-07-28: human submit deferred; packet ready at specs/plugin-marketplace-listing/claude-submission-packet.md\n",
       "recommended_install_path": "doc/ide-setup/claude-code.mdx",
-      "last_reviewed_at": "2026-07-27",
+      "last_reviewed_at": "2026-07-28",
       "owner": "cloudbase-ai-toolkit",
       "local_evidence": [
         {
@@ -1953,9 +1972,9 @@
         "https://cursor.com/marketplace/publish",
         "https://cursor.com/docs/reference/plugins"
       ],
-      "submit_url_or_process": "Submit repo at https://cursor.com/marketplace/publish (manual review). Needs .cursor-plugin/plugin.json (and marketplace.json for multi-plugin repos).\n",
+      "submit_url_or_process": "Submit publisher application at https://cursor.com/marketplace/publish (manual review).\nNeeds .cursor-plugin/plugin.json (and marketplace.json for multi-plugin repos).\nStatus 2026-07-28: publisher application submitted (Tencent CloudBase / @tencent-cloudbase).\nAwaiting follow-up from marketplace-publishing@cursor.com. Not yet listed.\n",
       "recommended_install_path": "doc/ide-setup/cursor.mdx",
-      "last_reviewed_at": "2026-07-27",
+      "last_reviewed_at": "2026-07-28",
       "owner": "cloudbase-ai-toolkit",
       "local_evidence": [
         {
@@ -2027,11 +2046,12 @@
       "blockers": [],
       "evidence_links": [
         "https://cursor.directory",
+        "https://cursor.directory/plugins/new",
         "https://cursor.com/docs/plugins"
       ],
-      "submit_url_or_process": "Community listing via cursor.directory (plugin discovery). Prefer official Cursor Marketplace for primary listing.\n",
+      "submit_url_or_process": "Community listing via cursor.directory (plugin discovery). Prefer official Cursor Marketplace for primary listing.\nStatus 2026-07-28: packet ready — submit https://github.com/TencentCloudBase/cloudbase-plugin at https://cursor.directory/plugins/new\n(Use dedicated OPS repo: has root .mcp.json for auto-detect; monorepo does not.)\n",
       "recommended_install_path": "doc/ide-setup/cursor.mdx",
-      "last_reviewed_at": "2026-07-27",
+      "last_reviewed_at": "2026-07-28",
       "owner": "cloudbase-ai-toolkit",
       "local_evidence": [
         {
@@ -2042,15 +2062,23 @@
             "plugin/cloudbase/.cursor-plugin/plugin.json",
             ".cursor-plugin/marketplace.json"
           ]
+        },
+        {
+          "id": "open_plugin_spec_cloudbase",
+          "status": "present",
+          "detail": "plugin/cloudbase/.plugin/plugin.json has $schema",
+          "paths": [
+            "plugin/cloudbase/.plugin/plugin.json"
+          ]
         }
       ],
       "submit_checklist": [
-        "Public repo with .cursor-plugin layout",
+        "Public repo with root .mcp.json (cloudbase-plugin)",
         "Listing on cursor.directory"
       ],
       "materials": [
         {
-          "item": "Public repo with .cursor-plugin layout",
+          "item": "Public repo with root .mcp.json (cloudbase-plugin)",
           "status": "repo_ready_or_external"
         },
         {
@@ -2090,9 +2118,9 @@
         {
           "id": "self_marketplace_codex",
           "status": "present",
-          "detail": "marketplace.json lists cloudbase",
+          "detail": ".agents/plugins/marketplace.json lists cloudbase",
           "paths": [
-            "marketplace.json"
+            ".agents/plugins/marketplace.json"
           ]
         },
         {
@@ -2163,11 +2191,12 @@
       "blockers": [],
       "evidence_links": [
         "https://github.com/xai-org/plugin-marketplace",
+        "https://github.com/xai-org/plugin-marketplace/pull/151",
         "https://x.ai/news/grok-plugin-marketplace"
       ],
-      "submit_url_or_process": "Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.\n",
+      "submit_url_or_process": "Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.\nStatus 2026-07-28: PR opened https://github.com/xai-org/plugin-marketplace/pull/151\nSource: TencentCloudBase/cloudbase-plugin @ 93b747b3287787b8c3ad0811ef4f9b51e2479ec9\n",
       "recommended_install_path": null,
-      "last_reviewed_at": "2026-07-27",
+      "last_reviewed_at": "2026-07-28",
       "owner": "cloudbase-ai-toolkit",
       "local_evidence": [
         {
@@ -2272,11 +2301,12 @@
       "eligibility": "marketplace_add_or_catalog_pr",
       "blockers": [],
       "evidence_links": [
-        "https://code.visualstudio.com/docs/agent-customization/agent-plugins"
+        "https://code.visualstudio.com/docs/agent-customization/agent-plugins",
+        "https://github.com/github/awesome-copilot/issues/2459"
       ],
-      "submit_url_or_process": "Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.\n",
+      "submit_url_or_process": "Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.\nStatus 2026-07-28: Awesome Copilot external plugin issue opened https://github.com/github/awesome-copilot/issues/2459\n",
       "recommended_install_path": "doc/ide-setup/vscode.mdx",
-      "last_reviewed_at": "2026-07-27",
+      "last_reviewed_at": "2026-07-28",
       "owner": "cloudbase-ai-toolkit",
       "local_evidence": [
         {
@@ -2629,16 +2659,17 @@
       },
       "eligibility": "partner_outreach_required",
       "blockers": [
-        "No public developer submit form for Trae MCP marketplace"
+        "No public developer submit form for Trae official MCP marketplace"
       ],
       "evidence_links": [
         "https://docs.trae.cn/work_remote-mcp-server",
         "https://docs.trae.cn/ide_model-context-protocol",
+        "https://github.com/trae-community/trae-mcp/pull/4",
         "doc/ide-setup/trae.mdx"
       ],
-      "submit_url_or_process": "Users can add MCP from Trae built-in MCP marketplace or manual config. Third-party submission into Trae MCP marketplace is not publicly documented.\n",
+      "submit_url_or_process": "Users can add MCP from Trae built-in MCP marketplace or manual config. Third-party submission into Trae MCP marketplace is not publicly documented.\nStatus 2026-07-28: Community list PR opened https://github.com/trae-community/trae-mcp/pull/4 (README catalog; not official Trae store).\n",
       "recommended_install_path": "doc/ide-setup/trae.mdx",
-      "last_reviewed_at": "2026-07-27",
+      "last_reviewed_at": "2026-07-28",
       "owner": "cloudbase-ai-toolkit",
       "local_evidence": [
         {
@@ -2651,16 +2682,21 @@
         }
       ],
       "submit_checklist": [
-        "Partner outreach for MCP marketplace inclusion",
-        "Provide stdio npx config for CloudBase MCP"
+        "Partner outreach for official MCP marketplace inclusion",
+        "Provide stdio npx config for CloudBase MCP",
+        "Community README PR to trae-community/trae-mcp"
       ],
       "materials": [
         {
-          "item": "Partner outreach for MCP marketplace inclusion",
+          "item": "Partner outreach for official MCP marketplace inclusion",
           "status": "repo_ready_or_external"
         },
         {
           "item": "Provide stdio npx config for CloudBase MCP",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "Community README PR to trae-community/trae-mcp",
           "status": "repo_ready_or_external"
         }
       ],
@@ -2985,10 +3021,12 @@
       "eligibility": "n_a",
       "blockers": [],
       "evidence_links": [
+        ".agents/plugins/marketplace.json",
         "marketplace.json",
-        "doc/ide-setup/codex.mdx"
+        "doc/ide-setup/codex.mdx",
+        "doc/ai-agent-plugins.mdx"
       ],
-      "submit_url_or_process": "Users add marketplace from this repo root marketplace.json.",
+      "submit_url_or_process": "Users add marketplace from this repo. Codex prefers .agents/plugins/marketplace.json (root marketplace.json kept for compat). Recommended: --sparse .agents/plugins --sparse plugin.\n",
       "recommended_install_path": "doc/ide-setup/codex.mdx",
       "last_reviewed_at": "2026-07-27",
       "owner": "cloudbase-ai-toolkit",
@@ -2996,9 +3034,9 @@
         {
           "id": "self_marketplace_codex",
           "status": "present",
-          "detail": "marketplace.json lists cloudbase",
+          "detail": ".agents/plugins/marketplace.json lists cloudbase",
           "paths": [
-            "marketplace.json"
+            ".agents/plugins/marketplace.json"
           ]
         },
         {

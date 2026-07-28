@@ -11,7 +11,7 @@ Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
 
 - [x] Run `claude plugin validate` against `plugin/cloudbase` (or install from this repo marketplace and smoke-test)
 - [x] Confirm public repo URL: `TencentCloudBase/CloudBase-MCP` (GitHub may redirect to `CloudBase-AI-Toolkit`)
-- [ ] Submit via one of:
+- [ ] **Deferred** — submit when login available (packet: `claude-submission-packet.md`):
   - https://platform.claude.com/plugins/submit
   - https://claude.ai/admin-settings/directory/submissions/plugins/new
 - [ ] After approval, verify entry appears in `anthropics/claude-plugins-community` catalog
@@ -27,8 +27,14 @@ Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
   - `plugin/cloudbase/assets/logo.png` (+ sites)
 - [x] Command/skill/agent frontmatter quality gate (`npm run check:plugin-quality`)
 - [ ] Local test (optional): symlink plugin into `~/.cursor/plugins/local/cloudbase` and restart Cursor
-- [ ] Submit at https://cursor.com/marketplace/publish with repo URL
-- [ ] Optional secondary listing: cursor.directory
+- [x] Submit publisher application at https://cursor.com/marketplace/publish (2026-07-28)
+  - Org: Tencent CloudBase (`@tencent-cloudbase`)
+  - Contact: bookerzhao@tencent.com
+  - Repo: https://github.com/TencentCloudBase/CloudBase-AI-Toolkit
+  - Confirmation: "Thanks for applying" — awaiting `marketplace-publishing@cursor.com`
+- [ ] After approval: verify listing appears on https://cursor.com/marketplace
+- [ ] Secondary listing: cursor.directory (packet ready — see `cursor-directory-submission-packet.md`)
+  - Submit https://github.com/TencentCloudBase/cloudbase-plugin at https://cursor.directory/plugins/new
 
 ### 3. Codex / ChatGPT — git marketplace (ready) vs Universal portal (blocked)
 
@@ -46,24 +52,34 @@ Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
 
 ### 4. Grok Build marketplace
 
-- [ ] Prefer remote source `https://github.com/TencentCloudBase/cloudbase-plugin.git` (not monorepo root)
-- [ ] Open PR to https://github.com/xai-org/plugin-marketplace
-- [ ] Add remote catalog entry pinned to a commit SHA
-- [ ] Follow their `.grok-plugin/marketplace.json` contribution guide
-- [ ] Brand-scoped keywords/domains only
+- [x] Prefer remote source `https://github.com/TencentCloudBase/cloudbase-plugin.git` (not monorepo root)
+- [x] Open PR to https://github.com/xai-org/plugin-marketplace — https://github.com/xai-org/plugin-marketplace/pull/151 (2026-07-28)
+- [x] Add remote catalog entry pinned to SHA `93b747b3287787b8c3ad0811ef4f9b51e2479ec9`
+- [x] Regenerate `.grok-plugin/plugin-index.json` + validate-catalog
+- [ ] Await xAI review / merge
+- [ ] After merge: confirm catalog entry live; mark `markets.yaml` listed
+- [x] Brand-scoped keywords/domains only
 
 ### 5. VS Code / Copilot agent plugins
 
-- [ ] Users can already add this repo as a marketplace source
-- [ ] Optional: request inclusion in default curated catalogs (`github/copilot-plugins` / awesome-copilot)
-- [ ] Prefer documenting `npx plugins add TencentCloudBase/cloudbase-plugin --target vscode` / `github-copilot`
+- [x] Users can already add this repo / `cloudbase-plugin` as a marketplace source
+- [x] Awesome Copilot external plugin issue opened — https://github.com/github/awesome-copilot/issues/2459 (2026-07-28)
+- [ ] Await Awesome Copilot maintainer review → entry in `plugins/external.json`
+- [ ] Optional later: PR to official `github/copilot-plugins` (mostly Microsoft-curated; lower priority)
+- [x] Prefer documenting `npx plugins add TencentCloudBase/cloudbase-plugin --target vscode` / `github-copilot`
+
+### 6. Trae community MCP list
+
+- [x] Open PR to https://github.com/trae-community/trae-mcp — https://github.com/trae-community/trae-mcp/pull/4 (2026-07-28)
+- [ ] Await merge; then mark community channel listed
+- [ ] Official Trae in-app MCP marketplace still needs partner outreach
 
 ## Needs partner outreach (do not fake as ready)
 
 | Market | Action |
 |--------|--------|
 | Claude Official curated | Wait for / request Anthropic partnership |
-| Trae MCP marketplace | Contact Trae for MCP catalog inclusion |
+| Trae official MCP marketplace | Contact Trae for curated catalog inclusion (community list PR is separate) |
 | Trae Work skills marketplace | Confirm publisher onboarding |
 | Qoder / QoderWork | Confirm plugin/connector submit path |
 | CodeBuddy / CodeBuddy Code | Confirm whether already listed or need submit |
