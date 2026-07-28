@@ -114,7 +114,7 @@ export default function CodexInstallSelector() {
                 <strong>添加插件市场</strong>
                 <p>运行以下命令添加 CloudBase 插件市场：</p>
                 <div className={styles.commandBlock}>
-                  <code className={styles.commandText}>codex plugin marketplace add TencentCloudBase/CloudBase-MCP --ref main</code>
+                  <code className={styles.commandText}>codex plugin marketplace add TencentCloudBase/CloudBase-MCP --ref main --sparse .agents/plugins --sparse plugin</code>
                 </div>
               </div>
             </div>

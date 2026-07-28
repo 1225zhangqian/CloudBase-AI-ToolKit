@@ -7,6 +7,7 @@
  * Vendor-native marketplace manifests stay in the main CloudBase-MCP repo:
  *   - `.claude-plugin/`  → Claude Code marketplace
  *   - `.codex-plugin/`   → Codex marketplace
+ *   - `.cursor-plugin/`  → Cursor Marketplace
  *   - `marketplace.json` → would make plugins CLI treat the repo as a marketplace
  *
  * Output: .plugin-repo-output/cloudbase/ and .plugin-repo-output/cloudbase-sites/
@@ -53,6 +54,7 @@ const EXCLUDE_PATTERNS = [
   "marketplace.json",
   ".claude-plugin",
   ".codex-plugin",
+  ".cursor-plugin",
   ".sync-metadata.json",
   ".DS_Store",
   ".gitkeep",
@@ -146,9 +148,11 @@ function checkPlugin(plugin) {
     "marketplace.json",
     ".claude-plugin",
     ".codex-plugin",
+    ".cursor-plugin",
     path.join(".claude-plugin", "marketplace.json"),
     path.join(".claude-plugin", "plugin.json"),
     path.join(".codex-plugin", "plugin.json"),
+    path.join(".cursor-plugin", "plugin.json"),
   ];
   for (const rel of forbidden) {
     const p = path.join(outDir, rel);

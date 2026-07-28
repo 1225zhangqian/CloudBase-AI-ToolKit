@@ -53,7 +53,8 @@
       "Deploy this API as a CloudBase cloud function.",
       "Generate a WeChat Mini Program with CloudBase integration."
     ],
-    "brandColor": "#006EFF"
+    "brandColor": "#006EFF",
+    "logo": "./assets/logo.png"
   }
 }
 

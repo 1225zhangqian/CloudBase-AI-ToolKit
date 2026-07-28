@@ -19,6 +19,9 @@
     "sync:config": "node scripts/sync-config.mjs",
     "test:hooks": "vitest run tests/hooks/",
     "eval:skill-inject": "node scripts/eval-skill-inject.mjs",
+    "analyze:plugin-marketplaces": "node scripts/analyze-plugin-marketplace.mjs",
+    "check:plugin-marketplaces": "node scripts/check-plugin-marketplaces.mjs",
+    "check:plugin-quality": "node scripts/check-plugin-quality.mjs",
     "prepare": "husky"
   },
   "devDependencies": {

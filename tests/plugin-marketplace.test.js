@@ -39,6 +39,17 @@ describe('CloudBase plugin marketplace', () => {
     }
   });
 
+  test('exposes Codex-preferred marketplace under .agents/plugins', () => {
+    const marketplacePath = path.join(ROOT_DIR, '.agents', 'plugins', 'marketplace.json');
+    expect(fs.existsSync(marketplacePath)).toBe(true);
+
+    const marketplace = JSON.parse(fs.readFileSync(marketplacePath, 'utf8'));
+    const rootMarketplace = JSON.parse(
+      fs.readFileSync(path.join(ROOT_DIR, 'marketplace.json'), 'utf8'),
+    );
+    expect(marketplace).toEqual(rootMarketplace);
+  });
+
   test('exposes Claude Code plugins from .claude-plugin marketplace', () => {
     const marketplacePath = path.join(ROOT_DIR, '.claude-plugin', 'marketplace.json');
     expect(fs.existsSync(marketplacePath)).toBe(true);
