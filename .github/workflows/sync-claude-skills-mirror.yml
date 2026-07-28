@@ -40,5 +40,16 @@ jobs:
             echo "No changes, skipping."
           else
             git commit -m "chore: sync claude skills mirror from source"
-            git push
+            # Release and other sync workflows often push main in parallel;
+            # rebase and retry to avoid non-fast-forward races.
+            for i in 1 2 3; do
+              if git push; then
+                exit 0
+              fi
+              echo "Push rejected (attempt $i); rebasing onto origin/main..."
+              git pull --rebase origin main
+              sleep $((i * 2))
+            done
+            echo "Failed to push after retries"
+            exit 1
           fi
