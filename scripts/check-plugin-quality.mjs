@@ -180,8 +180,9 @@ function checkCursor() {
     // Prefer official CloudBase brand mark (not unrelated icons)
     const brandSvg = path.join(pluginRoot, "assets", "logo.svg");
     const brandPng = path.join(pluginRoot, "assets", "logo.png");
-    if (!fs.existsSync(brandSvg) && !fs.existsSync(brandPng)) {
-      fail(`plugin/${name}: missing assets/logo.svg or assets/logo.png`);
+    const brandDark = path.join(pluginRoot, "assets", "logo-dark.png");
+    if (!fs.existsSync(brandPng) && !fs.existsSync(brandSvg) && !fs.existsSync(brandDark)) {
+      fail(`plugin/${name}: missing assets/logo.png (or logo.svg / logo-dark.png)`);
     }
 
     // Skills frontmatter
