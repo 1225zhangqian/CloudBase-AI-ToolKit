@@ -19,5 +19,6 @@
     "claude-code",
     "codebuddy",
     "openclaw"
-  ]
+  ],
+  "logo": "./assets/logo.png"
 }

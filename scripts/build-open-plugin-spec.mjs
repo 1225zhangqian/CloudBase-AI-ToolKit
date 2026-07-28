@@ -30,8 +30,16 @@ const REPO_URL = "https://github.com/TencentCloudBase/CloudBase-MCP";
 
 const SPEC_ALLOWED_FIELDS = new Set([
   "$schema", "name", "version", "description",
-  "author", "homepage", "repository", "license", "keywords", "extensions",
+  "author", "homepage", "repository", "license", "keywords", "logo", "extensions",
 ]);
+
+function resolveLogoPath(pluginDir) {
+  const logoSvg = path.join(pluginDir, "assets", "logo.svg");
+  const logoPng = path.join(pluginDir, "assets", "logo.png");
+  if (fs.existsSync(logoSvg)) return "./assets/logo.svg";
+  if (fs.existsSync(logoPng)) return "./assets/logo.png";
+  return null;
+}
 
 const PLUGINS = [
   {
@@ -61,7 +69,7 @@ function jsonEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-function buildSpecManifest(claudeManifestPath) {
+function buildSpecManifest(claudeManifestPath, pluginDir) {
   const cm = readJson(claudeManifestPath);
   const spec = { $schema: SPEC_SCHEMA_URL };
   for (const key of Object.keys(cm)) {
@@ -72,12 +80,21 @@ function buildSpecManifest(claudeManifestPath) {
   if (!/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/.test(name) || name.length > 64 || name.includes("--") || name.includes("..")) {
     throw new Error(`Plugin name "${name}" does not conform to spec naming constraints`);
   }
+  const logo = resolveLogoPath(pluginDir);
+  if (!logo) {
+    throw new Error(`Missing Open Plugin logo at ${path.join(pluginDir, "assets", "logo.svg")} or logo.png`);
+  }
+  spec.logo = cm.logo || logo;
   return spec;
 }
 
 function buildCursorManifest(claudeManifestPath, pluginDir) {
   const cm = readJson(claudeManifestPath);
   const authorName = cm.author?.name || "Tencent CloudBase";
+  const logo = resolveLogoPath(pluginDir);
+  if (!logo) {
+    throw new Error(`Missing Cursor logo at ${path.join(pluginDir, "assets", "logo.svg")} or logo.png`);
+  }
   const manifest = {
     name: cm.name,
     version: cm.version,
@@ -87,7 +104,7 @@ function buildCursorManifest(claudeManifestPath, pluginDir) {
     repository: REPO_URL,
     license: cm.license || "MIT",
     keywords: Array.isArray(cm.keywords) ? [...cm.keywords] : [],
-    logo: "./assets/logo.svg",
+    logo,
     mcpServers: "./mcp.json",
   };
   if (!manifest.keywords.includes("cursor")) {
@@ -95,14 +112,6 @@ function buildCursorManifest(claudeManifestPath, pluginDir) {
   }
   if (!manifest.name) {
     throw new Error(`Missing 'name' in ${claudeManifestPath}`);
-  }
-  const logoSvg = path.join(pluginDir, "assets", "logo.svg");
-  const logoPng = path.join(pluginDir, "assets", "logo.png");
-  if (!fs.existsSync(logoSvg) && !fs.existsSync(logoPng)) {
-    throw new Error(`Missing Cursor logo at ${logoSvg} or ${logoPng}`);
-  }
-  if (!fs.existsSync(logoSvg)) {
-    manifest.logo = "./assets/logo.png";
   }
   return manifest;
 }
@@ -173,7 +182,7 @@ function main() {
       continue;
     }
 
-    const spec = buildSpecManifest(claudeManifest);
+    const spec = buildSpecManifest(claudeManifest, dir);
     const cursor = buildCursorManifest(claudeManifest, dir);
     const mcp = readJson(mcpSource);
     console.log(`[${name}] fields: ${Object.keys(spec).join(", ")}, mcp servers: ${Object.keys(mcp.mcpServers || {}).join(", ")}`);
