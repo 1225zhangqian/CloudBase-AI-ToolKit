@@ -33,8 +33,6 @@ You must read and complete this gate before:
 | Application port matches Dockerfile / code | Startup failure or 502           | Confirm listening port (commonly 9000)       |
 | Health check path correctly configured | Frequent restarts / unhealthy     | Set correct path (e.g. `/` or `/health`)     |
 | Required environment variables and secrets injected | Runtime errors                 | Configure via console or MCP before deploy   |
-| TCP DB/cache dependency detected (`DATABASE_URL`, MySQL/PG/Redis host) | Deploy succeeds but runtime cannot reach DB | Set `serverConfig.VpcConf` to the DB's VPC/subnet; use private DB host; see `cloudrun-development/references/vpc-and-database.md` |
-| `OpenAccessTypes` vs `VpcConf` understood | Agent configures public ingress but omits private network | Ingress (`OpenAccessTypes`) ≠ egress VPC (`VpcConf`); both may be required |
 
 ### Static Website Hosting
 
@@ -65,7 +63,6 @@ Before starting any deployment-related work, you must output something like this
 > - [ ] Plan supports required features (custom domain, CloudRun, etc.)
 > - [ ] ICP filing and SSL certificate ready (if using custom domain)
 > - [ ] CloudRun port and health check configured
-> - [ ] If the app uses TCP MySQL/PostgreSQL/Redis: `VpcConf` + private DB endpoint ready
 > - [ ] Mini program upload IP whitelist updated (if applicable)
 > - [ ] Function / hosting security rules configured for public access
 >
