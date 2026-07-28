@@ -177,6 +177,12 @@ function checkCursor() {
       const logoAbs = path.join(pluginRoot, cm.logo.replace(/^\.\//, ""));
       if (!fs.existsSync(logoAbs)) fail(`${manifestRel}: logo file missing (${cm.logo})`);
     }
+    // Prefer official CloudBase brand mark (not unrelated icons)
+    const brandSvg = path.join(pluginRoot, "assets", "logo.svg");
+    const brandPng = path.join(pluginRoot, "assets", "logo.png");
+    if (!fs.existsSync(brandSvg) && !fs.existsSync(brandPng)) {
+      fail(`plugin/${name}: missing assets/logo.svg or assets/logo.png`);
+    }
 
     // Skills frontmatter
     const skillsDir = path.join(pluginRoot, "skills");

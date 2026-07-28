@@ -87,7 +87,7 @@ function buildCursorManifest(claudeManifestPath, pluginDir) {
     repository: REPO_URL,
     license: cm.license || "MIT",
     keywords: Array.isArray(cm.keywords) ? [...cm.keywords] : [],
-    logo: "./assets/logo.png",
+    logo: "./assets/logo.svg",
     mcpServers: "./mcp.json",
   };
   if (!manifest.keywords.includes("cursor")) {
@@ -96,9 +96,13 @@ function buildCursorManifest(claudeManifestPath, pluginDir) {
   if (!manifest.name) {
     throw new Error(`Missing 'name' in ${claudeManifestPath}`);
   }
-  const logoPath = path.join(pluginDir, "assets", "logo.png");
-  if (!fs.existsSync(logoPath)) {
-    throw new Error(`Missing recommended Cursor logo at ${logoPath}`);
+  const logoSvg = path.join(pluginDir, "assets", "logo.svg");
+  const logoPng = path.join(pluginDir, "assets", "logo.png");
+  if (!fs.existsSync(logoSvg) && !fs.existsSync(logoPng)) {
+    throw new Error(`Missing Cursor logo at ${logoSvg} or ${logoPng}`);
+  }
+  if (!fs.existsSync(logoSvg)) {
+    manifest.logo = "./assets/logo.png";
   }
   return manifest;
 }
