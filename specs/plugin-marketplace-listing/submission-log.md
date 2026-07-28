@@ -102,7 +102,22 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 | Submitted at | 2026-07-28 |
 | Note | Community README list (not Trae official in-app marketplace) |
 
-### How to check progress (Trae community)
+### How to check progress (Trae community MCP)
 
 1. Watch PR #4 merge
 2. Official Trae MCP marketplace still needs partner outreach separately
+
+## Trae community Skills
+
+| Field | Value |
+|-------|-------|
+| Status | **PR opened** — awaiting community review |
+| PR | https://github.com/trae-community/trae-skills/pull/20 |
+| Skill | `skills/cloudbase/SKILL.md` (Trae MCP-first entry skill) |
+| Submitted at | 2026-07-28 |
+| Note | Community skills catalog (not Trae official in-app marketplace) |
+
+### How to check progress (Trae community Skills)
+
+1. Watch PR #20 merge
+2. After merge, confirm catalog row in https://github.com/trae-community/trae-skills/blob/main/README.md
