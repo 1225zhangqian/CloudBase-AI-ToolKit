@@ -1,6 +1,6 @@
 ---
 name: cloudbase-env
-description: "CloudBase 环境管理。子命令: list (列出环境), info (当前环境详情), domains (安全域名)。默认: info"
+description: "CloudBase environment management. Subcommands: list (environments), info (current env details), domains (auth domains). Default: info"
 ---
 
 # CloudBase 环境管理

@@ -1,6 +1,6 @@
 ---
 name: cloudbase-status
-description: "CloudBase 项目健康检查。检查环境状态、云函数列表、部署历史、日志状态。"
+description: "CloudBase project health check. Inspect environment status, cloud functions, deploy history, and logs."
 ---
 
 # CloudBase 项目健康检查
