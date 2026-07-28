@@ -11,7 +11,7 @@ Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
 
 - [x] Run `claude plugin validate` against `plugin/cloudbase` (or install from this repo marketplace and smoke-test)
 - [x] Confirm public repo URL: `TencentCloudBase/CloudBase-MCP` (GitHub may redirect to `CloudBase-AI-Toolkit`)
-- [ ] Submit via one of (packet ready — see `claude-submission-packet.md`):
+- [ ] **Deferred** — submit when login available (packet: `claude-submission-packet.md`):
   - https://platform.claude.com/plugins/submit
   - https://claude.ai/admin-settings/directory/submissions/plugins/new
 - [ ] After approval, verify entry appears in `anthropics/claude-plugins-community` catalog
@@ -33,7 +33,8 @@ Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
   - Repo: https://github.com/TencentCloudBase/CloudBase-AI-Toolkit
   - Confirmation: "Thanks for applying" — awaiting `marketplace-publishing@cursor.com`
 - [ ] After approval: verify listing appears on https://cursor.com/marketplace
-- [ ] Optional secondary listing: cursor.directory
+- [ ] Secondary listing: cursor.directory (packet ready — see `cursor-directory-submission-packet.md`)
+  - Submit https://github.com/TencentCloudBase/cloudbase-plugin at https://cursor.directory/plugins/new
 
 ### 3. Codex / ChatGPT — git marketplace (ready) vs Universal portal (blocked)
 
@@ -61,16 +62,24 @@ Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
 
 ### 5. VS Code / Copilot agent plugins
 
-- [ ] Users can already add this repo as a marketplace source
-- [ ] Optional: request inclusion in default curated catalogs (`github/copilot-plugins` / awesome-copilot)
-- [ ] Prefer documenting `npx plugins add TencentCloudBase/cloudbase-plugin --target vscode` / `github-copilot`
+- [x] Users can already add this repo / `cloudbase-plugin` as a marketplace source
+- [x] Awesome Copilot external plugin issue opened — https://github.com/github/awesome-copilot/issues/2459 (2026-07-28)
+- [ ] Await Awesome Copilot maintainer review → entry in `plugins/external.json`
+- [ ] Optional later: PR to official `github/copilot-plugins` (mostly Microsoft-curated; lower priority)
+- [x] Prefer documenting `npx plugins add TencentCloudBase/cloudbase-plugin --target vscode` / `github-copilot`
+
+### 6. Trae community MCP list
+
+- [x] Open PR to https://github.com/trae-community/trae-mcp — https://github.com/trae-community/trae-mcp/pull/4 (2026-07-28)
+- [ ] Await merge; then mark community channel listed
+- [ ] Official Trae in-app MCP marketplace still needs partner outreach
 
 ## Needs partner outreach (do not fake as ready)
 
 | Market | Action |
 |--------|--------|
 | Claude Official curated | Wait for / request Anthropic partnership |
-| Trae MCP marketplace | Contact Trae for MCP catalog inclusion |
+| Trae official MCP marketplace | Contact Trae for curated catalog inclusion (community list PR is separate) |
 | Trae Work skills marketplace | Confirm publisher onboarding |
 | Qoder / QoderWork | Confirm plugin/connector submit path |
 | CodeBuddy / CodeBuddy Code | Confirm whether already listed or need submit |

@@ -1,6 +1,6 @@
 # CloudBase Plugin Marketplace Analysis
 
-Generated: 2026-07-28T03:17:28.867Z
+Generated: 2026-07-28T03:32:40.305Z
 
 > This report does not auto-submit to any marketplace. All submissions are manual.
 
@@ -28,7 +28,7 @@ None.
 - Region: global
 - Channel: `community_plugin_directory`
 - Eligibility: `public_github_repo_required`
-- Last reviewed: 2026-07-27
+- Last reviewed: 2026-07-28
 - Manual submit only: yes
 
 Statuses:
@@ -58,6 +58,7 @@ Process:
 
 ```
 Submit public GitHub plugin via claude.ai or platform.claude.com forms; lands in anthropics/claude-plugins-community after review.
+Status 2026-07-28: human submit deferred; packet ready at specs/plugin-marketplace-listing/claude-submission-packet.md
 ```
 
 Evidence:
@@ -121,7 +122,7 @@ Recommended install docs: `doc/ide-setup/cursor.mdx`
 - Region: global
 - Channel: `community_plugin_directory`
 - Eligibility: `public_github_repo_required`
-- Last reviewed: 2026-07-27
+- Last reviewed: 2026-07-28
 - Manual submit only: yes
 
 Statuses:
@@ -137,21 +138,25 @@ Statuses:
 Local evidence:
 
 - `cursor_plugin_manifest`: **present** — Found plugin/cloudbase/.cursor-plugin/plugin.json, .cursor-plugin/marketplace.json
+- `open_plugin_spec_cloudbase`: **present** — plugin/cloudbase/.plugin/plugin.json has $schema
 
 Submit checklist:
 
-- [ ] Public repo with .cursor-plugin layout
+- [ ] Public repo with root .mcp.json (cloudbase-plugin)
 - [ ] Listing on cursor.directory
 
 Process:
 
 ```
 Community listing via cursor.directory (plugin discovery). Prefer official Cursor Marketplace for primary listing.
+Status 2026-07-28: packet ready — submit https://github.com/TencentCloudBase/cloudbase-plugin at https://cursor.directory/plugins/new
+(Use dedicated OPS repo: has root .mcp.json for auto-detect; monorepo does not.)
 ```
 
 Evidence:
 
 - https://cursor.directory
+- https://cursor.directory/plugins/new
 - https://cursor.com/docs/plugins
 
 Recommended install docs: `doc/ide-setup/cursor.mdx`
@@ -248,7 +253,7 @@ Evidence:
 - Region: global
 - Channel: `self_hosted_marketplace`
 - Eligibility: `marketplace_add_or_catalog_pr`
-- Last reviewed: 2026-07-27
+- Last reviewed: 2026-07-28
 - Manual submit only: yes
 
 Statuses:
@@ -275,11 +280,13 @@ Process:
 
 ```
 Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.
+Status 2026-07-28: Awesome Copilot external plugin issue opened https://github.com/github/awesome-copilot/issues/2459
 ```
 
 Evidence:
 
 - https://code.visualstudio.com/docs/agent-customization/agent-plugins
+- https://github.com/github/awesome-copilot/issues/2459
 
 Recommended install docs: `doc/ide-setup/vscode.mdx`
 
@@ -533,7 +540,7 @@ Evidence:
 - Region: cn
 - Channel: `mcp_registry_or_aggregator`
 - Eligibility: `partner_outreach_required`
-- Last reviewed: 2026-07-27
+- Last reviewed: 2026-07-28
 - Manual submit only: yes
 
 Statuses:
@@ -548,7 +555,7 @@ Statuses:
 
 Blockers:
 
-- No public developer submit form for Trae MCP marketplace
+- No public developer submit form for Trae official MCP marketplace
 
 Local evidence:
 
@@ -556,19 +563,22 @@ Local evidence:
 
 Submit checklist:
 
-- [ ] Partner outreach for MCP marketplace inclusion
+- [ ] Partner outreach for official MCP marketplace inclusion
 - [ ] Provide stdio npx config for CloudBase MCP
+- [ ] Community README PR to trae-community/trae-mcp
 
 Process:
 
 ```
 Users can add MCP from Trae built-in MCP marketplace or manual config. Third-party submission into Trae MCP marketplace is not publicly documented.
+Status 2026-07-28: Community list PR opened https://github.com/trae-community/trae-mcp/pull/4 (README catalog; not official Trae store).
 ```
 
 Evidence:
 
 - https://docs.trae.cn/work_remote-mcp-server
 - https://docs.trae.cn/ide_model-context-protocol
+- https://github.com/trae-community/trae-mcp/pull/4
 - doc/ide-setup/trae.mdx
 
 Recommended install docs: `doc/ide-setup/trae.mdx`
