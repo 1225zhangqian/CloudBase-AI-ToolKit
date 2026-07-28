@@ -80,7 +80,10 @@ markets:
       mcp_or_skill_registry: not_applicable
       docs_only: listed
     submit_url_or_process: |
-      Submit repo at https://cursor.com/marketplace/publish (manual review). Needs .cursor-plugin/plugin.json (and marketplace.json for multi-plugin repos).
+      Submit publisher application at https://cursor.com/marketplace/publish (manual review).
+      Needs .cursor-plugin/plugin.json (and marketplace.json for multi-plugin repos).
+      Status 2026-07-28: publisher application submitted (Tencent CloudBase / @tencent-cloudbase).
+      Awaiting follow-up from marketplace-publishing@cursor.com. Not yet listed.
     eligibility: public_github_repo_required
     blockers: []
     evidence_links:
@@ -98,8 +101,14 @@ markets:
       - Submit at cursor.com/marketplace/publish
     recommended_install_path: doc/ide-setup/cursor.mdx
     priority_hint: null
-    last_reviewed_at: "2026-07-27"
+    last_reviewed_at: "2026-07-28"
     owner: cloudbase-ai-toolkit
+    notes: |
+      2026-07-28: Publisher application submitted via cursor.com/marketplace/publish.
+      Org: Tencent CloudBase (@tencent-cloudbase). Contact: bookerzhao@tencent.com.
+      Repo: https://github.com/TencentCloudBase/CloudBase-AI-Toolkit
+      Logo: plugin/cloudbase/assets/logo.png
+      Confirmation page: "Thanks for applying" — review follow-up via marketplace-publishing@cursor.com.
 
   - id: cursor-directory
     product: Cursor

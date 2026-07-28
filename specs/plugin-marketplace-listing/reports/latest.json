@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-27T09:57:22.958Z",
+  "generated_at": "2026-07-28T03:09:29.167Z",
   "matrix_version": 1,
   "reviewed_stale_days": 90,
   "total_markets": 42,
@@ -116,9 +116,9 @@
           "https://cursor.com/marketplace/publish",
           "https://cursor.com/docs/reference/plugins"
         ],
-        "submit_url_or_process": "Submit repo at https://cursor.com/marketplace/publish (manual review). Needs .cursor-plugin/plugin.json (and marketplace.json for multi-plugin repos).\n",
+        "submit_url_or_process": "Submit publisher application at https://cursor.com/marketplace/publish (manual review).\nNeeds .cursor-plugin/plugin.json (and marketplace.json for multi-plugin repos).\nStatus 2026-07-28: publisher application submitted (Tencent CloudBase / @tencent-cloudbase).\nAwaiting follow-up from marketplace-publishing@cursor.com. Not yet listed.\n",
         "recommended_install_path": "doc/ide-setup/cursor.mdx",
-        "last_reviewed_at": "2026-07-27",
+        "last_reviewed_at": "2026-07-28",
         "owner": "cloudbase-ai-toolkit",
         "local_evidence": [
           {
@@ -253,9 +253,9 @@
           {
             "id": "self_marketplace_codex",
             "status": "present",
-            "detail": "marketplace.json lists cloudbase",
+            "detail": ".agents/plugins/marketplace.json lists cloudbase",
             "paths": [
-              "marketplace.json"
+              ".agents/plugins/marketplace.json"
             ]
           },
           {
@@ -1280,10 +1280,12 @@
         "eligibility": "n_a",
         "blockers": [],
         "evidence_links": [
+          ".agents/plugins/marketplace.json",
           "marketplace.json",
-          "doc/ide-setup/codex.mdx"
+          "doc/ide-setup/codex.mdx",
+          "doc/ai-agent-plugins.mdx"
         ],
-        "submit_url_or_process": "Users add marketplace from this repo root marketplace.json.",
+        "submit_url_or_process": "Users add marketplace from this repo. Codex prefers .agents/plugins/marketplace.json (root marketplace.json kept for compat). Recommended: --sparse .agents/plugins --sparse plugin.\n",
         "recommended_install_path": "doc/ide-setup/codex.mdx",
         "last_reviewed_at": "2026-07-27",
         "owner": "cloudbase-ai-toolkit",
@@ -1291,9 +1293,9 @@
           {
             "id": "self_marketplace_codex",
             "status": "present",
-            "detail": "marketplace.json lists cloudbase",
+            "detail": ".agents/plugins/marketplace.json lists cloudbase",
             "paths": [
-              "marketplace.json"
+              ".agents/plugins/marketplace.json"
             ]
           },
           {
@@ -1953,9 +1955,9 @@
         "https://cursor.com/marketplace/publish",
         "https://cursor.com/docs/reference/plugins"
       ],
-      "submit_url_or_process": "Submit repo at https://cursor.com/marketplace/publish (manual review). Needs .cursor-plugin/plugin.json (and marketplace.json for multi-plugin repos).\n",
+      "submit_url_or_process": "Submit publisher application at https://cursor.com/marketplace/publish (manual review).\nNeeds .cursor-plugin/plugin.json (and marketplace.json for multi-plugin repos).\nStatus 2026-07-28: publisher application submitted (Tencent CloudBase / @tencent-cloudbase).\nAwaiting follow-up from marketplace-publishing@cursor.com. Not yet listed.\n",
       "recommended_install_path": "doc/ide-setup/cursor.mdx",
-      "last_reviewed_at": "2026-07-27",
+      "last_reviewed_at": "2026-07-28",
       "owner": "cloudbase-ai-toolkit",
       "local_evidence": [
         {
@@ -2090,9 +2092,9 @@
         {
           "id": "self_marketplace_codex",
           "status": "present",
-          "detail": "marketplace.json lists cloudbase",
+          "detail": ".agents/plugins/marketplace.json lists cloudbase",
           "paths": [
-            "marketplace.json"
+            ".agents/plugins/marketplace.json"
           ]
         },
         {
@@ -2985,10 +2987,12 @@
       "eligibility": "n_a",
       "blockers": [],
       "evidence_links": [
+        ".agents/plugins/marketplace.json",
         "marketplace.json",
-        "doc/ide-setup/codex.mdx"
+        "doc/ide-setup/codex.mdx",
+        "doc/ai-agent-plugins.mdx"
       ],
-      "submit_url_or_process": "Users add marketplace from this repo root marketplace.json.",
+      "submit_url_or_process": "Users add marketplace from this repo. Codex prefers .agents/plugins/marketplace.json (root marketplace.json kept for compat). Recommended: --sparse .agents/plugins --sparse plugin.\n",
       "recommended_install_path": "doc/ide-setup/codex.mdx",
       "last_reviewed_at": "2026-07-27",
       "owner": "cloudbase-ai-toolkit",
@@ -2996,9 +3000,9 @@
         {
           "id": "self_marketplace_codex",
           "status": "present",
-          "detail": "marketplace.json lists cloudbase",
+          "detail": ".agents/plugins/marketplace.json lists cloudbase",
           "paths": [
-            "marketplace.json"
+            ".agents/plugins/marketplace.json"
           ]
         },
         {

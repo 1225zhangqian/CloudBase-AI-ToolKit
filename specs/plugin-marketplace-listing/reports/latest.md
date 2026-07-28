@@ -1,6 +1,6 @@
 # CloudBase Plugin Marketplace Analysis
 
-Generated: 2026-07-27T09:57:22.958Z
+Generated: 2026-07-28T03:09:29.167Z
 
 > This report does not auto-submit to any marketplace. All submissions are manual.
 
@@ -73,7 +73,7 @@ Recommended install docs: `doc/ide-setup/claude-code.mdx`
 - Region: global
 - Channel: `official_curated_marketplace`
 - Eligibility: `public_github_repo_required`
-- Last reviewed: 2026-07-27
+- Last reviewed: 2026-07-28
 - Manual submit only: yes
 
 Statuses:
@@ -102,7 +102,10 @@ Submit checklist:
 Process:
 
 ```
-Submit repo at https://cursor.com/marketplace/publish (manual review). Needs .cursor-plugin/plugin.json (and marketplace.json for multi-plugin repos).
+Submit publisher application at https://cursor.com/marketplace/publish (manual review).
+Needs .cursor-plugin/plugin.json (and marketplace.json for multi-plugin repos).
+Status 2026-07-28: publisher application submitted (Tencent CloudBase / @tencent-cloudbase).
+Awaiting follow-up from marketplace-publishing@cursor.com. Not yet listed.
 ```
 
 Evidence:
@@ -173,7 +176,7 @@ Statuses:
 
 Local evidence:
 
-- `self_marketplace_codex`: **present** — marketplace.json lists cloudbase
+- `self_marketplace_codex`: **present** — .agents/plugins/marketplace.json lists cloudbase
 - `codex_plugin_manifest`: **present** — plugin/cloudbase/.codex-plugin/plugin.json exists
 - `open_plugin_spec_cloudbase`: **present** — plugin/cloudbase/.plugin/plugin.json has $schema
 
@@ -1001,19 +1004,21 @@ Statuses:
 
 Local evidence:
 
-- `self_marketplace_codex`: **present** — marketplace.json lists cloudbase
+- `self_marketplace_codex`: **present** — .agents/plugins/marketplace.json lists cloudbase
 - `codex_plugin_manifest`: **present** — plugin/cloudbase/.codex-plugin/plugin.json exists
 
 Process:
 
 ```
-Users add marketplace from this repo root marketplace.json.
+Users add marketplace from this repo. Codex prefers .agents/plugins/marketplace.json (root marketplace.json kept for compat). Recommended: --sparse .agents/plugins --sparse plugin.
 ```
 
 Evidence:
 
+- .agents/plugins/marketplace.json
 - marketplace.json
 - doc/ide-setup/codex.mdx
+- doc/ai-agent-plugins.mdx
 
 Recommended install docs: `doc/ide-setup/codex.mdx`
 

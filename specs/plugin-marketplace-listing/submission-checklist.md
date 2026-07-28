@@ -27,7 +27,12 @@ Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
   - `plugin/cloudbase/assets/logo.png` (+ sites)
 - [x] Command/skill/agent frontmatter quality gate (`npm run check:plugin-quality`)
 - [ ] Local test (optional): symlink plugin into `~/.cursor/plugins/local/cloudbase` and restart Cursor
-- [ ] Submit at https://cursor.com/marketplace/publish with repo URL
+- [x] Submit publisher application at https://cursor.com/marketplace/publish (2026-07-28)
+  - Org: Tencent CloudBase (`@tencent-cloudbase`)
+  - Contact: bookerzhao@tencent.com
+  - Repo: https://github.com/TencentCloudBase/CloudBase-AI-Toolkit
+  - Confirmation: "Thanks for applying" — awaiting `marketplace-publishing@cursor.com`
+- [ ] After approval: verify listing appears on https://cursor.com/marketplace
 - [ ] Optional secondary listing: cursor.directory
 
 ### 3. Codex / ChatGPT — git marketplace (ready) vs Universal portal (blocked)
