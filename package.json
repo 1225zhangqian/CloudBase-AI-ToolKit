@@ -22,6 +22,7 @@
     "analyze:plugin-marketplaces": "node scripts/analyze-plugin-marketplace.mjs",
     "check:plugin-marketplaces": "node scripts/check-plugin-marketplaces.mjs",
     "check:plugin-quality": "node scripts/check-plugin-quality.mjs",
+    "sync:codebuddy-marketplace": "node scripts/sync-codebuddy-marketplace.mjs",
     "prepare": "husky"
   },
   "devDependencies": {
