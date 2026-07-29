@@ -366,28 +366,36 @@ markets:
     region: cn
     channel_type: native_connector_or_builtin
     listing_statuses:
-      official_curated: unknown
+      official_curated: listed_stale
       community_directory: unknown
       self_marketplace: not_applicable
-      native_connector_or_builtin: unknown
+      native_connector_or_builtin: listed
       open_plugin_spec: not_applicable
       mcp_or_skill_registry: not_applicable
       docs_only: listed
     submit_url_or_process: |
-      CodeBuddy has plugin marketplace / CLI plugins. Confirm whether CloudBase is already listed or needs partner submission.
+      Official catalog already has plugins/cloudbase on cnb.cool/codebuddy/marketplace (content stale vs v2.25.0).
+      Staging fork: https://cnb.cool/tencent/cloud/cloudbase/codebuddy-marketplace
+      PR open: https://cnb.cool/codebuddy/marketplace/-/pulls/19 (from fork tencent/cloud/cloudbase/marketplace main).
     eligibility: partner_outreach_required
     blockers:
-      - Official listing status for CloudBase needs confirmation
+      - Awaiting merge of https://cnb.cool/codebuddy/marketplace/-/pulls/19
     evidence_links:
+      - https://cnb.cool/codebuddy/marketplace/-/tree/main/plugins/cloudbase
+      - https://cnb.cool/tencent/cloud/cloudbase/codebuddy-marketplace
+      - https://cnb.cool/tencent/cloud/cloudbase/codebuddy-marketplace/-/compare/main...sync/cloudbase-v2.25.0
       - https://www.codebuddy.cn/docs/cli/plugins
       - doc/ide-setup/codebuddy.mdx
-    local_evidence: []
+    local_evidence:
+      - config/codebuddy-plugin
+      - specs/plugin-marketplace-listing/submission-log.md
     submit_checklist:
-      - Confirm CodeBuddy marketplace submission process
-      - Align with config/codebuddy-plugin if applicable
+      - Open cross-repo PR from staging sync/cloudbase-v2.25.0 to codebuddy/marketplace main
+      - Confirm keep rules/cloudbase_rules.md in marketplace package
+      - Ask CodeBuddy product team about built-in IDE sync if needed
     recommended_install_path: doc/ide-setup/codebuddy.mdx
     priority_hint: needs_partner_outreach
-    last_reviewed_at: "2026-07-27"
+    last_reviewed_at: "2026-07-29"
     owner: cloudbase-ai-toolkit
 
   - id: codebuddy-code-plugin
