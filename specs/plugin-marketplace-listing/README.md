@@ -40,6 +40,8 @@ node scripts/analyze-plugin-marketplace.mjs --online
 
 See [`submission-checklist.md`](./submission-checklist.md) for ready-to-submit market steps.
 
+**PR hygiene:** always use the **target repo’s** PR/issue template or CONTRIBUTING checklist (Ownership / Checklist / Security, etc.). Do not ship a generic Summary-only body.
+
 ## Reading the report
 
 Priority groups:

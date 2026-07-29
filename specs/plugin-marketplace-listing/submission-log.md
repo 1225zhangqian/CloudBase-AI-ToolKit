@@ -50,10 +50,10 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 
 | Field | Value |
 |-------|-------|
-| Status | **PR opened** — awaiting xAI review |
+| Status | **PR opened** — conflict resolved 2026-07-29; awaiting xAI review |
 | PR | https://github.com/xai-org/plugin-marketplace/pull/151 |
 | Source repo | https://github.com/TencentCloudBase/cloudbase-plugin.git |
-| Pinned SHA | `93b747b3287787b8c3ad0811ef4f9b51e2479ec9` |
+| Pinned SHA | `b615a7f8bfad6637f2297e1a993d29f6a292a13d` |
 | Submitted at | 2026-07-28 |
 
 ### How to check progress (Grok)
@@ -125,3 +125,47 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 
 1. Watch PR #20 merge
 2. After merge, confirm catalog row in https://github.com/trae-community/trae-skills/blob/main/README.md
+
+### 2026-07-29 — CodeBuddy official marketplace sync (CNB staging)
+
+- **Staging repo (CNB):** https://cnb.cool/tencent/cloud/cloudbase/codebuddy-marketplace
+- **Branch:** `sync/cloudbase-v2.25.0` (commit `f95b126`, based on upstream `codebuddy/marketplace` main)
+- **Staging `main`:** force-aligned to upstream tip `8ae4a25` (clean base for compare)
+- **Diff preview:** https://cnb.cool/tencent/cloud/cloudbase/codebuddy-marketplace/-/compare/main...sync/cloudbase-v2.25.0
+- **Target:** https://cnb.cool/codebuddy/marketplace (`plugins/cloudbase` + marketplace.json entry → v2.25.0, keep `rules/cloudbase_rules.md`)
+- **Blocker:** local CNB token can push to staging but lacks `repo-pr:rw` (and cannot write PRs into `codebuddy/marketplace`). Open cross-repo PR in CNB UI, or ask CodeBuddy maintainers to pull the staging branch.
+- **Payload source:** `npx tsx scripts/sync-codebuddy-plugin.ts` → `config/codebuddy-plugin`
+
+### 2026-07-29 — CodeBuddy marketplace fork sync (ready for PR)
+
+- **Fork (CNB):** https://cnb.cool/tencent/cloud/cloudbase/marketplace (forked from `codebuddy/marketplace`)
+- **Note:** Path is `marketplace`, not `codebuddy-marketplace`
+- **Branch:** `sync/cloudbase-v2.25.0` @ `4a60074` (v2.25.0, keep `rules/cloudbase_rules.md`, 133 files)
+- **Compare / Create PR:** https://cnb.cool/tencent/cloud/cloudbase/marketplace/-/compare/main...sync/cloudbase-v2.25.0
+- **Target:** `codebuddy/marketplace:main`
+- **Blocker:** CNB token can push to fork but lacks `repo-pr:rw` (cannot open PR via API)
+
+### 2026-07-29 — CodeBuddy marketplace PR submitted
+
+- **PR:** https://cnb.cool/codebuddy/marketplace/-/pulls/19
+- **Title:** feat(cloudbase): sync CloudBase plugin v2.25.0 and keep rules
+- **From:** https://cnb.cool/tencent/cloud/cloudbase/marketplace `main` (`0cde7d0`, author bookerzhao)
+- **To:** `codebuddy/marketplace:main`
+- **Status:** open / awaiting maintainer review
+
+### 2026-07-29 — Grok PR #151 conflict fixed
+
+- Rebased/merged upstream `main` into `binggg/plugin-marketplace:add-cloudbase-plugin`
+- Kept upstream `tinyfish` entry + CloudBase listing (pin `b615a7f`)
+- Regenerated `.grok-plugin/plugin-index.json`
+- PR: https://github.com/xai-org/plugin-marketplace/pull/151
+
+### 2026-07-29 — PR body hygiene pass
+
+- Rule: always fill target-repo PR/issue template / CONTRIBUTING checklist (see `submission-checklist.md` → “PR / issue body hygiene”).
+- **Grok #151:** rewritten to official Ownership / Checklist / Security template.
+- **Trae MCP #4:** body updated to CONTRIBUTING PR Checklist.
+- **Trae Skills #20:** body updated to full CONTRIBUTING Pull request checklist.
+- **Awesome Copilot #2459:** already has Submission checklist (issue form) — OK.
+- **CodeBuddy CNB #19:** body still short (“AI-generated…”); token cannot PATCH upstream PR — edit in CNB UI if needed.
+

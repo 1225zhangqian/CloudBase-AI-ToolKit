@@ -5,6 +5,26 @@ Generated companion to `npm run analyze:plugin-marketplaces`.
 
 Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
 
+## PR / issue body hygiene (mandatory)
+
+Before opening or editing any marketplace PR/issue:
+
+1. **Read the target repo template first** — `.github/PULL_REQUEST_TEMPLATE.md`, issue forms, or `CONTRIBUTING.md` PR checklist.
+2. **Fill that template**, not a generic Cursor “Summary / Test plan” body.
+3. Tick Ownership / Checklist / Security (or whatever the repo names them) with honest `[x]` / `[ ]`.
+4. Keep pinned SHAs, versions, and links current when you amend the PR.
+5. If CI needs first-time workflow approval, say so explicitly in the body or a follow-up comment.
+
+Examples of good targets:
+
+| Market | Template source |
+|--------|-----------------|
+| Grok Build | `xai-org/plugin-marketplace` `.github/PULL_REQUEST_TEMPLATE.md` |
+| Trae MCP | `trae-community/trae-mcp` `CONTRIBUTING.md` → PR Checklist |
+| Trae Skills | `trae-community/trae-skills` `CONTRIBUTING.md` → Pull request checklist |
+| Awesome Copilot | issue form + Submission checklist section |
+| CodeBuddy CNB | no fixed template — still include Summary + Checklist + Notes |
+
 ## Ready now
 
 ### 1. Claude Code — Community marketplace
@@ -56,9 +76,11 @@ Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
 
 - [x] Prefer remote source `https://github.com/TencentCloudBase/cloudbase-plugin.git` (not monorepo root)
 - [x] Open PR to https://github.com/xai-org/plugin-marketplace — https://github.com/xai-org/plugin-marketplace/pull/151 (2026-07-28)
-- [x] Add remote catalog entry pinned to SHA `93b747b3287787b8c3ad0811ef4f9b51e2479ec9`
+- [x] Add remote catalog entry pinned to SHA `b615a7f8bfad6637f2297e1a993d29f6a292a13d`
 - [x] Regenerate `.grok-plugin/plugin-index.json` + validate-catalog
-- [ ] Await xAI review / merge
+- [x] PR body rewritten to official Ownership / Checklist / Security template (2026-07-29)
+- [x] Conflict with upstream `tinyfish` resolved; asked maintainers to Approve workflows
+- [ ] Await xAI review / merge (`Validate catalog` may need maintainer workflow approval)
 - [ ] After merge: confirm catalog entry live; mark `markets.yaml` listed
 - [x] Brand-scoped keywords/domains only
 
@@ -73,8 +95,21 @@ Repo to submit: `https://github.com/TencentCloudBase/CloudBase-MCP`
 ### 6. Trae community MCP list
 
 - [x] Open PR to https://github.com/trae-community/trae-mcp — https://github.com/trae-community/trae-mcp/pull/4 (2026-07-28)
+- [x] PR body aligned to CONTRIBUTING PR Checklist (2026-07-29)
 - [ ] Await merge; then mark community channel listed
 - [ ] Official Trae in-app MCP marketplace still needs partner outreach
+
+### 6b. Trae community Skills
+
+- [x] Open PR to https://github.com/trae-community/trae-skills — https://github.com/trae-community/trae-skills/pull/20 (2026-07-28)
+- [x] PR body aligned to CONTRIBUTING Pull request checklist (2026-07-29)
+- [ ] Await merge; then mark community channel listed
+
+### 6c. CodeBuddy official marketplace (CNB)
+
+- [x] Fork + sync PR — https://cnb.cool/codebuddy/marketplace/-/pulls/19 (2026-07-29)
+- [ ] Enrich PR description with Summary + Checklist if CNB UI allows edit (API token cannot PATCH target PR)
+- [ ] Await merge; then mark `codebuddy-plugin` curated listed
 
 ## Needs partner outreach (do not fake as ready)
 
