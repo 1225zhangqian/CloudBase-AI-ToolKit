@@ -110,6 +110,11 @@ Examples of good targets:
 - [x] Fork + sync PR — https://cnb.cool/codebuddy/marketplace/-/pulls/19 (2026-07-29)
 - [ ] Enrich PR description with Summary + Checklist if CNB UI allows edit (API token cannot PATCH target PR)
 - [ ] Await merge; then mark `codebuddy-plugin` curated listed
+- **Future sync to fork:** `npm run sync:codebuddy-marketplace`
+  - Regenerates skills, overlays `config/codebuddy-plugin` onto fork `plugins/cloudbase` (keeps `rules/`), bumps catalog entry, pushes fork `main`
+  - Fork: https://cnb.cool/tencent/cloud/cloudbase/marketplace
+  - Upstream PR still needs CNB UI / `repo-pr:rw` (script does not open upstream PR)
+  - Dry-run: `npm run sync:codebuddy-marketplace -- --dry-run`
 
 ## Needs partner outreach (do not fake as ready)
 

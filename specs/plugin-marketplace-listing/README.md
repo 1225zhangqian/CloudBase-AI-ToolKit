@@ -42,6 +42,8 @@ See [`submission-checklist.md`](./submission-checklist.md) for ready-to-submit m
 
 **PR hygiene:** always use the **target repo’s** PR/issue template or CONTRIBUTING checklist (Ownership / Checklist / Security, etc.). Do not ship a generic Summary-only body.
 
+**CodeBuddy CNB fork sync:** `npm run sync:codebuddy-marketplace` pushes `config/codebuddy-plugin` to https://cnb.cool/tencent/cloud/cloudbase/marketplace (`main` by default; keeps `rules/`). Upstream PR still opens in CNB UI.
+
 ## Reading the report
 
 Priority groups:
