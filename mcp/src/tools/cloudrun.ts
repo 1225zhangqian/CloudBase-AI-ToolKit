@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getCloudBaseManager, getEnvId } from '../cloudbase-manager.js';
 import { ExtendedMcpServer } from '../server.js';
 import { debug } from '../utils/logger.js';
+import { preferGatewayOrFallback, resolveGatewayAccessUrls } from '../utils/gateway-access-urls.js';
 import { sendDeployNotification } from '../utils/notification.js';
 
 // CloudRun service types
@@ -341,6 +342,37 @@ function normalizeProcessLogText(logs: unknown[]): string {
       return String(log);
     })
     .join("\n");
+}
+
+function normalizeCloudRunDomainUrl(input: unknown): string | undefined {
+  if (typeof input !== "string" || !input.trim()) return undefined;
+  const raw = input.trim();
+  return raw.startsWith("http://") || raw.startsWith("https://")
+    ? raw
+    : `https://${raw}`;
+}
+
+function resolveCloudRunFallbackAccess(details: any): {
+  url?: string;
+  source?:
+    | "cloudrun.customDomain"
+    | "cloudrun.defaultDomain"
+    | "cloudrun.publicDomain"
+    | "cloudrun.internalDomain";
+} {
+  const custom = normalizeCloudRunDomainUrl(details?.BaseInfo?.CustomDomainName);
+  if (custom) return { url: custom, source: "cloudrun.customDomain" };
+  const defaultDomain = normalizeCloudRunDomainUrl(
+    details?.BaseInfo?.DefaultDomainName,
+  );
+  if (defaultDomain) return { url: defaultDomain, source: "cloudrun.defaultDomain" };
+  const publicDomain =
+    normalizeCloudRunDomainUrl(details?.BaseInfo?.PublicDomain) ??
+    normalizeCloudRunDomainUrl(details?.AccessInfo?.PublicDomain);
+  if (publicDomain) return { url: publicDomain, source: "cloudrun.publicDomain" };
+  const internal = normalizeCloudRunDomainUrl(details?.BaseInfo?.InternalDomain);
+  if (internal) return { url: internal, source: "cloudrun.internalDomain" };
+  return {};
 }
 
 /**
@@ -906,43 +938,44 @@ for await (let x of res.textStream) {
               debug('cloudbaserc.json creation skipped:', error instanceof Error ? error : new Error(String(error)));
             }
 
+            let preferredAccessUrl: string | undefined;
+            let preferredAccessUrls: string[] = [];
+            let preferredAccessSource: string | undefined;
+            try {
+              const serviceDetails = await cloudrunService.detail({
+                serverName: input.serverName,
+              });
+              const fallback = resolveCloudRunFallbackAccess(serviceDetails as any);
+              const gateway = await resolveGatewayAccessUrls({
+                envId: currentEnvId,
+                upstreamResourceName: input.serverName,
+                upstreamResourceTypes: ["CBR"],
+                getManager: async () => {
+                  const manager = await getManager();
+                  if (!manager) {
+                    throw new Error("cloudbase manager unavailable");
+                  }
+                  return manager as any;
+                },
+              });
+              const preferred = preferGatewayOrFallback({
+                gateway,
+                fallbackUrl: fallback.url,
+                fallbackSource: fallback.source,
+              });
+              preferredAccessUrl = preferred.accessUrl;
+              preferredAccessUrls = preferred.accessUrls;
+              preferredAccessSource = preferred.accessUrlSource;
+            } catch {
+              // best-effort URL enrichment only
+            }
+
             // Send deployment notification to CodeBuddy IDE
             try {
-              // Query service details to get access URL
-              let serviceUrl = "";
-              try {
-                const serviceDetails = await cloudrunService.detail({ serverName: input.serverName });
-                // Extract access URL from service details
-                // Priority: DefaultDomainName > CustomDomainName > PublicDomain > InternalDomain
-                const details = serviceDetails as any; // Use any to access dynamic properties
-                if (details?.BaseInfo?.DefaultDomainName) {
-                  // DefaultDomainName is already a complete URL (e.g., https://...)
-                  serviceUrl = details.BaseInfo.DefaultDomainName;
-                } else if (details?.BaseInfo?.CustomDomainName) {
-                  // CustomDomainName might be a domain without protocol
-                  const customDomain = details.BaseInfo.CustomDomainName;
-                  serviceUrl = customDomain.startsWith('http') ? customDomain : `https://${customDomain}`;
-                } else if (details?.BaseInfo?.PublicDomain) {
-                  serviceUrl = `https://${details.BaseInfo.PublicDomain}`;
-                } else if (details?.BaseInfo?.InternalDomain) {
-                  serviceUrl = `https://${details.BaseInfo.InternalDomain}`;
-                } else if (details?.AccessInfo?.PublicDomain) {
-                  serviceUrl = `https://${details.AccessInfo.PublicDomain}`;
-                } else {
-                  serviceUrl = ""; // URL not available
-                }
-              } catch (detailErr) {
-                // If query fails, continue with empty URL
-                serviceUrl = "";
-              }
-
-              // Extract project name from targetPath
               const projectName = path.basename(targetPath);
-
-              // Send notification
               await sendDeployNotification(server, {
                 deployType: 'cloudrun',
-                url: serviceUrl,
+                url: preferredAccessUrl ?? "",
                 projectId: currentEnvId,
                 projectName: projectName,
                 consoleUrl: consoleUrl
@@ -974,6 +1007,13 @@ for await (let x of res.textStream) {
                       serverType: serverType,
                       cloudbasercGenerated: true,
                       consoleUrl,
+                      ...(preferredAccessUrl ? { accessUrl: preferredAccessUrl } : {}),
+                      ...(preferredAccessUrls.length > 0
+                        ? { accessUrls: preferredAccessUrls }
+                        : {}),
+                      ...(preferredAccessSource
+                        ? { accessUrlSource: preferredAccessSource }
+                        : {}),
                       ...(warnings.length > 0 ? { warnings } : {}),
                     },
                     message: `Triggered deployment for ${serverType} service '${input.serverName}' from ${targetPath}. You can follow the progress in ${consoleUrl}.${warningSuffix}`
