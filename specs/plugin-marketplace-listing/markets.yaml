@@ -366,7 +366,8 @@ markets:
     region: cn
     channel_type: native_connector_or_builtin
     listing_statuses:
-      official_curated: listed_stale
+      # Catalog already lists CloudBase; content is stale vs v2.25.0 until PR #19 merges.
+      official_curated: listed
       community_directory: unknown
       self_marketplace: not_applicable
       native_connector_or_builtin: listed
@@ -375,22 +376,22 @@ markets:
       docs_only: listed
     submit_url_or_process: |
       Official catalog already has plugins/cloudbase on cnb.cool/codebuddy/marketplace (content stale vs v2.25.0).
-      Staging fork: https://cnb.cool/tencent/cloud/cloudbase/codebuddy-marketplace
-      PR open: https://cnb.cool/codebuddy/marketplace/-/pulls/19 (from fork tencent/cloud/cloudbase/marketplace main).
+      Fork: https://cnb.cool/tencent/cloud/cloudbase/marketplace
+      PR open: https://cnb.cool/codebuddy/marketplace/-/pulls/19 (from fork main).
     eligibility: partner_outreach_required
     blockers:
-      - Awaiting merge of https://cnb.cool/codebuddy/marketplace/-/pulls/19
+      - Awaiting merge of https://cnb.cool/codebuddy/marketplace/-/pulls/19 (refresh to v2.25.0)
     evidence_links:
       - https://cnb.cool/codebuddy/marketplace/-/tree/main/plugins/cloudbase
-      - https://cnb.cool/tencent/cloud/cloudbase/codebuddy-marketplace
-      - https://cnb.cool/tencent/cloud/cloudbase/codebuddy-marketplace/-/compare/main...sync/cloudbase-v2.25.0
+      - https://cnb.cool/tencent/cloud/cloudbase/marketplace
+      - https://cnb.cool/codebuddy/marketplace/-/pulls/19
       - https://www.codebuddy.cn/docs/cli/plugins
       - doc/ide-setup/codebuddy.mdx
     local_evidence:
       - config/codebuddy-plugin
       - specs/plugin-marketplace-listing/submission-log.md
     submit_checklist:
-      - Open cross-repo PR from staging sync/cloudbase-v2.25.0 to codebuddy/marketplace main
+      - Await merge of https://cnb.cool/codebuddy/marketplace/-/pulls/19
       - Confirm keep rules/cloudbase_rules.md in marketplace package
       - Ask CodeBuddy product team about built-in IDE sync if needed
     recommended_install_path: doc/ide-setup/codebuddy.mdx
