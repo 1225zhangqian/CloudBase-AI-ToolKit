@@ -7,6 +7,7 @@
  *   - .plugin/plugin.json  (vendor-neutral manifest)
  *   - mcp.json             (spec-standard MCP config, copied from .mcp.json)
  *   - .cursor-plugin/plugin.json (Cursor Marketplace manifest)
+ *   - .qoder-plugin/plugin.json (Qoder / QoderWork plugin marketplace)
  *
  * Also generates:
  *   - .cursor-plugin/marketplace.json (repo-root multi-plugin marketplace)
@@ -86,6 +87,46 @@ function buildSpecManifest(claudeManifestPath, pluginDir) {
   }
   spec.logo = cm.logo || logo;
   return spec;
+}
+
+function buildQoderManifest(claudeManifestPath, pluginDir) {
+  const cm = readJson(claudeManifestPath);
+  const keywords = Array.isArray(cm.keywords) ? [...cm.keywords] : [];
+  if (!keywords.includes("qoder")) keywords.push("qoder");
+  if (!keywords.includes("qoderwork")) keywords.push("qoderwork");
+
+  const skillsDir = path.join(pluginDir, "skills");
+  const skills = [];
+  if (fs.existsSync(skillsDir)) {
+    for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const skillMd = path.join(skillsDir, entry.name, "SKILL.md");
+      if (fs.existsSync(skillMd)) skills.push(`./skills/${entry.name}/`);
+    }
+    skills.sort();
+  }
+
+  const manifest = {
+    name: cm.name,
+    version: cm.version,
+    description: cm.description,
+    author: cm.author || { name: "Tencent CloudBase", url: "https://cloudbase.net" },
+    homepage: cm.homepage || "https://cloudbase.net",
+    repository: REPO_URL,
+    license: cm.license || "MIT",
+    keywords,
+  };
+  if (skills.length > 0) manifest.skills = skills;
+  if (Array.isArray(cm.commands) && cm.commands.length > 0) {
+    manifest.commands = cm.commands;
+  }
+  if (Array.isArray(cm.agents) && cm.agents.length > 0) {
+    manifest.agents = cm.agents;
+  }
+  if (!manifest.name) {
+    throw new Error(`Missing 'name' in ${claudeManifestPath}`);
+  }
+  return manifest;
 }
 
 function buildCursorManifest(claudeManifestPath, pluginDir) {
@@ -174,6 +215,7 @@ function main() {
     const claudeManifest = path.join(dir, ".claude-plugin", "plugin.json");
     const specManifest = path.join(dir, ".plugin", "plugin.json");
     const cursorManifest = path.join(dir, ".cursor-plugin", "plugin.json");
+    const qoderManifest = path.join(dir, ".qoder-plugin", "plugin.json");
     const mcpSource = path.join(dir, ".mcp.json");
     const mcpTarget = path.join(dir, "mcp.json");
 
@@ -184,14 +226,16 @@ function main() {
 
     const spec = buildSpecManifest(claudeManifest, dir);
     const cursor = buildCursorManifest(claudeManifest, dir);
+    const qoder = buildQoderManifest(claudeManifest, dir);
     const mcp = readJson(mcpSource);
-    console.log(`[${name}] fields: ${Object.keys(spec).join(", ")}, mcp servers: ${Object.keys(mcp.mcpServers || {}).join(", ")}`);
+    console.log(`[${name}] fields: ${Object.keys(spec).join(", ")}, mcp servers: ${Object.keys(mcp.mcpServers || {}).join(", ")}, qoder skills: ${(qoder.skills || []).length}`);
 
     if (check) {
       for (const [p, expected, label] of [
         [specManifest, spec, ".plugin/plugin.json"],
         [mcpTarget, mcp, "mcp.json"],
         [cursorManifest, cursor, ".cursor-plugin/plugin.json"],
+        [qoderManifest, qoder, ".qoder-plugin/plugin.json"],
       ]) {
         if (!fs.existsSync(p) || !jsonEqual(readJson(p), expected)) {
           console.error(`✗ [${name}] Outdated: ${label}`);
@@ -204,7 +248,8 @@ function main() {
       writeJson(specManifest, spec);
       writeJson(mcpTarget, mcp);
       writeJson(cursorManifest, cursor);
-      console.log(`✓ [${name}] Generated: .plugin/plugin.json + mcp.json + .cursor-plugin/plugin.json`);
+      writeJson(qoderManifest, qoder);
+      console.log(`✓ [${name}] Generated: .plugin/plugin.json + mcp.json + .cursor-plugin/plugin.json + .qoder-plugin/plugin.json`);
     }
   }
 

@@ -116,6 +116,15 @@ Examples of good targets:
   - Upstream PR still needs CNB UI / `repo-pr:rw` (script does not open upstream PR)
   - Dry-run: `npm run sync:codebuddy-marketplace -- --dry-run`
 
+### 7. Qoder / QoderWork plugin package
+
+- [x] Generate `.qoder-plugin/plugin.json` via `node scripts/build-open-plugin-spec.mjs`
+- [x] Pack zip: `npm run pack:qoder-plugin` → `dist/cloudbase-qoder-v*.zip`
+- [x] Submit guide: `plugin/cloudbase/docs/qoder-submit.md`
+- [ ] **QoderWork:** submit Plugin (upload zip / import `plugin/cloudbase`) — https://docs.qoder.com/zh/qoderwork/skill-marketplace-guidelines
+- [ ] **Qoder CN:** https://qoder.com.cn/account/apphub-publications
+- [ ] After live: mark `qoderwork-marketplace` / `qoder-plugin` listed in `markets.yaml`
+
 ## Needs partner outreach (do not fake as ready)
 
 | Market | Action |
@@ -123,9 +132,11 @@ Examples of good targets:
 | Claude Official curated | Wait for / request Anthropic partnership |
 | Trae official MCP marketplace | Contact Trae for curated catalog inclusion (community list PR is separate) |
 | Trae Work skills marketplace | Confirm publisher onboarding |
-| Qoder / QoderWork | Confirm plugin/connector submit path |
-| CodeBuddy / CodeBuddy Code | Confirm whether already listed or need submit |
-| Kimi Code official | Confirm third-party listing path |
+| Qoder Featured / curated | After community submit, ask for Featured if needed |
+| QoderWork Connector | Only if HTTPS+OAuth CloudBase MCP is in scope |
+| CodeBuddy / CodeBuddy Code | Await CNB #19 merge; built-in may still need PM sync |
+| Kimi Code Official / Third-party tabs | Confirm curated listing with Moonshot |
+| MiniMax Agent marketplace | No public submit form yet — monitor + outreach |
 
 ## After each submission
 

@@ -23,6 +23,7 @@
     "check:plugin-marketplaces": "node scripts/check-plugin-marketplaces.mjs",
     "check:plugin-quality": "node scripts/check-plugin-quality.mjs",
     "sync:codebuddy-marketplace": "node scripts/sync-codebuddy-marketplace.mjs",
+    "pack:qoder-plugin": "node scripts/pack-qoder-plugin.mjs",
     "prepare": "husky"
   },
   "devDependencies": {
