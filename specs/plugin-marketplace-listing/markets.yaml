@@ -429,33 +429,47 @@ markets:
     owner: cloudbase-ai-toolkit
 
   - id: qoder-plugin
-    product: Qoder
+    product: Qoder / QoderWork
     region: cn
     channel_type: community_plugin_directory
     listing_statuses:
       official_curated: unknown
       community_directory: unknown
-      self_marketplace: not_applicable
+      self_marketplace: submittable
       native_connector_or_builtin: not_applicable
-      open_plugin_spec: not_applicable
-      mcp_or_skill_registry: not_applicable
+      open_plugin_spec: listed
+      mcp_or_skill_registry: submittable
       docs_only: listed
     submit_url_or_process: |
-      Qoder CN plugins use plugin.json packaging (skills/MCP/hooks). Public marketplace listing process needs verification (Aliyun Lingma docs overlap).
-    eligibility: partner_outreach_required
+      QoderWork self-serve: Plugin (专家套件) + Skill marketplace.
+      Pack: npm run pack:qoder-plugin / pack:qoder-skill
+      Guide: plugin/cloudbase/docs/qoder-submit.md
+      Status 2026-07-30: Plugin zip + Skill zip both submitted (awaiting review).
+      Qoder CN AppHub: https://qoder.com.cn/account/apphub-publications (optional follow-up).
+    eligibility: public_github_repo_required
     blockers:
-      - Self-serve listing docs incomplete for third parties
+      - Awaiting QoderWork review / listing confirmation
     evidence_links:
-      - https://help.aliyun.com/zh/lingma/plugin-hidden-release
+      - https://docs.qoder.com/zh/qoderwork/skill-marketplace-guidelines
+      - https://qoder.com.cn/account/apphub-publications
       - doc/ide-setup/qoder.mdx
-    local_evidence: []
+      - plugin/cloudbase/docs/qoder-submit.md
+    local_evidence:
+      - open_plugin_spec_cloudbase
+      - qoder_plugin_manifest
     submit_checklist:
-      - Confirm Qoder CN plugin publish channel
-      - Package plugin.json compatible layout
+      - Pack Plugin zip (dist/cloudbase-qoder-v*.zip)
+      - Pack Skill zip (dist/cloudbase-skill-v*.zip)
+      - Submit Plugin + Skill in QoderWork
+      - After live: flip self_marketplace / mcp_or_skill_registry → listed
     recommended_install_path: doc/ide-setup/qoder.mdx
-    priority_hint: needs_partner_outreach
-    last_reviewed_at: "2026-07-27"
+    priority_hint: null
+    last_reviewed_at: "2026-07-30"
     owner: cloudbase-ai-toolkit
+    notes: |
+      2026-07-30: Human submitted Plugin (cloudbase-qoder-v0.2.0.zip) and Skill
+      (cloudbase-skill-v2.25.1.zip) to QoderWork. Connector deferred (needs HTTPS+OAuth).
+      Featured / curated still needs partner outreach after community listing.
 
   - id: qoderwork-connector
     product: QoderWork
