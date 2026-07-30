@@ -16,6 +16,9 @@ Build + pack:
 ```bash
 npm run pack:qoder-plugin
 # → dist/cloudbase-qoder-v<version>.zip
+
+npm run pack:qoder-skill
+# → dist/cloudbase-skill-v<version>.zip  (entry skill: cloudbase/)
 ```
 
 Local import (no zip):
@@ -84,7 +87,28 @@ Query my CloudBase environment status
 
 > Starts `@cloudbase/cloudbase-mcp` locally over stdio (`npx`). Credentials come from the user’s CloudBase login; nothing is hard-coded in the zip.
 
-## QoderWork (recommended first)
+## QoderWork Skill (optional, lighter than Plugin)
+
+Prefer the Plugin zip for full MCP + multi-skill install. Use the Skill zip only when submitting to the **Skill** marketplace lane.
+
+| Field | Value |
+|-------|-------|
+| Display name | CloudBase |
+| Technical `name` | `cloudbase` |
+| Package | `dist/cloudbase-skill-v*.zip` |
+| Source folder | `plugin/cloudbase/skills/cloudbase/` |
+
+**Short description:**
+
+> CloudBase development guidelines for Web, Mini Program, databases, functions, storage, and CloudRun.
+
+Steps:
+
+1. QoderWork → Extensions → Skills → submit / upload
+2. Upload `dist/cloudbase-skill-v*.zip` (archive root must be `cloudbase/SKILL.md`)
+3. Pass review under **设置 → 我的发布**
+
+## QoderWork Plugin (recommended first)
 
 1. Open QoderWork → Extensions / marketplace / Expert Kits
 2. Submit as **Plugin** (not Connector)
