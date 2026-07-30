@@ -24,21 +24,72 @@ Local import (no zip):
 Qoder IDE → Plugin market → Import local folder → plugin/cloudbase
 ```
 
+## Marketplace copy (paste-ready)
+
+QoderWork 专家套件 / 公开市场常用字段。技术 `name` 保持 `cloudbase`（kebab-case）；对外展示名用中文岗位名。
+
+| Field | Value |
+|-------|-------|
+| 展示名称 | 云开发工程师 |
+| 技术 name | `cloudbase` |
+| 版本 | 见 zip / `.qoder-plugin/plugin.json`（当前 `0.2.0`） |
+| 分类建议 | Coding / DevOps / DataBase（有则多选） |
+| 作者 | Tencent CloudBase / 腾讯云开发 |
+| 主页 | https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ |
+| 源码 | https://github.com/TencentCloudBase/cloudbase-plugin |
+| License | MIT |
+
+**一句话简介（≤80 字）：**
+
+> 腾讯云开发全栈助手：用自然语言完成 Web / 小程序 / 云函数 / 云托管 / 数据库 / 认证 / 存储，内置 CloudBase MCP 工具。
+
+**市场详情描述：**
+
+> 面向需要在 Qoder / QoderWork 中直接操作腾讯云开发的研发与产品同学。安装后可获得 CloudBase 场景技能与 MCP 工具，覆盖：
+>
+> - Web 与微信小程序应用搭建与部署
+> - 云函数、CloudRun（云托管）、静态托管
+> - NoSQL / MySQL / PostgreSQL 数据建模与权限
+> - 登录认证、云存储、AI 模型调用
+> - 环境检查、部署门禁与常见排障
+>
+> 首次使用会引导完成云开发登录与环境绑定。无需切换控制台，即可在对话中完成大部分 CloudBase 操作。
+
+**触发 / 试用话术（Try now / 验证）：**
+
+```text
+检查 CloudBase 工具是否可用，并告诉我当前云开发环境信息
+```
+
+```text
+用云开发帮我规划一个带登录的 Web 应用，数据库用 PostgreSQL
+```
+
+**关键词（中英可混）：**
+
+`云开发` `CloudBase` `小程序` `云函数` `CloudRun` `PostgreSQL` `MCP` `腾讯云`
+
+**安全 / 权限说明（审核常见问法）：**
+
+> 本插件通过本地 `npx @cloudbase/cloudbase-mcp` 启动 MCP（stdio），不硬编码密钥。用户需自行登录腾讯云开发账号并授权环境；插件不会外传无关密钥或 `.env`。
+
 ## QoderWork (recommended first)
 
-1. Open QoderWork client → Extensions / marketplace
+1. Open QoderWork client → Extensions / marketplace / Expert Kits
 2. Submit a **Plugin（专家套件）** (not Connector)
 3. Upload `dist/cloudbase-qoder-v*.zip` or import the folder
-4. Pass structure precheck + review
-5. Manage under **设置 → 我的发布**
+4. Paste the marketplace copy above into listing fields
+5. Pass structure precheck + review
+6. Manage under **设置 → 我的发布**
 
 Guidelines: https://docs.qoder.com/zh/qoderwork/skill-marketplace-guidelines
 
 ## Qoder IDE / CN community
 
 1. In-IDE plugin market import, and/or
-2. Community hub: https://qoder.com.cn/marketplace  
+2. Community hub: https://qoder.com.cn/marketplace
    Submit: https://qoder.com.cn/account/apphub-publications
+3. Reuse the same Chinese copy
 
 ## Notes
 
