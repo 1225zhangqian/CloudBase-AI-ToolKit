@@ -106,28 +106,33 @@ Qoder Skill 审核要求：`description` 用第三人称说明职责与触发场
 
 **Short description / SKILL frontmatter 风格（推荐粘贴）：**
 
-> Guides CloudBase (腾讯云开发) development for Web, WeChat Mini Program, databases, cloud functions, storage, and CloudRun. Use when the user mentions CloudBase, 云开发, TCB, 小程序云开发, or asks to build or deploy on CloudBase.
+> Guides CloudBase (腾讯云开发) development — PostgreSQL, document database, hosting, storage, auth, and cloud functions as one backend. Use when the user mentions CloudBase, 云开发, TCB, 小程序云开发, or asks to build or deploy on CloudBase.
 
 中文短描述（表单如需）：
 
-> CloudBase（腾讯云开发）开发指南。适用于 Web、微信小程序、数据库、云函数、存储、CloudRun 等场景；用户提到云开发 / CloudBase / TCB 时使用。
+> CloudBase（腾讯云开发）一站式后端：PostgreSQL、文档型数据库、托管、存储、认证与云函数。用户提到云开发 / CloudBase / TCB 时使用。
 
 **Long description:**
 
 > CloudBase is Tencent Cloud’s backend platform. This skill provides routing and development guidelines for CloudBase projects in Qoder.
 >
-> Covers:
+> One backend surface for:
 >
+> - PostgreSQL and document (NoSQL) databases
+> - Static hosting and CloudRun
+> - Object storage, auth, and cloud functions
 > - Web and WeChat Mini Program apps
-> - NoSQL, MySQL, and PostgreSQL
-> - Auth, cloud functions, object storage
-> - CloudRun and static hosting
 >
 > For MCP tools and the full skill set, install the CloudBase Plugin instead. This skill does not embed credentials.
 
 中文详情：
 
-> CloudBase（腾讯云开发）项目开发与路由指南。覆盖 Web / 微信小程序、数据库、认证、云函数、存储、CloudRun。
+> CloudBase（腾讯云开发）一站式后端能力接入指南。覆盖：
+>
+> - PostgreSQL 与文档型数据库
+> - 静态托管与 CloudRun
+> - 对象存储、认证、云函数
+> - Web / 微信小程序
 >
 > 需要 MCP 工具与完整 skill 集合时，请安装 CloudBase Plugin。本包不含密钥。
 
@@ -143,7 +148,7 @@ Help me set up a CloudBase Web project with auth and PostgreSQL
 
 **Keywords:**
 
-`CloudBase` `云开发` `TCB` `小程序` `database` `cloud functions` `CloudRun`
+`CloudBase` `云开发` `TCB` `PostgreSQL` `文档型数据库` `托管` `存储` `云函数` `小程序`
 
 Steps:
 
