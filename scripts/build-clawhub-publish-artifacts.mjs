@@ -204,6 +204,7 @@ function buildTargetArtifact(target, outputDir) {
     targetKey: target.key,
     registrySlug: target.registrySlug,
     displayName: target.displayName || validation.metadata.name,
+    summary: target.summary || validation.metadata.description,
     iconUrl: target.iconUrl,
     artifactRootDir,
     artifactDir,
