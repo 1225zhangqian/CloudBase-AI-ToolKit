@@ -94,19 +94,63 @@ Prefer the Plugin zip for full MCP + multi-skill install. Use the Skill zip only
 | Field | Value |
 |-------|-------|
 | Display name | CloudBase |
-| Technical `name` | `cloudbase` |
-| Package | `dist/cloudbase-skill-v*.zip` |
+| Technical `name` | `cloudbase` (from `SKILL.md`; do not change after publish) |
+| Version | From `SKILL.md` (currently `2.25.1`) |
+| Package | `dist/cloudbase-skill-v2.25.1.zip` |
 | Source folder | `plugin/cloudbase/skills/cloudbase/` |
+| Author | Tencent CloudBase |
+| Homepage | https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ |
+| License | MIT |
 
-**Short description:**
+Qoder Skill 审核要求：`description` 用第三人称说明职责与触发场景，并带上用户可能说的关键词。
 
-> CloudBase development guidelines for Web, Mini Program, databases, functions, storage, and CloudRun.
+**Short description / SKILL frontmatter 风格（推荐粘贴）：**
+
+> Guides CloudBase (腾讯云开发) development for Web, WeChat Mini Program, databases, cloud functions, storage, and CloudRun. Use when the user mentions CloudBase, 云开发, TCB, 小程序云开发, or asks to build or deploy on CloudBase.
+
+中文短描述（表单如需）：
+
+> CloudBase（腾讯云开发）开发指南。适用于 Web、微信小程序、数据库、云函数、存储、CloudRun 等场景；用户提到云开发 / CloudBase / TCB 时使用。
+
+**Long description:**
+
+> CloudBase is Tencent Cloud’s backend platform. This skill provides routing and development guidelines for CloudBase projects in Qoder.
+>
+> Covers:
+>
+> - Web and WeChat Mini Program apps
+> - NoSQL, MySQL, and PostgreSQL
+> - Auth, cloud functions, object storage
+> - CloudRun and static hosting
+>
+> For MCP tools and the full skill set, install the CloudBase Plugin instead. This skill does not embed credentials.
+
+中文详情：
+
+> CloudBase（腾讯云开发）项目开发与路由指南。覆盖 Web / 微信小程序、数据库、认证、云函数、存储、CloudRun。
+>
+> 需要 MCP 工具与完整 skill 集合时，请安装 CloudBase Plugin。本包不含密钥。
+
+**Try prompts:**
+
+```text
+Help me set up a CloudBase Web project with auth and PostgreSQL
+```
+
+```text
+用云开发做一个微信小程序，需要登录和云数据库
+```
+
+**Keywords:**
+
+`CloudBase` `云开发` `TCB` `小程序` `database` `cloud functions` `CloudRun`
 
 Steps:
 
 1. QoderWork → Extensions → Skills → submit / upload
-2. Upload `dist/cloudbase-skill-v*.zip` (archive root must be `cloudbase/SKILL.md`)
-3. Pass review under **设置 → 我的发布**
+2. Upload `dist/cloudbase-skill-v2.25.1.zip` (archive root must be `cloudbase/SKILL.md`)
+3. Paste the copy above into listing fields
+4. Pass review under **设置 → 我的发布**
 
 ## QoderWork Plugin (recommended first)
 
