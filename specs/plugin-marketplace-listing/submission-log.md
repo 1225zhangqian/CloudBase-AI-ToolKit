@@ -169,3 +169,38 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 - **Awesome Copilot #2459:** already has Submission checklist (issue form) — OK.
 - **CodeBuddy CNB #19:** body still short (“AI-generated…”); token cannot PATCH upstream PR — edit in CNB UI if needed.
 
+## QoderWork Plugin
+
+| Field | Value |
+|-------|-------|
+| Status | **Submitted** — awaiting review |
+| Package | `dist/cloudbase-qoder-v0.2.0.zip` |
+| Guide / copy | `plugin/cloudbase/docs/qoder-submit.md` |
+| Channel | QoderWork → Extensions → Plugin / Expert Kits |
+| Submitted at | 2026-07-30 |
+| Listed yet? | No |
+
+### How to check progress (QoderWork Plugin)
+
+1. QoderWork → **设置 → 我的发布**
+2. After live, search marketplace for `CloudBase` / `cloudbase`
+3. Flip `markets.yaml` `qoder-plugin.self_marketplace` → `listed`
+
+## QoderWork Skill
+
+| Field | Value |
+|-------|-------|
+| Status | **Submitted** — awaiting review |
+| Package | `dist/cloudbase-skill-v2.25.1.zip` |
+| Skill id | `cloudbase` |
+| Guide / copy | `plugin/cloudbase/docs/qoder-submit.md` (Skill section) |
+| Channel | QoderWork → Extensions → Skills |
+| Submitted at | 2026-07-30 |
+| Listed yet? | No |
+
+### How to check progress (QoderWork Skill)
+
+1. QoderWork → **设置 → 我的发布**
+2. After live, confirm Skill marketplace entry for `cloudbase`
+3. Flip `markets.yaml` `qoder-plugin.mcp_or_skill_registry` → `listed`
+

@@ -116,14 +116,16 @@ Examples of good targets:
   - Upstream PR still needs CNB UI / `repo-pr:rw` (script does not open upstream PR)
   - Dry-run: `npm run sync:codebuddy-marketplace -- --dry-run`
 
-### 7. Qoder / QoderWork plugin package
+### 7. Qoder / QoderWork plugin + skill package
 
 - [x] Generate `.qoder-plugin/plugin.json` via `node scripts/build-open-plugin-spec.mjs`
-- [x] Pack zip: `npm run pack:qoder-plugin` → `dist/cloudbase-qoder-v*.zip`
-- [x] Submit guide: `plugin/cloudbase/docs/qoder-submit.md`
-- [ ] **QoderWork:** submit Plugin (upload zip / import `plugin/cloudbase`) — https://docs.qoder.com/zh/qoderwork/skill-marketplace-guidelines
-- [ ] **Qoder CN:** https://qoder.com.cn/account/apphub-publications
-- [ ] After live: mark `qoderwork-marketplace` / `qoder-plugin` listed in `markets.yaml`
+- [x] Pack Plugin zip: `npm run pack:qoder-plugin` → `dist/cloudbase-qoder-v0.2.0.zip`
+- [x] Pack Skill zip: `npm run pack:qoder-skill` → `dist/cloudbase-skill-v2.25.1.zip`
+- [x] Submit guide + copy: `plugin/cloudbase/docs/qoder-submit.md`
+- [x] **QoderWork:** Plugin submitted (2026-07-30) — awaiting review
+- [x] **QoderWork:** Skill submitted (2026-07-30) — awaiting review
+- [ ] **Qoder CN AppHub (optional):** https://qoder.com.cn/account/apphub-publications
+- [ ] After live: mark `qoder-plugin` `self_marketplace` / `mcp_or_skill_registry` → `listed` in `markets.yaml`
 
 ## Needs partner outreach (do not fake as ready)
 
