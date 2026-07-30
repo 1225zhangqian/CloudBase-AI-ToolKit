@@ -26,59 +26,70 @@ Qoder IDE → Plugin market → Import local folder → plugin/cloudbase
 
 ## Marketplace copy (paste-ready)
 
-QoderWork 专家套件 / 公开市场常用字段。技术 `name` 保持 `cloudbase`（kebab-case）；对外展示名用中文岗位名。
+Tone: product listing, not marketing. Write as a backend platform shipping an official connector (think Supabase / Vercel on a partner IDE store). Prefer factual scope over role titles or “全栈助手” claims.
 
 | Field | Value |
 |-------|-------|
-| 展示名称 | 云开发工程师 |
-| 技术 name | `cloudbase` |
-| 版本 | 见 zip / `.qoder-plugin/plugin.json`（当前 `0.2.0`） |
-| 分类建议 | Coding / DevOps / DataBase（有则多选） |
-| 作者 | Tencent CloudBase / 腾讯云开发 |
-| 主页 | https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ |
-| 源码 | https://github.com/TencentCloudBase/cloudbase-plugin |
+| Display name | CloudBase |
+| Technical `name` | `cloudbase` |
+| Version | From zip / `.qoder-plugin/plugin.json` (currently `0.2.0`) |
+| Category | Coding / DevOps / Database (if multi-select) |
+| Author | Tencent CloudBase |
+| Homepage | https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ |
+| Source | https://github.com/TencentCloudBase/cloudbase-plugin |
 | License | MIT |
 
-**一句话简介（≤80 字）：**
+**Short description:**
 
-> 腾讯云开发全栈助手：用自然语言完成 Web / 小程序 / 云函数 / 云托管 / 数据库 / 认证 / 存储，内置 CloudBase MCP 工具。
+> Official CloudBase plugin for Qoder. MCP tools and skills for databases, auth, functions, storage, and CloudRun.
 
-**市场详情描述：**
+中文短描述（如需）：
 
-> 面向需要在 Qoder / QoderWork 中直接操作腾讯云开发的研发与产品同学。安装后可获得 CloudBase 场景技能与 MCP 工具，覆盖：
+> CloudBase 官方插件。提供数据库、认证、云函数、存储、CloudRun 等 MCP 工具与技能。
+
+**Long description:**
+
+> CloudBase is Tencent Cloud’s backend platform (BaaS). This plugin wires Qoder to CloudBase via the `@cloudbase/cloudbase-mcp` server and a set of agent skills.
 >
-> - Web 与微信小程序应用搭建与部署
-> - 云函数、CloudRun（云托管）、静态托管
-> - NoSQL / MySQL / PostgreSQL 数据建模与权限
-> - 登录认证、云存储、AI 模型调用
-> - 环境检查、部署门禁与常见排障
+> Supported surfaces include:
 >
-> 首次使用会引导完成云开发登录与环境绑定。无需切换控制台，即可在对话中完成大部分 CloudBase 操作。
+> - NoSQL, MySQL, and PostgreSQL
+> - Auth, cloud functions, object storage
+> - CloudRun services and static hosting
+> - WeChat Mini Program CloudBase projects
+>
+> Requires a CloudBase account and environment. Auth is interactive login; no API keys are embedded in the package.
 
-**触发 / 试用话术（Try now / 验证）：**
+中文详情（如需）：
+
+> CloudBase（腾讯云开发）后端能力接入。通过 `@cloudbase/cloudbase-mcp` 与配套 skills，在 Qoder 中调用数据库、认证、云函数、存储、CloudRun 等能力。
+>
+> 使用前需登录 CloudBase 并选择环境。包内不含密钥。
+
+**Try prompts:**
 
 ```text
-检查 CloudBase 工具是否可用，并告诉我当前云开发环境信息
+List available CloudBase MCP tools and show current environment info
 ```
 
 ```text
-用云开发帮我规划一个带登录的 Web 应用，数据库用 PostgreSQL
+Query my CloudBase environment status
 ```
 
-**关键词（中英可混）：**
+**Keywords:**
 
-`云开发` `CloudBase` `小程序` `云函数` `CloudRun` `PostgreSQL` `MCP` `腾讯云`
+`CloudBase` `Tencent Cloud` `MCP` `database` `auth` `functions` `CloudRun`
 
-**安全 / 权限说明（审核常见问法）：**
+**Security note (for review forms):**
 
-> 本插件通过本地 `npx @cloudbase/cloudbase-mcp` 启动 MCP（stdio），不硬编码密钥。用户需自行登录腾讯云开发账号并授权环境；插件不会外传无关密钥或 `.env`。
+> Starts `@cloudbase/cloudbase-mcp` locally over stdio (`npx`). Credentials come from the user’s CloudBase login; nothing is hard-coded in the zip.
 
 ## QoderWork (recommended first)
 
-1. Open QoderWork client → Extensions / marketplace / Expert Kits
-2. Submit a **Plugin（专家套件）** (not Connector)
+1. Open QoderWork → Extensions / marketplace / Expert Kits
+2. Submit as **Plugin** (not Connector)
 3. Upload `dist/cloudbase-qoder-v*.zip` or import the folder
-4. Paste the marketplace copy above into listing fields
+4. Use the copy above for listing fields
 5. Pass structure precheck + review
 6. Manage under **设置 → 我的发布**
 
@@ -87,9 +98,8 @@ Guidelines: https://docs.qoder.com/zh/qoderwork/skill-marketplace-guidelines
 ## Qoder IDE / CN community
 
 1. In-IDE plugin market import, and/or
-2. Community hub: https://qoder.com.cn/marketplace
-   Submit: https://qoder.com.cn/account/apphub-publications
-3. Reuse the same Chinese copy
+2. https://qoder.com.cn/marketplace — submit via https://qoder.com.cn/account/apphub-publications
+3. Same copy
 
 ## Notes
 
