@@ -7,14 +7,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
 
-const CLOUDBASE_ICON_URL = "https://docs.cloudbase.net/en/img/favicon.png";
+// Pure-black-background CloudBase logo hosted in the dedicated plugin repo
+// (TencentCloudBase/cloudbase-plugin). Used as the SkillHub / ClawHub skill icon
+// so the marketplace cards match the CloudBase plugin branding.
+const CLOUDBASE_ICON_URL =
+  "https://raw.githubusercontent.com/TencentCloudBase/cloudbase-plugin/main/assets/logo-dark.png";
 
 export const CLAWHUB_PUBLISH_TARGETS = {
   "miniprogram-development": {
     key: "miniprogram-development",
     type: "local-skill",
     registrySlug: "miniprogram-development",
-    displayName: "微信小程序开发 / WeChat Mini Program Development",
+    displayName: "腾讯云 CloudBase 微信小程序开发 / Tencent CloudBase WeChat Mini Program Development",
+    summary:
+      "面向 AI 编码场景的腾讯云 CloudBase 微信小程序开发指南，覆盖项目脚手架、tabBar、路由、调试、预览、发布与 wx.cloud 集成。",
     iconUrl: CLOUDBASE_ICON_URL,
     sourceDir: path.join(
       projectRoot,
@@ -29,7 +35,9 @@ export const CLAWHUB_PUBLISH_TARGETS = {
     key: "cloudbase-wechat-integration",
     type: "local-skill",
     registrySlug: "cloudbase-wechat-integration",
-    displayName: "CloudBase 微信生态集成 / CloudBase WeChat Integration",
+    displayName: "腾讯云 CloudBase 微信生态集成 / Tencent CloudBase WeChat Integration",
+    summary:
+      "腾讯云 CloudBase 微信生态集成指南，覆盖小程序支付、公众号 JSAPI / Native 支付、公众号 OAuth、openid 处理与 Integration Center 云函数。",
     iconUrl: CLOUDBASE_ICON_URL,
     sourceDir: path.join(
       projectRoot,
@@ -44,7 +52,9 @@ export const CLAWHUB_PUBLISH_TARGETS = {
     key: "all-in-one",
     type: "generated-allinone",
     registrySlug: "cloudbase",
-    displayName: "CloudBase 云开发 / CloudBase",
+    displayName: "腾讯云 CloudBase / Tencent CloudBase",
+    summary:
+      "腾讯云 CloudBase 是面向 AI Coding 的后端一体化平台，内置数据库、存储、身份认证、云函数与云托管等服务，支持快速构建小程序、Web、移动 App、管理后台与 AI 应用。",
     iconUrl: CLOUDBASE_ICON_URL,
     sourceDescription: "generated via scripts/build-allinone-skill.ts",
   },
@@ -53,7 +63,9 @@ export const CLAWHUB_PUBLISH_TARGETS = {
     type: "local-skill",
     registrySlug: "ui-design-guide",
     publishName: "ui-design-guide",
-    displayName: "UI 设计 / UI Design",
+    displayName: "腾讯云 CloudBase UI 设计 / Tencent CloudBase UI Design",
+    summary:
+      "腾讯云 CloudBase UI 设计指南，提供 Web 与小程序前端的高保真原型、视觉规范与组件设计规范。",
     iconUrl: CLOUDBASE_ICON_URL,
     sourceDir: path.join(projectRoot, "config", "source", "skills", "ui-design"),
     sourceDescription: "config/source/skills/ui-design",
@@ -62,7 +74,9 @@ export const CLAWHUB_PUBLISH_TARGETS = {
     key: "web-development",
     type: "local-skill",
     registrySlug: "web-development",
-    displayName: "Web 开发 / Web Development",
+    displayName: "腾讯云 CloudBase Web 开发 / Tencent CloudBase Web Development",
+    summary:
+      "腾讯云 CloudBase Web 前端开发指南，覆盖 React / Vue / Vite 工程化、静态托管部署、@cloudbase/js-sdk 集成与内置认证。",
     iconUrl: CLOUDBASE_ICON_URL,
     sourceDir: path.join(
       projectRoot,
@@ -78,7 +92,9 @@ export const CLAWHUB_PUBLISH_TARGETS = {
     type: "local-skill",
     registrySlug: "spec-workflow-guide",
     publishName: "spec-workflow-guide",
-    displayName: "Spec 流程 / Spec Workflow",
+    displayName: "腾讯云 CloudBase Spec 流程 / Tencent CloudBase Spec Workflow",
+    summary:
+      "腾讯云 CloudBase 标准软件开发流程，统一需求 / 设计 / 任务文档与验收标准，适合中大型特性与多模块集成。",
     iconUrl: CLOUDBASE_ICON_URL,
     sourceDir: path.join(
       projectRoot,

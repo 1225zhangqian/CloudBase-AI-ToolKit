@@ -229,6 +229,24 @@ function parseFrontmatter(skillContent) {
   };
 }
 
+/**
+ * Pick SkillHub marketplace metadata for a target.
+ *
+ * SkillHub renders the displayName, summary, and iconUrl verbatim on the skill
+ * card. Curated values in `target` (e.g. set by clawhub-publish-targets.mjs)
+ * win over the raw SKILL.md frontmatter, which is English agent-trigger text
+ * not meant for human readers and uses the bare skill `name` slug.
+ */
+export function selectMarketplaceMetadata(target, frontmatter) {
+  const safeTarget = target || {};
+  const safeFrontmatter = frontmatter || {};
+  return {
+    displayName: safeTarget.displayName || safeFrontmatter.name || "",
+    summary: safeTarget.summary || safeFrontmatter.description || "",
+    iconUrl: safeTarget.iconUrl || "",
+  };
+}
+
 function collectFiles(dirPath, baseDir) {
   const files = [];
 
@@ -372,11 +390,20 @@ export async function publishToSkillhub({
     const metadata = parseFrontmatter(skillContent);
     const currentVersion = readCurrentVersion(skillFile);
 
+    // SkillHub marketplace metadata comes from the curated manifest target first
+    // (displayName / summary / iconUrl) so each skill can show a proper Chinese
+    // product name, a short Tencent-docs-style description and the black-bg
+    // CloudBase logo, instead of the raw English agent-trigger description and
+    // raw SKILL.md `name` slug.
+    const { displayName, summary, iconUrl } = selectMarketplaceMetadata(target, metadata);
+
     const files = collectFiles(artifactDir, artifactDir);
 
     console.log(`[SkillHub] 准备发布 / Preparing: ${target.targetKey} (${slug})`);
     console.log(`  Version: ${currentVersion || "(none)"}`);
-    console.log(`  DisplayName: ${metadata.name}`);
+    console.log(`  DisplayName: ${displayName}`);
+    console.log(`  Summary: ${summary ? summary.slice(0, 80) + (summary.length > 80 ? "..." : "") : "(none)"}`);
+    console.log(`  IconUrl: ${iconUrl || "(none)"}`);
     console.log(`  Files: ${files.length} file(s)`);
 
     if (dryRun) {
@@ -384,8 +411,9 @@ export async function publishToSkillhub({
         targetKey: target.targetKey,
         slug,
         version: currentVersion,
-        displayName: metadata.name,
-        summary: metadata.description,
+        displayName,
+        summary,
+        iconUrl,
         fileCount: files.length,
         status: "dry-run",
       });
@@ -419,8 +447,9 @@ export async function publishToSkillhub({
             targetKey: target.targetKey,
             slug,
             version: currentVersion,
-            displayName: metadata.name,
-            summary: metadata.description,
+            displayName,
+            summary,
+            iconUrl,
             fileCount: files.length,
             status: "skipped",
             reason: picked.reason,
@@ -447,9 +476,9 @@ export async function publishToSkillhub({
           slug,
           version,
           changelog: resolvedChangelog,
-          displayName: metadata.name,
-          summary: metadata.description,
-          iconUrl: target.iconUrl,
+          displayName,
+          summary,
+          iconUrl,
           files,
         });
 
@@ -459,8 +488,9 @@ export async function publishToSkillhub({
           targetKey: target.targetKey,
           slug,
           version,
-          displayName: metadata.name,
-          summary: metadata.description,
+          displayName,
+          summary,
+          iconUrl,
           fileCount: files.length,
           versionId: result.versionId,
           status: "published",

@@ -53,3 +53,31 @@ test('resolvePublishTargets only returns whitelisted publish units', () => {
     targets.find((target) => target.key === 'spec-workflow')?.registrySlug,
   ).toBe('spec-workflow-guide');
 });
+
+test('every target exposes SkillHub marketplace metadata (displayName, summary, iconUrl)', () => {
+  // SkillHub / ClawHub marketplace cards need a Chinese product name
+  // (displayName), a short Tencent-docs-style summary, and the black-bg
+  // CloudBase logo. Without these the cards fall back to the raw SKILL.md
+  // `name` slug (e.g. "cloudbase") and the English agent-trigger description.
+  for (const target of Object.values(CLAWHUB_PUBLISH_TARGETS)) {
+    expect(target.displayName, `${target.key} missing displayName`).toBeTruthy();
+    expect(target.displayName, `${target.key} displayName should mention 腾讯云`).toMatch(
+      /腾讯云 CloudBase/,
+    );
+    expect(target.summary, `${target.key} missing summary`).toBeTruthy();
+    expect(target.iconUrl, `${target.key} missing iconUrl`).toBeTruthy();
+    expect(target.iconUrl, `${target.key} iconUrl should point to the black-bg logo`).toMatch(
+      /logo-dark\.png$/,
+    );
+  }
+});
+
+test('all-in-one displayName matches the official Tencent CloudBase product name', () => {
+  // SkillHub shows the displayName verbatim on the skill card. To match the
+  // product name on docs.cloudbase.net (腾讯云 CloudBase) instead of the raw
+  // `cloudbase` slug, all-in-one must use the bilingual product name.
+  const allInOne = CLAWHUB_PUBLISH_TARGETS['all-in-one'];
+  expect(allInOne.displayName).toBe('腾讯云 CloudBase / Tencent CloudBase');
+  expect(allInOne.summary).toMatch(/后端一体化平台/);
+  expect(allInOne.summary).toMatch(/数据库|云函数|云存储|身份认证/);
+});
