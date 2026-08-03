@@ -31,6 +31,7 @@ The CloudBase integration layer for AI coding tools: Plugin installs the stack, 
 - Plugin: easier install via Open Plugin / marketplace packaging
 - Env / Database: clearer billing summary when creating an env; SDK-first guidance instead of raw TCP database info
 - Auth / Database: fix createApiKey false success; fail closed when a PG migration does not land
+- Gateway / Auth: query and switch HTTP gateway master switch & access auth (`getPrivilege` / `enableService` / `authSwitch`); SMS login works out of the box via the default channel
 
 [Releases][changelog] · [Star][github-stars-link] · Watch → Releases
 

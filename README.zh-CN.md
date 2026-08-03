@@ -31,6 +31,7 @@
 - Plugin：Open Plugin / 市场安装路径更顺
 - 环境 / 数据库：创建环境时计费信息更清晰；数据库接入优先引导 SDK，不再直接暴露 TCP 连接信息
 - 认证 / 数据库：修复 createApiKey 复用 key 时误报成功；PG 迁移未落地时安全失败
+- 网关 / 认证：新增 HTTP 网关总开关与访问鉴权查询/切换（`getPrivilege` / `enableService` / `authSwitch`）；短信验证码登录默认通道开箱即用，无需配置签名
 
 [Releases][changelog] · [Star][github-stars-link] · Watch → Releases
 
