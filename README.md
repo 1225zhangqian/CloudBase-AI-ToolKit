@@ -33,6 +33,7 @@ The CloudBase integration layer for AI coding tools: Plugin installs the stack, 
 - Auth / Database: fix createApiKey false success; fail closed when a PG migration does not land
 - Gateway / Auth: query and switch HTTP gateway master switch & access auth (`getPrivilege` / `enableService` / `authSwitch`); SMS login works out of the box via the default channel
 - PG Migration: applyMigration now hydrates remote migration history and polls DescribeTaskResult, fixing silently failing async migration tasks (#857, #859)
+- PG Migration: prefer local migration tree and native manager-node migration APIs for more reliable applyMigration; Functions: `func.name` accepted as functionName fallback
 
 [Releases][changelog] · [Star][github-stars-link] · Watch → Releases
 
