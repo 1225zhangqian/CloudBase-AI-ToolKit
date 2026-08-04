@@ -704,7 +704,7 @@ AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业
 ---
 
 ### `managePgDatabase`
-管理 CloudBase PostgreSQL：执行已确认的写入 SQL、SQL 风险预检、迁移管理。建表/ALTER/DROP 等 schema 变更必须使用 applyMigration（显式 migrationVersion + 本地 migrations/ 留档），不要默认用 execute。execute 主要用于 DML 与 GRANT/RLS 等运维 SQL。
+管理 CloudBase PostgreSQL：执行已确认的写入 SQL、SQL 风险预检、迁移管理。建表/ALTER/DROP 等 schema 变更必须使用 applyMigration（显式 migrationVersion；成功前自动写入或校验本地 cloudbase/migrations/&lt;version&gt;_&lt;name&gt;.sql，与 CLI tcb db pg migration 一致），不要默认用 execute。execute 主要用于 DML 与 GRANT/RLS 等运维 SQL。
 
 #### 参数
 
@@ -714,7 +714,7 @@ AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业
       name: "action",
       type: "string",
       required: true,
-      description: `操作类型：execute=执行已确认的写入 SQL（DML/GRANT/RLS；schema DDL 默认拒绝，需 allowDdlViaExecute=true）；dryRun=只分析 SQL 风险不执行；planMigration=预览迁移计划（需 migrationName + migrationVersion + sql）；applyMigration=应用迁移，建表/改 schema 首选（需 migrationName + migrationVersion + sql + confirm=true；成功返回前会自动校验该 migrationVersion 已落入远端迁移历史，未落库时返回 success=false 且 errorCode=MIGRATION_NOT_APPLIED）；listMigrations=查询已应用的 Migration 列表（可传 limit/offset 分页）；migrationDetail=查看单条 Migration 详情（需 migrationVersion）；rollbackMigration=回滚最近 N 条 Migration（需 lastN + confirm=true）；repairMigration=修复 Migration 历史记录（需 migrationVersion + migrationName + repairStatus + repairReason） 可填写的值: "execute", "dryRun", "planMigration", "applyMigration", "listMigrations", "migrationDetail", "rollbackMigration", "repairMigration"`,
+      description: `操作类型：execute=执行已确认的写入 SQL（DML/GRANT/RLS；schema DDL 默认拒绝，需 allowDdlViaExecute=true）；dryRun=只分析 SQL 风险不执行；planMigration=预览迁移计划（需 migrationName + migrationVersion + sql；可选 includeAll=true 允许乱序，对齐 CLI --include-all）；applyMigration=应用迁移，建表/改 schema 首选（需 migrationName + migrationVersion + sql + confirm=true；可选 includeAll；本地 SQL 缺失则自动写入 cloudbase/migrations/，内容不一致则 LOCAL_MIGRATION_FILE_MISMATCH fail-closed；成功返回前会轮询 DescribeTaskResult（默认最长 10 分钟，可用 taskPollTimeoutMs / waitForTask 调整）并校验 migrationVersion 已落入远端历史；超时返回 MIGRATION_TASK_TIMEOUT，必须先 describeMigrationTask 再 listMigrations，禁止立刻重推同 version；未落库时返回 success=false 且 errorCode=MIGRATION_NOT_APPLIED）；listMigrations=查询已应用的 Migration 列表（可传 limit/offset 分页）；migrationDetail=查看单条 Migration 详情（需 migrationVersion）；describeMigrationTask=按 TaskId 查询 Push 异步任务状态（DescribeTaskResult：Status/Phase/Reason；需 taskId；用于 waitForTask=false / MIGRATION_TASK_TIMEOUT / 失败诊断，listMigrations 看不到 Reason）；fetchMigration=从远端 history 拉取 SQL 写入本地 cloudbase/migrations/（对齐 CLI tcb db pg migration fetch；可选 migrationVersion 拉单条，省略则全量；force=true 覆盖已存在文件，默认跳过）；rollbackMigration=回滚最近 N 条 Migration（需 lastN + confirm=true）；repairMigration=修复 Migration 历史记录（需 migrationVersion + migrationName + repairStatus + repairReason） 可填写的值: "execute", "dryRun", "planMigration", "applyMigration", "listMigrations", "migrationDetail", "describeMigrationTask", "fetchMigration", "rollbackMigration", "repairMigration"`,
     },
     {
       name: "sql",
@@ -759,7 +759,7 @@ AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业
     {
       name: "migrationVersion",
       type: "string",
-      description: `14 位时间戳 YYYYMMDDHHMMSS。plan/apply/detail/repair 必填；禁止由服务端静默生成，避免与本地 migrations/<version>_<name>.sql 分叉。`,
+      description: `14 位时间戳 YYYYMMDDHHMMSS。plan/apply/detail/repair 必填；fetchMigration 可选（传入则只拉该条，省略则拉全量远端 history）；禁止由服务端静默生成，避免与本地 cloudbase/migrations/<version>_<name>.sql 分叉。`,
     },
     {
       name: "rollbackSql",
@@ -792,6 +792,21 @@ AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业
       description: `apply 可选：单条 SQL 执行最长时间（毫秒），默认 300000。`,
     },
     {
+      name: "taskPollTimeoutMs",
+      type: "integer",
+      description: `apply 可选：轮询 DescribeTaskResult 的最长等待（毫秒）。默认 600000（与 CLI tcb db pg migration up 的 10 分钟对齐）。范围 5000-600000。超时后务必先 describeMigrationTask(taskId) 再 listMigrations，禁止立刻重推同 version。`,
+    },
+    {
+      name: "waitForTask",
+      type: "boolean",
+      description: `apply 可选，默认 true。设为 false 时 Push 后立即返回 TaskId（errorCode=MIGRATION_TASK_PENDING），由调用方用 describeMigrationTask 轮询任务终态，再用 listMigrations 确认是否落库；适合 MCP host 工具调用超时较短的场景。默认 true 会同步等到任务终态。`,
+    },
+    {
+      name: "taskId",
+      type: "string",
+      description: `describeMigrationTask 必填：PushPGUserMigrations / applyMigration 返回的 TaskId。用于一次性查询 DescribeTaskResult（Status/Phase/Reason），不轮询等待。`,
+    },
+    {
       name: "repairStatus",
       type: "string",
       description: `repair 必填：applied=标记为已应用（可补录 Query），reverted=删除 history 记录。 可填写的值: "applied", "reverted"`,
@@ -800,6 +815,16 @@ AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业
       name: "repairReason",
       type: "string",
       description: `repair 必填：修复原因。`,
+    },
+    {
+      name: "force",
+      type: "boolean",
+      description: `fetchMigration 可选，默认 false。true=覆盖本地已存在的同名 SQL 文件（对齐 CLI tcb db pg migration fetch --force）；false=跳过已存在文件。用于从远端 history 重新对齐 Git checksum。`,
+    },
+    {
+      name: "includeAll",
+      type: "boolean",
+      description: `planMigration / applyMigration 可选，默认 false。true=允许 out-of-order（version 小于远端 LatestVersion）仍可 Preview/Push，对齐 CLI tcb db pg migration up --include-all；仅在确认要补历史/乱序迁移时使用，日常应选更大的 migrationVersion。`,
     },
     {
       name: "allowDdlViaExecute",
@@ -1799,7 +1824,7 @@ CloudBase 云函数统一写入口。支持创建函数、更新代码、更新�
 - aider: Aider AI编辑器
 
 特别说明：
-- rules 模板会自动包含当前 mcp 版本号信息（版本号：2.25.4），便于后续维护和版本追踪
+- rules 模板会自动包含当前 mcp 版本号信息（版本号：2.25.5），便于后续维护和版本追踪
 - 下载 rules 模板时，如果项目中已存在 README.md 文件，系统会自动保护该文件不被覆盖（除非设置 overwrite=true）
 
 #### 参数
