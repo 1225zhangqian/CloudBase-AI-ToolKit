@@ -1322,7 +1322,7 @@ CloudBase 云函数统一写入口。支持创建函数、更新代码、更新�
     {
       name: "functionName",
       type: "string",
-      description: `函数名称。大多数 action 使用该字段作为统一目标`,
+      description: `目标函数名称（顶层）。updateFunctionCode / updateFunctionConfig / invokeFunction 等 action 使用此字段。不要只写在 func.name：createFunction 用 func.name，其它 action 用顶层 functionName。若误传 func.name，也会被识别为 functionName。`,
     },
     {
       name: "zipFile",
@@ -1893,13 +1893,13 @@ CloudBase 云函数统一写入口。支持创建函数、更新代码、更新�
 文档名：web-development 文档介绍：Use when users need to implement, integrate, debug, build, deploy, or validate a Web frontend after the product direction is already clear, especially for React, Vue, Vite, browser flows, or CloudBase Web integration.
 
       OpenAPI 文档 (openapi) 查询只需要传 mode="openapi" 和 apiName，不要传 action；action 仅用于 mode="docs"。当前支持 7 个 API 文档，分别是：
-      API名：cloudrun API介绍：CloudRun API - 云托管服务 HTTP API
+      API名：mysqldb API介绍：关系型数据库 RESTful API (MySQL/PostgreSQL) - 云开发关系型数据库 HTTP API
 API名：functions API介绍：Cloud Functions API - 云函数 HTTP API
-API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
-API名：storage API介绍：Storage API - 云存储 HTTP API
-API名：mysqldb API介绍：关系型数据库 RESTful API (MySQL/PostgreSQL) - 云开发关系型数据库 HTTP API
-API名：nosql API介绍：NoSQL RESTful API - 文档型数据库 HTTP API
 API名：auth API介绍：Authentication API - 身份认证 HTTP API
+API名：cloudrun API介绍：CloudRun API - 云托管服务 HTTP API
+API名：storage API介绍：Storage API - 云存储 HTTP API
+API名：nosql API介绍：NoSQL RESTful API - 文档型数据库 HTTP API
+API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
 
 #### 参数
 
@@ -1919,7 +1919,7 @@ API名：auth API介绍：Authentication API - 身份认证 HTTP API
     {
       name: "apiName",
       type: "string",
-      description: `mode=openapi 时指定。API 名称。 可填写的值: "cloudrun", "functions", "ai_model", "storage", "mysqldb", "nosql", "auth"`,
+      description: `mode=openapi 时指定。API 名称。 可填写的值: "mysqldb", "functions", "auth", "cloudrun", "storage", "nosql", "ai_model"`,
     },
     {
       name: "action",
