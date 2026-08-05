@@ -15,7 +15,7 @@ Prepared: 2026-07-28
 | GitHub repository | `TencentCloudBase/cloudbase-plugin` |
 | Plugin path | _(leave empty — plugin is at repo root)_ |
 | Ref to review | _(optional if SHA provided)_ |
-| Commit SHA | `b3835bea5cb8e10f57c1e0a584f645eea2cbc127` |
+| Commit SHA | `4082ba957d41f8fc6545411d8a929884ab88980c` |
 | Version | `0.2.0` |
 | License | `MIT` |
 | Author name | `Tencent CloudBase` |

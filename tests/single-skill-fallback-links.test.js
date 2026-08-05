@@ -11,6 +11,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, '..');
 const SOURCE_SKILLS_DIR = path.join(ROOT_DIR, 'config', 'source', 'skills');
+const PLUGIN_SKILLS_DIR = path.join(ROOT_DIR, 'plugin', 'cloudbase', 'skills');
 const CLOUD_GUIDELINES_FILE = path.join(
   ROOT_DIR,
   'config',
@@ -26,13 +27,10 @@ const SKILLS_REPO_OUTPUT_DIR = path.join(
 const tempDirs = [];
 
 const RAW_SKILLS_ROOT_URL =
-  'https://cnb.cool/tencent/cloud/cloudbase/cloudbase-skills/-/git/raw/main/skills';
-const MAIN_ENTRY_RAW_URL = `${RAW_SKILLS_ROOT_URL}/cloudbase/SKILL.md`;
-const FALLBACK_SECTION_TITLE = '## Standalone Install Note';
-
-function buildSiblingSkillRawUrl(skillId) {
-  return `${RAW_SKILLS_ROOT_URL}/cloudbase/references/${skillId}/SKILL.md`;
-}
+  'https://cnb.cool/tencent/cloud/cloudbase/cloudbase-skills/-/git/raw';
+const LOCAL_SIBLING_SECTION_TITLE = '## Sibling skills (local only)';
+const FORBIDDEN_FETCH_PHRASE =
+  'Do **not** HTTP-fetch remote skill or protocol markdown into the agent context';
 
 afterEach(() => {
   fs.rmSync(SKILLS_REPO_OUTPUT_DIR, { recursive: true, force: true });
@@ -41,34 +39,44 @@ afterEach(() => {
   }
 });
 
-describe('single skill fallback raw links', () => {
-  test('every source skill declares the published CloudBase entry and its own standalone raw source', () => {
-    const skillDirs = fs
-      .readdirSync(SOURCE_SKILLS_DIR, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name);
+function listSkillDirs(dir) {
+  return fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+}
 
-    for (const skillDir of skillDirs) {
+describe('local-only sibling skill links (no remote skill fetch)', () => {
+  test('source skills forbid remote skill raw URLs and keep local-only sibling guidance', () => {
+    for (const skillDir of listSkillDirs(SOURCE_SKILLS_DIR)) {
       const raw = fs.readFileSync(
         path.join(SOURCE_SKILLS_DIR, skillDir, 'SKILL.md'),
         'utf8',
       );
 
-      expect(raw).toContain(FALLBACK_SECTION_TITLE);
-      expect(raw).toContain(MAIN_ENTRY_RAW_URL);
-      expect(raw).toContain(buildSiblingSkillRawUrl(skillDir));
+      expect(raw).toContain(LOCAL_SIBLING_SECTION_TITLE);
+      expect(raw).toContain(FORBIDDEN_FETCH_PHRASE);
+      expect(raw).not.toContain(RAW_SKILLS_ROOT_URL);
+      expect(raw).not.toContain('standalone fallback:');
+      expect(raw).not.toContain('## Standalone Install Note');
       expect(raw).not.toContain('/skills/cloudbase-guidelines/SKILL.md');
-      expect(raw).not.toContain('/skills/<skill-dir>/SKILL.md');
     }
   });
 
-  test('source skills with sibling skill references expose standalone fallback URLs next to those references', () => {
-    const skillDirs = fs
-      .readdirSync(SOURCE_SKILLS_DIR, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name);
+  test('plugin packaged skills have zero cloudbase-skills git/raw URLs', () => {
+    for (const skillDir of listSkillDirs(PLUGIN_SKILLS_DIR)) {
+      const skillMd = path.join(PLUGIN_SKILLS_DIR, skillDir, 'SKILL.md');
+      if (!fs.existsSync(skillMd)) {
+        continue;
+      }
+      const raw = fs.readFileSync(skillMd, 'utf8');
+      expect(raw).not.toContain(RAW_SKILLS_ROOT_URL);
+      expect(raw).not.toContain('standalone fallback:');
+    }
+  });
 
-    for (const skillDir of skillDirs) {
+  test('source sibling references stay local-relative without remote fallbacks', () => {
+    for (const skillDir of listSkillDirs(SOURCE_SKILLS_DIR)) {
       const raw = fs.readFileSync(
         path.join(SOURCE_SKILLS_DIR, skillDir, 'SKILL.md'),
         'utf8',
@@ -77,25 +85,29 @@ describe('single skill fallback raw links', () => {
         (match) => match[1],
       );
 
+      expect(siblingRefs.length >= 0).toBe(true);
       for (const siblingRef of siblingRefs) {
-        expect(raw).toContain(buildSiblingSkillRawUrl(siblingRef));
+        expect(raw).toContain(`\`../${siblingRef}/SKILL.md\``);
+        expect(raw).not.toMatch(
+          new RegExp(
+            `\\.\\./${siblingRef}/SKILL\\.md\`\\s*\\(standalone fallback:`,
+          ),
+        );
       }
     }
   });
 
-  test('cloudbase guideline explains the standalone raw-link fallback for the published cloudbase entry', () => {
+  test('cloudbase guideline documents local sibling paths instead of raw-link fetch', () => {
     const raw = fs.readFileSync(CLOUD_GUIDELINES_FILE, 'utf8');
 
-    expect(raw).toContain('### Standalone skill fallback');
-    expect(raw).toContain(MAIN_ENTRY_RAW_URL);
-    expect(raw).toContain(
-      `${RAW_SKILLS_ROOT_URL}/cloudbase/references/<skill-id>/SKILL.md`,
-    );
+    expect(raw).not.toContain(RAW_SKILLS_ROOT_URL);
+    expect(raw).toMatch(/local relative paths/i);
+    expect(raw).toMatch(/Do \*\*not\*\* fetch sibling skill markdown from remote raw URLs/i);
     expect(raw).not.toContain('/skills/cloudbase-guidelines/SKILL.md');
     expect(raw).toMatch(/mcporter/i);
   });
 
-  test('build-skills-repo preserves fallback raw links in standalone skill outputs', () => {
+  test('build-skills-repo keeps local-only sibling guidance in standalone outputs', () => {
     execFileSync('node', ['scripts/build-skills-repo.mjs'], {
       cwd: ROOT_DIR,
       stdio: 'pipe',
@@ -110,13 +122,13 @@ describe('single skill fallback raw links', () => {
       'utf8',
     );
 
-    expect(outputSkill).toContain(FALLBACK_SECTION_TITLE);
-    expect(outputSkill).toContain(MAIN_ENTRY_RAW_URL);
-    expect(outputSkill).toContain(buildSiblingSkillRawUrl('auth-web-cloudbase'));
-    expect(outputSkill).toContain(buildSiblingSkillRawUrl('auth-tool-cloudbase'));
+    expect(outputSkill).toContain(LOCAL_SIBLING_SECTION_TITLE);
+    expect(outputSkill).toContain(FORBIDDEN_FETCH_PHRASE);
+    expect(outputSkill).not.toContain(RAW_SKILLS_ROOT_URL);
+    expect(outputSkill).toContain('../auth-tool-cloudbase/SKILL.md');
   });
 
-  test('buildClawhubPublishArtifacts preserves fallback raw links in published skill artifacts', () => {
+  test('buildClawhubPublishArtifacts omits remote skill raw URLs', () => {
     const outputDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawhub-fallback-'));
     tempDirs.push(outputDir);
 
@@ -130,13 +142,12 @@ describe('single skill fallback raw links', () => {
       'utf8',
     );
 
-    expect(outputSkill).toContain(FALLBACK_SECTION_TITLE);
-    expect(outputSkill).toContain(MAIN_ENTRY_RAW_URL);
-    expect(outputSkill).toContain(buildSiblingSkillRawUrl('web-development'));
-    expect(outputSkill).toContain(buildSiblingSkillRawUrl('auth-tool-cloudbase'));
+    expect(outputSkill).toContain(LOCAL_SIBLING_SECTION_TITLE);
+    expect(outputSkill).not.toContain(RAW_SKILLS_ROOT_URL);
+    expect(outputSkill).toContain('../auth-tool-cloudbase/SKILL.md');
   });
 
-  test('buildCompatConfig preserves fallback raw links in IDE compatibility outputs', () => {
+  test('buildCompatConfig omits remote skill raw URLs in IDE compatibility outputs', () => {
     const compatDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'compat-fallback-links-'),
     );
@@ -149,9 +160,8 @@ describe('single skill fallback raw links', () => {
       'utf8',
     );
 
-    expect(compatSkill).toContain(FALLBACK_SECTION_TITLE);
-    expect(compatSkill).toContain(MAIN_ENTRY_RAW_URL);
-    expect(compatSkill).toContain(buildSiblingSkillRawUrl('auth-web-cloudbase'));
-    expect(compatSkill).toContain(buildSiblingSkillRawUrl('auth-tool-cloudbase'));
+    expect(compatSkill).toContain(LOCAL_SIBLING_SECTION_TITLE);
+    expect(compatSkill).not.toContain(RAW_SKILLS_ROOT_URL);
+    expect(compatSkill).toContain('../auth-tool-cloudbase/SKILL.md');
   });
 });
