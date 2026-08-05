@@ -44,7 +44,8 @@ import { execFileSync } from "node:child_process";
 import { pipeline } from "node:stream/promises";
 import { Readable } from "node:stream";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const packageDir = path.resolve(__dirname, "..");
 
 const PACKAGE_NAME = process.env.PACKAGE_NAME || "@cloudbase/cloudbase-mcp";
@@ -221,6 +222,43 @@ function parseToolPayload(result) {
   return JSON.parse(text);
 }
 
+/**
+ * Evaluate a live queryPermissions tool envelope for post-publish smoke.
+ *
+ * Pure / sync so PR CI and local vitest can cover primary-path WARN and OPA
+ * fallback PASS without cloud credentials.
+ *
+ * IMPORTANT: Do not bind the route label to a local named `path` inside
+ * runLiveWithFreshServer — that shadows the node:path import and triggers TDZ
+ * on earlier path.join() calls (ReferenceError in live smoke only).
+ *
+ * @param {object} payload Parsed tool JSON payload
+ * @returns {{ routePath: "primary" | "opa-fallback", fallback: string | null, usedOpaFallback: boolean, warnPrimaryWithoutOpa: boolean, message: string }}
+ */
+export function evaluateLiveQueryPermissionsPayload(payload) {
+  assert(
+    payload?.success === true,
+    `Live queryPermissions failed: ${payload?.message || JSON.stringify(payload)}`,
+  );
+
+  // OPA fallback is optional: some PG envs still route through describeEnvAuthzConfig,
+  // but a healthy primary-path success must not fail the release smoke.
+  // Tool envelopes nest fallback under data (see permissions.ts buildEnvelope).
+  const fallbackValue = payload.data?.fallback ?? payload.fallback;
+  const usedOpaFallback =
+    fallbackValue === "describeEnvAuthzConfig" ||
+    String(payload.message || "").includes("describeEnvAuthzConfig");
+  const routePath = usedOpaFallback ? "opa-fallback" : "primary";
+
+  return {
+    routePath,
+    fallback: fallbackValue || null,
+    usedOpaFallback,
+    warnPrimaryWithoutOpa: !usedOpaFallback,
+    message: String(payload.message || ""),
+  };
+}
+
 async function runLiveWithFreshServer(pkgRoot) {
   if (SKIP_LIVE_SMOKE) {
     log("live-smoke", "skipped (SKIP_LIVE_SMOKE=1)");
@@ -255,36 +293,27 @@ async function runLiveWithFreshServer(pkgRoot) {
     resourceId: SMOKE_PG_FUNCTION_ID,
   });
   const payload = parseToolPayload(result);
-
-  assert(payload.success === true, `Live queryPermissions failed: ${payload.message || JSON.stringify(payload)}`);
-
-  // OPA fallback is optional: some PG envs still route through describeEnvAuthzConfig,
-  // but a healthy primary-path success must not fail the release smoke.
-  // Tool envelopes nest fallback under data (see permissions.ts buildEnvelope).
-  const fallbackValue = payload.data?.fallback ?? payload.fallback;
-  const usedOpaFallback =
-    fallbackValue === "describeEnvAuthzConfig" ||
-    String(payload.message || "").includes("describeEnvAuthzConfig");
+  const evaluated = evaluateLiveQueryPermissionsPayload(payload);
   // Do not name this `path` — it shadows the node:path import and triggers TDZ
   // on earlier path.join() calls in this function (live smoke ReferenceError).
-  const routePath = usedOpaFallback ? "opa-fallback" : "primary";
+  const routePath = evaluated.routePath;
 
-  if (!usedOpaFallback) {
+  if (evaluated.warnPrimaryWithoutOpa) {
     log(
       "live-smoke",
-      `WARN primary path succeeded without OPA fallback (acceptable); message=${payload.message}`,
+      `WARN primary path succeeded without OPA fallback (acceptable); message=${evaluated.message}`,
     );
   }
 
   log(
     "live-smoke",
-    `PASS env=${envId} function=${SMOKE_PG_FUNCTION_ID} path=${routePath} fallback=${fallbackValue || "none"}`,
+    `PASS env=${envId} function=${SMOKE_PG_FUNCTION_ID} path=${routePath} fallback=${evaluated.fallback || "none"}`,
   );
   return {
     skipped: false,
     envId,
     functionId: SMOKE_PG_FUNCTION_ID,
-    fallback: fallbackValue || null,
+    fallback: evaluated.fallback,
     path: routePath,
   };
 }
@@ -359,7 +388,9 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error("[npm-tarball-smoke] FAILED:", error);
-  process.exit(1);
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
+  main().catch((error) => {
+    console.error("[npm-tarball-smoke] FAILED:", error);
+    process.exit(1);
+  });
+}
