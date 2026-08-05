@@ -9,7 +9,7 @@
 | Maintainer | aaronpowell |
 | Root cause | Agent-directed remote skill fetch via `cnb.cool/.../git/raw/...` URLs in every skill |
 | Remediation | Source-level strip of remote skill-fetch (this document) |
-| Resubmit path | Edit issue SHA → comment `/rerun-intake` |
+| Resubmit path | Done 2026-08-05 — SHA `4082ba957d41f8fc6545411d8a929884ab88980c`; intake passed; label `ready-for-review` |
 
 ## Rejection (verbatim)
 
@@ -44,6 +44,7 @@ Awesome Copilot installs the **full plugin**, so remote sibling fetch is unneces
 6. **Resubmit** — **done**
    - Edit #2459 Commit SHA → `4082ba957d41f8fc6545411d8a929884ab88980c`
    - Comment remediation summary + `/rerun-intake` (2026-08-05)
+   - Intake re-passed; `rejected` removed; label `ready-for-review`
 
 ## Explicit non-goals
 

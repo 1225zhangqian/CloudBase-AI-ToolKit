@@ -84,14 +84,14 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 
 | Field | Value |
 |-------|-------|
-| Status | **Resubmitted after security fix** — remote skill-fetch URLs removed; `/rerun-intake` requested 2026-08-05 |
+| Status | **Intake re-passed** — awaiting maintainer re-review (`ready-for-review`) |
 | Issue | https://github.com/github/awesome-copilot/issues/2459 |
 | Packet | `specs/plugin-marketplace-listing/awesome-copilot-submission-packet.md` |
 | Response | `specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md` |
 | Source | `TencentCloudBase/cloudbase-plugin` @ `4082ba957d41f8fc6545411d8a929884ab88980c` |
 | Submitted at | 2026-07-28 |
 | Rejected at | 2026-08-04 (security: agent-directed remote skill fetch) |
-| Re-run at | 2026-08-05 (`/rerun-intake` after stripping `cnb.cool/.../git/raw` skill URLs) |
+| Re-run at | 2026-08-05 (`/rerun-intake` after stripping `cnb.cool/.../git/raw` skill URLs; intake passed) |
 
 ### How to check progress (Awesome Copilot)
 

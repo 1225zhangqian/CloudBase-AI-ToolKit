@@ -262,11 +262,10 @@ markets:
       docs_only: listed
     submit_url_or_process: |
       Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.
-      Status 2026-08-04: Awesome Copilot #2459 rejected (remote skill-fetch / injection). Remediation: strip cnb.cool raw skill URLs, then edit SHA + /rerun-intake.
+      Status 2026-08-05: Awesome Copilot #2459 intake re-passed after stripping remote skill-fetch URLs (SHA 4082ba95...). Awaiting maintainer re-review.
       See specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md
     eligibility: marketplace_add_or_catalog_pr
-    blockers:
-      - Awesome Copilot #2459 rejected until remote skill-fetch URLs are removed and intake re-runs
+    blockers: []
     evidence_links:
       - https://code.visualstudio.com/docs/agent-customization/agent-plugins
       - https://github.com/github/awesome-copilot/issues/2459
@@ -285,7 +284,7 @@ markets:
     notes: |
       2026-07-28: Submitted cloudbase via Awesome Copilot external-plugin issue #2459.
       2026-08-04: Rejected — skills instruct agents to fetch sibling skills from cnb.cool raw URLs.
-      2026-08-05: Source/plugin remediation to local-only sibling guidance; resubmit pending new plugin SHA.
+      2026-08-05: Source/plugin remediation merged (PR #875); plugin SHA 4082ba95; /rerun-intake passed; ready-for-review.
 
   - id: github-copilot-cli
     product: GitHub Copilot CLI
