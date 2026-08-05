@@ -84,12 +84,14 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 
 | Field | Value |
 |-------|-------|
-| Status | **Intake re-run requested** — vally fixes synced; awaiting gate recheck |
+| Status | **Resubmitted after security fix** — remote skill-fetch URLs removed; `/rerun-intake` requested 2026-08-05 |
 | Issue | https://github.com/github/awesome-copilot/issues/2459 |
 | Packet | `specs/plugin-marketplace-listing/awesome-copilot-submission-packet.md` |
-| Source | `TencentCloudBase/cloudbase-plugin` @ `b3835bea5cb8e10f57c1e0a584f645eea2cbc127` |
+| Response | `specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md` |
+| Source | `TencentCloudBase/cloudbase-plugin` @ `4082ba957d41f8fc6545411d8a929884ab88980c` |
 | Submitted at | 2026-07-28 |
-| Re-run at | 2026-07-28 (`/rerun-intake` after skill dir rename for vally) |
+| Rejected at | 2026-08-04 (security: agent-directed remote skill fetch) |
+| Re-run at | 2026-08-05 (`/rerun-intake` after stripping `cnb.cool/.../git/raw` skill URLs) |
 
 ### How to check progress (Awesome Copilot)
 

@@ -88,6 +88,8 @@ Examples of good targets:
 
 - [x] Users can already add this repo / `cloudbase-plugin` as a marketplace source
 - [x] Awesome Copilot external plugin issue opened — https://github.com/github/awesome-copilot/issues/2459 (2026-07-28)
+- [x] Rejection response documented — `awesome-copilot-rejection-response.md` (remote skill-fetch)
+- [ ] Strip remote skill-fetch URLs, sync plugin SHA, `/rerun-intake` on #2459
 - [ ] Await Awesome Copilot maintainer review → entry in `plugins/external.json`
 - [ ] Optional later: PR to official `github/copilot-plugins` (mostly Microsoft-curated; lower priority)
 - [x] Prefer documenting `npx plugins add TencentCloudBase/cloudbase-plugin --target vscode` / `github-copilot`
