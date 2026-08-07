@@ -143,6 +143,66 @@ describe('publish-to-clawhub command construction', () => {
   });
 });
 
+describe('publish-to-clawhub version-exists idempotency', () => {
+  test('treats stderr-only Version already exists as already-published and continues', () => {
+    const previousToken = process.env.CLAWDHUB_TOKEN;
+    process.env.CLAWDHUB_TOKEN = 'test-token';
+
+    try {
+      const manifestPath = createManifest([
+        { targetKey: 'all-in-one', registrySlug: 'cloudbase' },
+        { targetKey: 'web-development', registrySlug: 'web-development' },
+      ]);
+      const publishCalls = [];
+
+      const results = publishToClawhub({
+        manifestPath,
+        changelog: 'idempotency regression',
+        runPublish: (_command, args) => {
+          publishCalls.push(args);
+          const slugIndex = args.indexOf('--slug');
+          const slug = slugIndex >= 0 ? args[slugIndex + 1] : '';
+          if (slug === 'cloudbase') {
+            // Mimic CI: Command failed message has no Version text; stderr does.
+            const error = new Error(
+              'Command failed: clawhub skill publish /tmp/artifact/skills/cloudbase --slug cloudbase',
+            );
+            error.stderr =
+              'Error: Version 1.92.48 already exists. Increment the version number and try again. (reset in 44s)\n';
+            throw error;
+          }
+          return { status: 'ok', output: 'OK. web-development@1.0.0 published\n' };
+        },
+        sleepMs: () => {
+          throw new Error('sleep should not be called for version-exists');
+        },
+      });
+
+      expect(publishCalls).toHaveLength(2);
+      expect(results).toEqual([
+        {
+          targetKey: 'all-in-one',
+          registrySlug: 'cloudbase',
+          status: 'already-published',
+          attempts: 1,
+        },
+        {
+          targetKey: 'web-development',
+          registrySlug: 'web-development',
+          status: 'published',
+          attempts: 1,
+        },
+      ]);
+    } finally {
+      if (previousToken === undefined) {
+        delete process.env.CLAWDHUB_TOKEN;
+      } else {
+        process.env.CLAWDHUB_TOKEN = previousToken;
+      }
+    }
+  });
+});
+
 describe('publish-to-clawhub all-in-one upload-ticket retry', () => {
   test('retries all-in-one on upload-ticket mismatch then succeeds', () => {
     const previousToken = process.env.CLAWDHUB_TOKEN;
