@@ -825,6 +825,7 @@ export function registerHostingTools(server: ExtendedMcpServer) {
                 }
               }
 
+              // sendDeployNotification requires a concrete url; skip when no reachable accessUrl
               if (accessUrl) {
                 await sendDeployNotification(server, {
                   deployType: 'hosting',
