@@ -4,6 +4,7 @@ import path from 'path';
 import { z } from "zod";
 import { getCloudBaseManager, getEnvId } from '../cloudbase-manager.js';
 import { ExtendedMcpServer } from '../server.js';
+import type { CloudBaseOptions } from '../types.js';
 import { debug } from '../utils/logger.js';
 import { preferGatewayOrFallback, resolveGatewayAccessUrls } from '../utils/gateway-access-urls.js';
 import { sendDeployNotification } from '../utils/notification.js';
@@ -248,6 +249,57 @@ export type CloudRunDbNetworkRisk = {
   matchedKeys: string[];
   remediation: string[];
 };
+
+/**
+ * 探测当前环境云托管（大租户）是否已初始化。
+ *
+ * 背景（2026-08-13 用户实测）：新环境未调 CreateCloudRunEnv 初始化云托管时，
+ * 直接 CreateCloudRunServer 会因"无大租户记录"被默认转入小租户，创建出小租户的
+ * 服务和版本——这是错误路径。本函数在 deploy 创建新服务前用 tcbr DescribeCloudRunEnv
+ * 探测环境是否已开通云托管；未开通则抛错引导先初始化，而不是默默走到小租户路径。
+ *
+ * @returns 已初始化返回 true；探测失败抛出带引导信息的 Error。
+ */
+export async function ensureCloudRunEnvInitialized(options: {
+  cloudBaseOptions?: CloudBaseOptions;
+  envId: string;
+  serverName: string;
+}): Promise<boolean> {
+  const manager = await getCloudBaseManager({ cloudBaseOptions: options.cloudBaseOptions });
+  if (!manager?.commonService) {
+    // 老 SDK 无 commonService 时退化为不拦截（保持既有行为，避免误伤）。
+    return true;
+  }
+  try {
+    await manager
+      .commonService("tcbr", "2022-02-17")
+      .call({
+        Action: "DescribeCloudRunEnv",
+        Param: { EnvId: options.envId },
+      });
+    return true;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    // 未初始化云托管时网关返回的资源不存在/未开通类错误码。
+    // 注意：裸 InvalidParameter 可能是普通参数错误，不拦截；仅当其带 Env/CloudRun
+    // 上下文（疑似 "EnvironmentId not found / CloudRun Env 未开通"）时才按未初始化处理。
+    if (
+      /ResourceNotFound|NotFound|not.?found|not.?initialized|未开通|未初始化/i.test(msg) ||
+      /InvalidParameter.*(?:Env|CloudRun)/i.test(msg)
+    ) {
+      throw new Error(
+        `当前环境（${options.envId}）尚未初始化云托管（CloudRun Env）。` +
+          `不能直接创建服务（CreateCloudRunServer 在无大租户记录时会默认创建到小租户，产生错误的小租户服务与版本）。\n` +
+          `请先初始化云托管环境，再重试部署：\n` +
+          `- MCP：callCloudApi(service="tcbr", version="2022-02-17", action="CreateCloudRunEnv", params={EnvId:"${options.envId}"})\n` +
+          `- 或控制台：环境 → 云托管 → 开通（https://tcb.cloud.tencent.com/dev?envId=${options.envId}#/platform-run）\n` +
+          `初始化完成后重新调用 manageCloudRun(action="deploy")。`,
+      );
+    }
+    // 其他错误（网络/权限等）不拦截，让上层按原逻辑处理。
+    return true;
+  }
+}
 
 /**
  * Detect likely TCP database/cache env usage without VpcConf.
@@ -912,6 +964,18 @@ for await (let x of res.textStream) {
               } catch {
                 // New service create path
               }
+            }
+
+            // 新环境必须先初始化云托管（大租户），否则 CreateCloudRunServer 会默认
+            // 创建小租户服务。仅创建新服务（非 existing）前探测一次。
+            // （2026-08-13 用户实测：luapi-v2 因未初始化云托管被创建到小租户）
+            if (!existingService) {
+              const currentEnvId = await getEnvId(cloudBaseOptions);
+              await ensureCloudRunEnvInitialized({
+                cloudBaseOptions,
+                envId: currentEnvId,
+                serverName: input.serverName,
+              });
             }
 
             let mergedFromRemote: string[] = [];
