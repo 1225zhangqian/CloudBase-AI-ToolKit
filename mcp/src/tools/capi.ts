@@ -38,7 +38,7 @@ const TCB_CLOUDRUN_FORBIDDEN_HINT =
     `云托管（CloudBase Run）统一走 tcbr 新逻辑（CreateCloudRunEnv / CreateCloudRunServer），` +
     `不要使用 tcb 旧小租户接口（${TCB_CLOUDRUN_FORBIDDEN_ACTIONS.join(" / ")}）。` +
     `新环境请先初始化云托管：callCloudApi(service="tcbr", version="2022-02-17", action="CreateCloudRunEnv", params={EnvId:"..."})，` +
-    `再通过 manageCloudRun(action="deploy") 创建服务；查询云托管环境用 callCloudApi(service="tcbr", version="2022-02-17", action="DescribeCloudRunEnvs")。`;
+    `再通过 manageCloudRun(action="deploy") 创建服务；查询单个环境基础信息/是否已开通云托管用 callCloudApi(service="tcbr", version="2022-02-17", action="DescribeEnvBaseInfo", params={EnvId:"..."})，查询环境列表/资源信息用 DescribeCloudRunEnvs。`;
 
 /**
  * 拒绝 tcb 旧版小租户云托管 API。命中黑名单时抛出带 tcbr 引导的错误。
@@ -249,7 +249,7 @@ export function registerCapiTools(server: ExtendedMcpServer) {
 **云函数**: \`DescribeFunctions\`、\`CreateFunction\`、\`UpdateFunctionCode\`、\`DeleteFunction\`
 **数据库**: \`CreateMySQLInstance\`、\`DescribeMySQLInstances\`、\`DestroyMySQLInstance\`
 
-⚠️ 云托管（CloudBase Run）统一走 tcbr service（CreateCloudRunEnv / CreateCloudRunServer / DescribeCloudRunEnvs，version="2022-02-17"），tcb 旧小租户接口 CreateCloudBaseRunResource 等已被禁用；部署请用 manageCloudRun。
+⚠️ 云托管（CloudBase Run）统一走 tcbr service（CreateCloudRunEnv / CreateCloudRunServer / DescribeEnvBaseInfo / DescribeCloudRunEnvs，version="2022-02-17"），tcb 旧小租户接口 CreateCloudBaseRunResource 等已被禁用；部署请用 manageCloudRun。查询单个环境基础信息/是否已开通云托管用 DescribeEnvBaseInfo（EnvId 必填），查询环境列表及资源信息用 DescribeCloudRunEnvs（EnvId 可选过滤）。
 
 销毁环境时，常见做法是至少带上 \`EnvId\` 和 \`BypassCheck: true\`，如果环境已经处于隔离期再按文档补 \`IsForce: true\`。`,
             inputSchema: {
@@ -261,7 +261,7 @@ export function registerCapiTools(server: ExtendedMcpServer) {
                 action: z
                     .string()
                     .min(1)
-                    .describe("具体 Action 名称，需符合对应服务的官方 API 定义。若不确定正确 Action，请先查官方文档；不要用近义词或历史命名进行猜测。tcb 常用 Action：环境管理 CreateEnv/ModifyEnv/DescribeEnvs/DestroyEnv、用户管理 CreateUser/ModifyUser/DescribeUserList/DeleteUsers、认证配置 EditAuthConfig、云函数 DescribeFunctions/CreateFunction、数据库 CreateMySQLInstance 等。tcbr 常用 Action：CreateCloudRunEnv/DescribeCloudRunEnvs/CreateCloudRunServer/DescribeCloudRunServers。"),
+                    .describe("具体 Action 名称，需符合对应服务的官方 API 定义。若不确定正确 Action，请先查官方文档；不要用近义词或历史命名进行猜测。tcb 常用 Action：环境管理 CreateEnv/ModifyEnv/DescribeEnvs/DestroyEnv、用户管理 CreateUser/ModifyUser/DescribeUserList/DeleteUsers、认证配置 EditAuthConfig、云函数 DescribeFunctions/CreateFunction、数据库 CreateMySQLInstance 等。tcbr 常用 Action：CreateCloudRunEnv（初始化云托管）、DescribeEnvBaseInfo（查询单个环境基础信息，EnvId 必填）、DescribeCloudRunEnvs（查询环境列表/资源信息，EnvId 可选过滤）、CreateCloudRunServer/DescribeCloudRunServers。"),
                 version: z
                     .string()
                     .optional()
