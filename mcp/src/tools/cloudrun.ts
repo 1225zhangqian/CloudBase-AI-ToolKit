@@ -259,8 +259,13 @@ export type CloudRunDbNetworkRisk = {
  * 探测环境是否已开通云托管；未开通则抛错引导先初始化，而不是默默走到小租户路径。
  *
  * 实测（2026-08-13 真实凭据）：tcbr 不存在 DescribeCloudRunEnv（单数）Action，调用
- * 恒返回 InvalidAction；正确的探测接口是 DescribeEnvBaseInfo，未开通云托管的环境返回
- * IsExist=false 且 EnvBaseInfo 为空结构（不抛错），已开通则 IsExist=true。
+ * 恒返回 InvalidAction；正确的探测接口是 DescribeEnvBaseInfo。未开通云托管的环境返回
+ * IsExist=false 且 EnvBaseInfo 为空结构（不抛错）；已开通的环境（实测 ai-share-
+ * d2guukyxybb63b206）返回 IsExist=true 且 EnvBaseInfo 含完整字段（Status="normal"、
+ * PackageType/Region/EnvType/CreateTime 等已填充），两分支可明确区分。
+ *
+ * 双验证：DescribeCloudRunServers 未初始化与已初始化但无服务均返回 ServerList=[]，
+ * 无法区分，故不作为初始化判定依据。
  *
  * @returns 已初始化返回 true；探测到未初始化抛出带引导信息的 Error。
  */
