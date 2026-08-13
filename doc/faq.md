@@ -373,6 +373,35 @@ CloudBase AI ToolKit 与微信开发者工具可以完美配合使用，提供�
 
 这样就可以切换到新的腾讯云账号了。
 
+### 国内站新加坡环境被当成国际站了怎么办？
+
+国内站现已支持新加坡地域（`ap-singapore`）。由于国内站与国际站都提供该地域，仅配置 `TCB_REGION=ap-singapore` 会被默认按**国际站**处理（登录跳到国际站、NoSQL 工具被跳过）。国内站新加坡用户需显式指定站点：
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "command": "npx",
+      "args": ["@cloudbase/cloudbase-mcp@latest"],
+      "env": {
+        "TCB_SITE": "domestic",
+        "TCB_REGION": "ap-singapore"
+      }
+    }
+  }
+}
+```
+
+也可以在项目根目录新建 `.cloudbase/project.json`，让该目录下所有会话自动使用正确站点：
+
+```json
+{ "site": "domestic", "region": "ap-singapore", "envId": "你的环境ID" }
+```
+
+### 国内站和国际站可以并存两套登录凭证吗？
+
+可以。MCP 按站点分槽存储凭证（`credential.domestic` / `credential.intl`），国内站与国际站可分别登录并存，切换环境无需重新登录。旧版 `auth.json` 单槽数据会自动按国内站兼容读取，首次写回时自动升级为分槽格式。
+
 ### 如何确认当前环境？
 
 ```

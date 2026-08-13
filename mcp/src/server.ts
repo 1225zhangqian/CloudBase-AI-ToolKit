@@ -25,7 +25,7 @@ import { CloudBaseOptions, Logger, PluginOptions } from "./types.js";
 import type { AuthOptions } from "./auth.js";
 import { enableCloudMode } from "./utils/cloud-mode.js";
 import { info } from './utils/logger.js';
-import { isInternationalRegion } from "./utils/tencent-cloud.js";
+import { resolveSiteAndRegion, SITE_REGION_MAP } from "./utils/site-map.js";
 import { buildJsonToolResult, isToolPayloadError } from "./utils/tool-result.js";
 import { wrapServerWithTelemetry, applyCategoryAnnotationMeta, type ToolAnnotations } from "./utils/tool-wrapper.js";
 
@@ -59,9 +59,12 @@ const DEFAULT_PLUGINS = [
 ];
 
 function registerDatabase(server: ExtendedMcpServer) {
-  // Skip NoSQL database tools for international region (Singapore) as it doesn't support NoSQL DB
-  const region = server.cloudBaseOptions?.region || process.env.TCB_REGION;
-  if (!isInternationalRegion(region)) {
+  // NoSQL 数据库按站点能力集合注册（国际站默认不支持 NoSQL）
+  const { site } = resolveSiteAndRegion({
+    site: server.cloudBaseOptions?.site,
+    region: server.cloudBaseOptions?.region,
+  });
+  if (SITE_REGION_MAP[site].capabilities.noSql) {
     registerDatabaseTools(server);
   }
   registerDataModelTools(server);
@@ -72,8 +75,11 @@ function registerMysqlDatabase(server: ExtendedMcpServer) {
 }
 
 function registerNoSQLDatabase(server: ExtendedMcpServer) {
-  const region = server.cloudBaseOptions?.region || process.env.TCB_REGION;
-  if (!isInternationalRegion(region)) {
+  const { site } = resolveSiteAndRegion({
+    site: server.cloudBaseOptions?.site,
+    region: server.cloudBaseOptions?.region,
+  });
+  if (SITE_REGION_MAP[site].capabilities.noSql) {
     registerDatabaseTools(server);
   }
 }

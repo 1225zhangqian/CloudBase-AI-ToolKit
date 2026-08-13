@@ -41,6 +41,7 @@ CloudBase MCP 支持两种连接方式：**本地模式**（MCP 服务在本机�
 | `TENCENTCLOUD_SECRETKEY` | 腾讯云 SecretKey（可选） | 同上 |
 | `TENCENTCLOUD_SESSIONTOKEN` | 腾讯云临时密钥 Token（可选） | 仅在使用临时密钥时需要，可通过 [STS 服务](https://console.cloud.tencent.com/cam/capi) 获取 |
 | `TCB_REGION` | 腾讯云地域，如 `ap-shanghai`（可选） | 不设则使用 SDK 默认 |
+| `TCB_SITE` | 站点：`domestic`（国内站）或 `intl`（国际站）（可选） | 不设则按 `region` 反查映射表；`ap-singapore` 歧义时默认 `intl`。国内站新加坡用户必须显式设 `domestic`，避免被误判为国际站 |
 | `TCB_AUTH_OAUTH_ENDPOINT` | 自定义 device-code 登录 endpoint（可选，推荐作为主要覆盖项） | 不设则使用默认登录 endpoint |
 | `TCB_AUTH_CLIENT_ID` | 自定义 device-code 登录 `client_id`（高级可选） | 不设则使用默认 `client_id` |
 | `TCB_AUTH_OAUTH_CUSTOM` | 自定义 endpoint 返回格式开关（高级可选） | 未配置 endpoint 时默认 `false`；配置 endpoint 后默认 `true` |
@@ -101,6 +102,78 @@ TCB_AUTH_OAUTH_ENDPOINT=https://auth.your-domain.com/oauth
 
 - `TCB_AUTH_CLIENT_ID`：只有自定义登录服务要求固定 `client_id` 时才配
 - `TCB_AUTH_OAUTH_CUSTOM`：配置自定义 `TCB_AUTH_OAUTH_ENDPOINT` 时应按 `true` 使用；现在默认也会自动按 `true` 处理
+
+---
+
+## 站点与地域（site / region）
+
+CloudBase 有**国内站**（`domestic`，cloud.tencent.com）与**国际站**（`intl`，tencentcloud.com）两套独立的账号体系与登录域名。MCP 用 `site` 决定登录域名/凭证槽位，用 `region` 决定 API 路由目标，两者解耦。
+
+### 解析优先级
+
+```
+显式 cloudBaseOptions.site/region
+  > 环境变量 TCB_SITE / TCB_REGION
+  > 项目级配置 .cloudbase/project.json
+  > 全局默认：domestic + ap-shanghai
+```
+
+### 地域与站点的默认关系
+
+| region | 未配 site 时的解析结果 |
+|--------|------------------------|
+| `ap-shanghai` / `ap-guangzhou` | `domestic`（国内站） |
+| `ap-singapore` | **歧义**：国内站与国际站都有该地域，未配 site 时默认 `intl`（兼容既有行为） |
+
+### 国际站用户
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "command": "npx",
+      "args": ["@cloudbase/cloudbase-mcp@latest"],
+      "env": {
+        "TCB_SITE": "intl",
+        "TCB_REGION": "ap-singapore"
+      }
+    }
+  }
+}
+```
+
+### 国内站新加坡用户（重要迁移指引）
+
+国内站现已支持新加坡地域。**只配置 `TCB_REGION=ap-singapore` 会被默认按国际站处理**（登录跳国际站、NoSQL 工具被跳过）。国内站新加坡用户必须显式配置站点：
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "command": "npx",
+      "args": ["@cloudbase/cloudbase-mcp@latest"],
+      "env": {
+        "TCB_SITE": "domestic",
+        "TCB_REGION": "ap-singapore"
+      }
+    }
+  }
+}
+```
+
+也可以使用项目级配置 `.cloudbase/project.json`（独立文件，不并入 `cloudbaserc.json`），让同一目录下的所有会话自动带入正确的站点：
+
+```json
+{
+  "site": "domestic",
+  "region": "ap-singapore",
+  "envId": "your-env-id"
+}
+```
+
+### 多站点凭证并存
+
+登录凭证按站点分槽存储（`~/.config/.cloudbase/auth.json` 的 `credential` 升级为 `credential.domestic` / `credential.intl`），国内站与国际站可分别登录并存，切换环境无需重新登录。旧版单槽数据读取时自动视为 `domestic`，首次写回时自动升级为分槽格式。
 
 ---
 

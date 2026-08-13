@@ -312,6 +312,19 @@ Confirm an environment exists and is healthy in the [console](https://tcb.cloud.
 
 </details>
 
+<details>
+<summary>Domestic site env at `ap-singapore` is treated as international?</summary>
+
+Both the domestic site (cloud.tencent.com) and the international site (tencentcloud.com) offer the `ap-singapore` region, so region alone is ambiguous. Without an explicit site, MCP defaults to `intl` for `ap-singapore` (backward compatible). Domestic-site Singapore users must set `TCB_SITE=domestic` (together with `TCB_REGION=ap-singapore`) in the MCP `env`, or add a `.cloudbase/project.json` at the project root:
+
+```json
+{ "site": "domestic", "region": "ap-singapore", "envId": "your-env-id" }
+```
+
+Credentials are stored per site (`credential.domestic` / `credential.intl`) so domestic and international logins can coexist; legacy single-slot `auth.json` is read as `domestic` and migrated on first write.
+
+</details>
+
 ## Community
 
 | | |

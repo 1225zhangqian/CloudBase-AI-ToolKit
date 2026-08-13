@@ -95,6 +95,10 @@ Hosted URLs can use `enable_plugins` / `disable_plugins` (comma-separated). Cano
 | Team / zero ops | Hosted HTTP |
 | Self-hosted MCP | Cloud Mode required |
 
+### Site & region
+
+Set `TCB_SITE` (`domestic` / `intl`) to select the login/credential site, and `TCB_REGION` for API routing. The domestic and international sites are separate account systems. `ap-singapore` exists on both, so **domestic-site Singapore users must set `TCB_SITE=domestic`**; otherwise it defaults to `intl`. Project-level `.cloudbase/project.json` (`{ site, region, envId }`) is also supported.
+
 ## Capabilities
 
 Typical backend work in your environment (confirm critical steps):
