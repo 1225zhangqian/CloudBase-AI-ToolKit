@@ -1,6 +1,6 @@
 # CloudBase Plugin Marketplace Analysis
 
-Generated: 2026-08-13T04:15:08.596Z
+Generated: 2026-08-13T04:58:08.951Z
 
 > This report does not auto-submit to any marketplace. All submissions are manual.
 
@@ -271,7 +271,7 @@ Statuses:
 
 Blockers:
 
-- cloudbase not present in github/awesome-copilot plugins/external.json despite
+- awaiting maintainer /approve on re-submission github/awesome-copilot#2645 to trigger the Add cloudbase listing PR
 
 Local evidence:
 
@@ -282,7 +282,7 @@ Submit checklist:
 
 - [ ] Users can add TencentCloudBase/CloudBase-MCP as marketplace
 - [ ] Strip remote skill-fetch URLs; sync cloudbase-plugin; /rerun-intake on
-- [ ] Confirm external.json entry after
+- [ ] Re-submission
 - [ ] [object Object]
 
 Process:
@@ -291,6 +291,7 @@ Process:
 Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.
 Status 2026-08-05: Awesome Copilot #2459 intake re-passed after stripping remote skill-fetch URLs (SHA 4082ba95...). Label ready-for-review.
 Status 2026-08-12: maintainer aaronpowell closed #2459 as COMPLETED (no comment); cloudbase NOT yet in plugins/external.json.
+Status 2026-08-13: Reopening #2459 blocked by permissions; commented on #2459 asking for /approve (issuecomment-5276131129); opened re-submission #2645, intake passed, ready-for-review.
 See specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md
 ```
 
@@ -298,6 +299,7 @@ Evidence:
 
 - https://code.visualstudio.com/docs/agent-customization/agent-plugins
 - https://github.com/github/awesome-copilot/issues/2459
+- https://github.com/github/awesome-copilot/issues/2645
 - specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md
 
 Recommended install docs: `doc/ide-setup/vscode.mdx`

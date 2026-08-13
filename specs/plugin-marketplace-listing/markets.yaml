@@ -266,13 +266,15 @@ markets:
       Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.
       Status 2026-08-05: Awesome Copilot #2459 intake re-passed after stripping remote skill-fetch URLs (SHA 4082ba95...). Label ready-for-review.
       Status 2026-08-12: maintainer aaronpowell closed #2459 as COMPLETED (no comment); cloudbase NOT yet in plugins/external.json.
+      Status 2026-08-13: Reopening #2459 blocked by permissions; commented on #2459 asking for /approve (issuecomment-5276131129); opened re-submission #2645, intake passed, ready-for-review.
       See specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md
     eligibility: marketplace_add_or_catalog_pr
     blockers:
-      - cloudbase not present in github/awesome-copilot plugins/external.json despite #2459 closed COMPLETED
+      - awaiting maintainer /approve on re-submission github/awesome-copilot#2645 to trigger the Add cloudbase listing PR
     evidence_links:
       - https://code.visualstudio.com/docs/agent-customization/agent-plugins
       - https://github.com/github/awesome-copilot/issues/2459
+      - https://github.com/github/awesome-copilot/issues/2645
       - specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md
     local_evidence:
       - self_marketplace_claude
@@ -280,7 +282,7 @@ markets:
     submit_checklist:
       - Users can add TencentCloudBase/CloudBase-MCP as marketplace
       - Strip remote skill-fetch URLs; sync cloudbase-plugin; /rerun-intake on #2459
-      - Confirm external.json entry after #2459 closure (follow up with maintainers)
+      - Re-submission #2645 in ready-for-review; needs maintainer /approve to create listing PR
       - Optional: PR/request inclusion in default curated catalogs
     recommended_install_path: doc/ide-setup/vscode.mdx
     priority_hint: null
@@ -291,6 +293,7 @@ markets:
       2026-08-04: Rejected — skills instruct agents to fetch sibling skills from cnb.cool raw URLs.
       2026-08-05: Source/plugin remediation merged (PR #875); plugin SHA 4082ba95; /rerun-intake passed; ready-for-review.
       2026-08-12: Maintainer aaronpowell closed #2459 (stateReason COMPLETED), no comment. NOT listed in external.json yet.
+      2026-08-13: Closure was part of a 6-issue batch cleanup (01:54–01:55Z) that also closed non-approved issues (requires-submitter-fixes / too-niche), NOT an approval — no /approve, no approved label, no Add PR. Reopen blocked by permissions; commented on #2459 and re-submitted as #2645; intake passed (vally lint / install smoke test / version match green), labels external-plugin + ready-for-review.
 
   - id: github-copilot-cli
     product: GitHub Copilot CLI
