@@ -50,7 +50,7 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 
 | Field | Value |
 |-------|-------|
-| Status | **PR opened** — conflict resolved 2026-07-29; awaiting xAI review |
+| Status | **PR mergeable** — conflict re-resolved 2026-08-13; CI green; awaiting xAI review |
 | PR | https://github.com/xai-org/plugin-marketplace/pull/151 |
 | Source repo | https://github.com/TencentCloudBase/cloudbase-plugin.git |
 | Pinned SHA | `b615a7f8bfad6637f2297e1a993d29f6a292a13d` |
@@ -61,6 +61,13 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 1. Watch PR #151 CI + review comments: https://github.com/xai-org/plugin-marketplace/pull/151
 2. After merge, confirm entry in https://github.com/xai-org/plugin-marketplace/blob/main/.grok-plugin/marketplace.json
 3. Install / browse from Grok Build marketplace UI
+
+### 2026-08-13 — Grok PR #151 conflict re-resolved
+
+- Upstream `main` moved again (daily pin bumps + mongodb reformat + new `mongodb-atlas`/`base44` entries), making PR #151 conflicting.
+- Merged latest `main` into `binggg/plugin-marketplace:add-cloudbase-plugin` (commit `d6b9848`), kept cloudbase pin `b615a7f`, adopted upstream mongodb changes, regenerated `plugin-index.json`.
+- `mergeable: MERGEABLE`, `mergeStateStatus: BLOCKED` (needs maintainer review/approve). All CI checks pass (Socket Security, semgrep).
+- Left comment asking for review: https://github.com/xai-org/plugin-marketplace/pull/151#issuecomment-5275877974
 
 ## cursor.directory
 
@@ -84,7 +91,7 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 
 | Field | Value |
 |-------|-------|
-| Status | **Intake re-passed** — awaiting maintainer re-review (`ready-for-review`) |
+| Status | **Intake re-passed; issue closed by maintainer 2026-08-12 (COMPLETED) — NOT yet in catalog** |
 | Issue | https://github.com/github/awesome-copilot/issues/2459 |
 | Packet | `specs/plugin-marketplace-listing/awesome-copilot-submission-packet.md` |
 | Response | `specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md` |
@@ -92,12 +99,19 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 | Submitted at | 2026-07-28 |
 | Rejected at | 2026-08-04 (security: agent-directed remote skill fetch) |
 | Re-run at | 2026-08-05 (`/rerun-intake` after stripping `cnb.cool/.../git/raw` skill URLs; intake passed) |
+| Closed at | 2026-08-12 by `aaronpowell`, stateReason `COMPLETED`, no comment |
 
 ### How to check progress (Awesome Copilot)
 
 1. Watch issue #2459 labels / comments
 2. After merge, confirm entry in https://github.com/github/awesome-copilot/blob/main/plugins/external.json
 3. Install test: `copilot plugin install cloudbase@awesome-copilot`
+
+### 2026-08-13 — Awesome Copilot #2459 closed but NOT listed
+
+- Maintainer `aaronpowell` closed #2459 on 2026-08-12 with stateReason `COMPLETED` and **no explanation comment**.
+- **`cloudbase` is still absent from `plugins/external.json`** and there is no catalog PR for it (searched PRs + repo code). Ambiguous: may be accepted-but-pending-sync or silently dropped.
+- Next step: confirm with maintainers (reply on #2459 or reopen) that listing will land in the catalog. Until the entry appears in `external.json`, treat as **not listed**.
 
 ## Trae community MCP list
 
