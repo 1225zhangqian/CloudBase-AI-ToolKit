@@ -224,11 +224,26 @@ https://tcb-api.cloud.tencent.com/mcp/v1?env_id=YOUR_ENV_ID&disable_plugins=rag,
 
 当前可配置的插件名以 `mcp/src/server.ts` 为准，建议优先使用 canonical 名称：`env`, `database`, `pg_database`, `pg_storage`, `mysql_database`, `functions`, `hosting`, `storage`, `setup`, `rag`, `download`, `gateway`, `cloudrun`, `app-auth`, `permissions`, `logs`, `agents`, `apps`, `capi`, `database-nosql`, `database-sql`, `data-model`。
 
+### 通过 URL 指定站点（site）（仅托管模式）
+
+托管模式与本地模式一样区分**国内站**（`domestic`）与**国际站**（`intl`）。可通过 `site` query 参数显式指定站点，用于国内站新加坡地域等 `ap-singapore` 场景的正确路由：
+
+- `site=domestic`：国内站（cloud.tencent.com）
+- `site=intl`：国际站（tencentcloud.com）
+- 不传 `site` 时由服务端按环境归属解析；`ap-singapore` 地域国内站与国际站都存在，无法归属时默认按 `intl` 处理
+
+```
+# 国内站新加坡地域：必须显式传 site=domestic，避免被按国际站处理
+https://tcb-api.cloud.tencent.com/mcp/v1?env_id=YOUR_ENV_ID&site=domestic
+```
+
+国内站新加坡用户（`TCB_REGION` 对应 `ap-singapore`）请务必在托管 URL 中带上 `site=domestic`，否则登录与 NoSQL 工具等能力可能被按国际站处理。
+
 ### 托管模式环境变量说明
 
-托管模式下，MCP 服务运行在云端，环境变量在**服务端**配置。若你自建托管服务，可参考 [MCP 工具 - 云端 MCP 配置说明](/ai/cloudbase-ai-toolkit/mcp-tools#云端-mcp-配置说明) 中的可选环境变量表（如 `TENCENTCLOUD_SECRETID`、`TENCENTCLOUD_SECRETKEY`、`CLOUDBASE_ENV_ID` 等）。
+托管模式下，MCP 服务运行在云端，环境变量在**服务端**配置。若你自建托管服务，可参考 [MCP 工具 - 云端 MCP 配置说明](/ai/cloudbase-ai-toolkit/mcp-tools#云端-mcp-配置说明) 中的可选环境变量表（如 `TENCENTCLOUD_SECRETID`、`TENCENTCLOUD_SECRETKEY`、`CLOUDBASE_ENV_ID` 等）；站点同样支持用 `TCB_SITE` 环境变量指定（`domestic` / `intl`），与本地模式行为一致。
 
-使用腾讯云提供的托管 MCP 时，通过上述 URL 与 headers 传入 `env_id` 和密钥即可，无需再配置服务端环境变量。
+使用腾讯云提供的托管 MCP 时，通过上述 URL 与 headers 传入 `env_id` 和密钥即可，无需再配置服务端环境变量；如需指定站点，直接在 URL 上加 `site=domestic` 或 `site=intl` 参数（见上文）。
 
 ---
 

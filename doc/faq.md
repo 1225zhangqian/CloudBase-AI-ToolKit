@@ -398,6 +398,25 @@ CloudBase AI ToolKit 与微信开发者工具可以完美配合使用，提供�
 { "site": "domestic", "region": "ap-singapore", "envId": "你的环境ID" }
 ```
 
+**托管模式**：HTTP 模式下 MCP 配置没有 `env` 块，需在托管 URL 上直接加 `site` query 参数：
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "type": "http",
+      "url": "https://tcb-api.cloud.tencent.com/mcp/v1?env_id=你的环境ID&site=domestic",
+      "headers": {
+        "X-TencentCloud-SecretId": "腾讯云 Secret ID",
+        "X-TencentCloud-SecretKey": "腾讯云 Secret Key"
+      }
+    }
+  }
+}
+```
+
+自建托管（Cloud Mode / Docker CloudRun）则仍用服务端环境变量 `TCB_SITE=domestic` 即可。
+
 ### 国内站和国际站可以并存两套登录凭证吗？
 
 可以。MCP 按站点分槽存储凭证（`credential.domestic` / `credential.intl`），国内站与国际站可分别登录并存，切换环境无需重新登录。旧版 `auth.json` 单槽数据会自动按国内站兼容读取，首次写回时自动升级为分槽格式。

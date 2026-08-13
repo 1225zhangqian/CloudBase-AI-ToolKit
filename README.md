@@ -244,7 +244,7 @@ Others: [IDE setup guide](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide
 }
 ```
 
-Hosted URLs can use `enable_plugins` / `disable_plugins`. Canonical names live in `mcp/src/server.ts`.
+Hosted URLs can use `site` (`domestic` / `intl`) to pick the login site (e.g. domestic-site Singapore needs `site=domestic`), plus `enable_plugins` / `disable_plugins` to trim tools. Canonical names live in `mcp/src/server.ts`.
 
 **Self-hosted Cloud Mode**: set `CLOUDBASE_MCP_CLOUD_MODE=true` (or `MCP_CLOUD_MODE=true`) so local file and process tools are disabled for remote callers.
 
@@ -322,6 +322,8 @@ Both the domestic site (cloud.tencent.com) and the international site (tencentcl
 ```
 
 Credentials are stored per site (`credential.domestic` / `credential.intl`) so domestic and international logins can coexist; legacy single-slot `auth.json` is read as `domestic` and migrated on first write.
+
+**Hosted mode**: add `site=domestic` to the hosted URL (`https://tcb-api.cloud.tencent.com/mcp/v1?env_id=<env_id>&site=domestic`), since the URL is the only place hosted mode can carry the site (there is no MCP `env` block for HTTP servers).
 
 </details>
 
