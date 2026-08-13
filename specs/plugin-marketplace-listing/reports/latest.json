@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-13T04:58:08.951Z",
+  "generated_at": "2026-08-13T07:49:31.668Z",
   "matrix_version": 1,
   "reviewed_stale_days": 90,
   "total_markets": 42,
@@ -402,7 +402,7 @@
           "https://github.com/github/awesome-copilot/issues/2645",
           "specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md"
         ],
-        "submit_url_or_process": "Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.\nStatus 2026-08-05: Awesome Copilot #2459 intake re-passed after stripping remote skill-fetch URLs (SHA 4082ba95...). Label ready-for-review.\nStatus 2026-08-12: maintainer aaronpowell closed #2459 as COMPLETED (no comment); cloudbase NOT yet in plugins/external.json.\nStatus 2026-08-13: Reopening #2459 blocked by permissions; commented on #2459 asking for /approve (issuecomment-5276131129); opened re-submission #2645, intake passed, ready-for-review.\nSee specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md\n",
+        "submit_url_or_process": "Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.\nStatus 2026-08-05: Awesome Copilot #2459 intake re-passed after stripping remote skill-fetch URLs (SHA 4082ba95...). Label ready-for-review.\nStatus 2026-08-12: maintainer aaronpowell closed #2459 as COMPLETED (no comment); cloudbase NOT yet in plugins/external.json.\nStatus 2026-08-13: Reopening #2459 blocked by permissions; commented on #2459 asking for /approve (issuecomment-5276131129); opened re-submission #2645, intake passed, ready-for-review.\nStatus 2026-08-13 poll: #2645 still OPEN (labels external-plugin + ready-for-review); no /approve yet; cloudbase NOT in plugins/external.json.\nSee specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md\n",
         "recommended_install_path": "doc/ide-setup/vscode.mdx",
         "last_reviewed_at": "2026-08-13",
         "owner": "cloudbase-ai-toolkit",
@@ -2400,7 +2400,7 @@
         "https://github.com/github/awesome-copilot/issues/2645",
         "specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md"
       ],
-      "submit_url_or_process": "Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.\nStatus 2026-08-05: Awesome Copilot #2459 intake re-passed after stripping remote skill-fetch URLs (SHA 4082ba95...). Label ready-for-review.\nStatus 2026-08-12: maintainer aaronpowell closed #2459 as COMPLETED (no comment); cloudbase NOT yet in plugins/external.json.\nStatus 2026-08-13: Reopening #2459 blocked by permissions; commented on #2459 asking for /approve (issuecomment-5276131129); opened re-submission #2645, intake passed, ready-for-review.\nSee specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md\n",
+      "submit_url_or_process": "Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.\nStatus 2026-08-05: Awesome Copilot #2459 intake re-passed after stripping remote skill-fetch URLs (SHA 4082ba95...). Label ready-for-review.\nStatus 2026-08-12: maintainer aaronpowell closed #2459 as COMPLETED (no comment); cloudbase NOT yet in plugins/external.json.\nStatus 2026-08-13: Reopening #2459 blocked by permissions; commented on #2459 asking for /approve (issuecomment-5276131129); opened re-submission #2645, intake passed, ready-for-review.\nStatus 2026-08-13 poll: #2645 still OPEN (labels external-plugin + ready-for-review); no /approve yet; cloudbase NOT in plugins/external.json.\nSee specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md\n",
       "recommended_install_path": "doc/ide-setup/vscode.mdx",
       "last_reviewed_at": "2026-08-13",
       "owner": "cloudbase-ai-toolkit",

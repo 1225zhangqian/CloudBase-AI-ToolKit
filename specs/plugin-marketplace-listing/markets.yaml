@@ -267,6 +267,7 @@ markets:
       Status 2026-08-05: Awesome Copilot #2459 intake re-passed after stripping remote skill-fetch URLs (SHA 4082ba95...). Label ready-for-review.
       Status 2026-08-12: maintainer aaronpowell closed #2459 as COMPLETED (no comment); cloudbase NOT yet in plugins/external.json.
       Status 2026-08-13: Reopening #2459 blocked by permissions; commented on #2459 asking for /approve (issuecomment-5276131129); opened re-submission #2645, intake passed, ready-for-review.
+      Status 2026-08-13 poll: #2645 still OPEN (labels external-plugin + ready-for-review); no /approve yet; cloudbase NOT in plugins/external.json.
       See specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md
     eligibility: marketplace_add_or_catalog_pr
     blockers:
@@ -294,6 +295,7 @@ markets:
       2026-08-05: Source/plugin remediation merged (PR #875); plugin SHA 4082ba95; /rerun-intake passed; ready-for-review.
       2026-08-12: Maintainer aaronpowell closed #2459 (stateReason COMPLETED), no comment. NOT listed in external.json yet.
       2026-08-13: Closure was part of a 6-issue batch cleanup (01:54–01:55Z) that also closed non-approved issues (requires-submitter-fixes / too-niche), NOT an approval — no /approve, no approved label, no Add PR. Reopen blocked by permissions; commented on #2459 and re-submitted as #2645; intake passed (vally lint / install smoke test / version match green), labels external-plugin + ready-for-review.
+      2026-08-13 poll: #2645 OPEN, still ready-for-review, no maintainer /approve; external.json confirmed no cloudbase entry. Blocked on aaronpowell /approve → then Add cloudbase PR auto-opens/merges.
 
   - id: github-copilot-cli
     product: GitHub Copilot CLI

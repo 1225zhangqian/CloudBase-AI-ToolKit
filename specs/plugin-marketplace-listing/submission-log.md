@@ -118,6 +118,12 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
   2. Opened re-submission #2645 (same plugin payload, references #2459). Intake re-ran and passed: vally lint ✅ / install smoke test ✅ / version match ✅; labels `external-plugin` + `ready-for-review`.
 - **Blocked on:** maintainer running `/approve` on #2645, which triggers the `external-plugin-approval` automation to open+merge the `[external-plugin] Add cloudbase` PR. Until `cloudbase` appears in `external.json`, treat as **not listed**.
 
+### 2026-08-13 — Poll #2645 /approve status: no change, still awaiting maintainer
+
+- Checked https://github.com/github/awesome-copilot/issues/2645 — still **OPEN**, labels `external-plugin` + `ready-for-review`. Only comment is the intake bot (passed with spec warnings). No `/approve` command, no `approved` label, no `[external-plugin] Add cloudbase` PR.
+- Confirmed `cloudbase` **absent** from https://github.com/github/awesome-copilot/blob/main/plugins/external.json → still **not listed**.
+- Nothing to do on our side; the ball is with maintainer `aaronpowell`. Next poll point: watch for `/approve` on #2645, then verify the auto-opened listing PR merges and `cloudbase` appears in `external.json`.
+
 ## Trae community MCP list
 
 | Field | Value |
