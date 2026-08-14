@@ -1,6 +1,6 @@
-<div align="center"><a name="readme-top"></a>
+<div align="center">
 
-<img src="mcp/icon.png" width="96" height="96" alt="CloudBase AI Toolkit" />
+<img src="https://raw.githubusercontent.com/TencentCloudBase/CloudBase-AI-Toolkit/main/mcp/icon.png" width="96" height="96" alt="CloudBase AI Toolkit" />
 
 # CloudBase AI Toolkit
 
@@ -24,18 +24,16 @@
 
 ## 最近更新
 
+**v2.26.x**（2026-08）
+
+- 网关：支持启用/禁用 HTTP 路由（`enableRoute` / `disableRoute`）；托管与环境查询在返回访问地址前会识别默认域名路由已禁用的情况（#901、#902、#903）
+- 认证：支持 `CLOUDBASE_APIKEY` 作为 API Key 环境变量回退（#900）
+- Skills：首次会话 MCP 工具尚未加载时，提供 MCP→CLI 工具回退指引（#889）
+- 模板 / CI：兼容 AGENTS 指南压缩至 40 KiB 内；加固 ClawHub 发布幂等与 upload-ticket 重试（#895、#893、#894）
+
 **v2.25.x**（2026-08）
 
-- Skills / RAG：`searchKnowledgeBase` 技能指引补充 `minimal-web-baas-demo`，用于无云函数 CRUD 的最小 Web+数据库 Demo（#886）
-- CLI：修复 `cloudbase-mcp --cloud-mode` 因 cloud-mode↔logger 循环依赖导致的启动崩溃（#879）
-- 权限：PostgreSQL 环境可通过 managePermissions 配置云函数访问权限——平台 ModifyResourcePermission 不支持时自动回退到 OPA / `tcb policy`（`modifyEnvAuthzConfig`）（#865）
-- 云托管 / 网关：接 TCP 数据库时的 VPC 指导；Domain/Route，统一 `upstreamResourceType` 与路径透传
-- 云托管 / 网关：重新部署时保留远程 VPC 与环境变量配置；部署后优先返回自定义域名访问地址
-- Plugin：Open Plugin / 市场安装路径更顺
-- 环境 / 数据库：创建环境时计费信息更清晰；数据库接入优先引导 SDK，不再直接暴露 TCP 连接信息
-- 认证 / 数据库：修复 createApiKey 复用 key 时误报成功；PG 迁移未落地时安全失败
-- 网关 / 认证：新增 HTTP 网关总开关与访问鉴权查询/切换（`getPrivilege` / `enableService` / `authSwitch`）；短信验证码登录默认通道开箱即用，无需配置签名
-- PG 迁移：applyMigration 会补全远端迁移历史并轮询任务；优先本地迁移树与原生 manager-node API（#857、#859、#863、#864）
+- Skills / RAG：`minimal-web-baas-demo`；云托管/网关 VPC 与自定义域名访问；PG 迁移加固等——完整列表见 [Releases][changelog]
 
 [Releases][changelog] · [Star][github-stars-link] · Watch → Releases
 
@@ -73,7 +71,18 @@ AI IDE（Cursor、Claude Code、Codex、CodeBuddy 等）擅长生成代码。真
 
 ## 快速开始
 
-按你的工具选一条默认路径即可。
+### 最快上手（推荐）
+
+复制下面的 AI Prompt，粘贴到你的 AI IDE。Agent 会读取 skill.md 完成接入：
+
+```
+帮我把 CloudBase 接好，按下面做：
+1. 打开 https://docs.cloudbase.net/skill.md，按说明完成接入。
+2. 接入完成后告诉我，并建议最相关的下一步。
+```
+
+<details>
+<summary>按你的工具选一条默认路径（Plugin / CLI / MCP）</summary>
 
 | 你的工具 | 建议做法 |
 |----------|----------|
@@ -83,7 +92,7 @@ AI IDE（Cursor、Claude Code、Codex、CodeBuddy 等）擅长生成代码。真
 | CodeBuddy / WorkBuddy / ZCode（已内置） | 使用 IDE 内置的 CloudBase 插件或连接器；CodeBuddy 也可通过[插件市场安装](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/codebuddy) |
 | 其他支持 MCP 的 IDE | 仅配置 MCP（见下方） |
 
-### Plugin
+#### Plugin
 
 ```bash
 npx plugins add TencentCloudBase/cloudbase-plugin
@@ -91,7 +100,7 @@ npx plugins add TencentCloudBase/cloudbase-plugin
 
 说明与各 IDE 差异见 [AI 插件文档](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ai-agent-plugins)。
 
-### 仅配置 MCP
+#### 仅配置 MCP
 
 ```json
 {
@@ -105,6 +114,8 @@ npx plugins add TencentCloudBase/cloudbase-plugin
 ```
 
 托管 HTTP、自建 Cloud Mode、按插件裁剪工具集见 [安装与连接](#安装与连接)。
+
+</details>
 
 ### 首次对话
 
@@ -120,7 +131,7 @@ Skills 负责写法与结构；MCP 负责环境与资源操作。完成后应能
 
 ### 支持的 AI IDE
 
-<img width="1200" alt="Supported AI IDEs" src="scripts/assets/ide-support-grid.png" />
+<img width="1200" alt="Supported AI IDEs" src="https://raw.githubusercontent.com/TencentCloudBase/CloudBase-AI-Toolkit/main/scripts/assets/ide-support-grid.png" />
 
 | 工具 | 平台 | 指引 |
 |------|------|------|

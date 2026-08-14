@@ -1,6 +1,6 @@
-<div align="center"><a name="readme-top"></a>
+<div align="center">
 
-<img src="mcp/icon.png" width="96" height="96" alt="CloudBase AI Toolkit" />
+<img src="https://raw.githubusercontent.com/TencentCloudBase/CloudBase-AI-Toolkit/main/mcp/icon.png" width="96" height="96" alt="CloudBase AI Toolkit" />
 
 # CloudBase AI Toolkit
 
@@ -24,18 +24,16 @@ The CloudBase integration layer for AI coding tools: Plugin installs the stack, 
 
 ## Recent updates
 
+**v2.26.x** (2026-08)
+
+- Gateway: enable/disable HTTP routes (`enableRoute` / `disableRoute`); hosting/env surfaces detect disabled default-domain routes before returning access URLs (#901, #902, #903)
+- Auth: accept `CLOUDBASE_APIKEY` as an API Key environment-variable fallback (#900)
+- Skills: MCP-to-CLI tooling fallback for first sessions when MCP tools are not loaded yet (#889)
+- Templates / CI: shrink compat AGENTS guide under 40 KiB; harden ClawHub publish idempotency and upload-ticket retries (#895, #893, #894)
+
 **v2.25.x** (2026-08)
 
-- Skills / RAG: add `minimal-web-baas-demo` to `searchKnowledgeBase` skill guidance for minimal Web+database demos without cloud-function CRUD (#886)
-- CLI: fix `cloudbase-mcp --cloud-mode` crash from a cloud-mode↔logger circular dependency (#879)
-- Permissions: PG environments can set cloud function access via managePermissions — falls back to OPA / `tcb policy` (`modifyEnvAuthzConfig`) when ModifyResourcePermission is unsupported (#865)
-- CloudRun / Gateway: VPC guidance when using TCP databases; Domain/Route with `upstreamResourceType` and path transmission
-- CloudRun / Gateway: preserve remote VPC & env config on redeploy; prefer custom-domain access URLs after deploy
-- Plugin: easier install via Open Plugin / marketplace packaging
-- Env / Database: clearer billing summary when creating an env; SDK-first guidance instead of raw TCP database info
-- Auth / Database: fix createApiKey false success; fail closed when a PG migration does not land
-- Gateway / Auth: query and switch HTTP gateway master switch & access auth (`getPrivilege` / `enableService` / `authSwitch`); SMS login works out of the box via the default channel
-- PG Migration: applyMigration now hydrates remote migration history and polls DescribeTaskResult; prefer local migration tree and native manager-node APIs (#857, #859, #863, #864)
+- Skills / RAG: `minimal-web-baas-demo` in `searchKnowledgeBase`; CloudRun/Gateway VPC & custom-domain access; PG migration hardening — see [Releases][changelog] for the full list
 
 [Releases][changelog] · [Star][github-stars-link] · Watch → Releases
 
@@ -73,7 +71,18 @@ Prefer Plugin for the full stack; Skills alone when you only need knowledge cons
 
 ## Quick start
 
-Pick one default path for your tool.
+### Fastest way to get started
+
+Copy this AI prompt into your AI IDE. The agent reads `skill.md` and completes the setup:
+
+```
+Set up CloudBase for me:
+1. Open https://docs.cloudbase.net/skill.md and complete the setup following its instructions.
+2. Tell me when you're done, and suggest the most relevant next step.
+```
+
+<details>
+<summary>Pick one default path for your tool (Plugin / CLI / MCP)</summary>
 
 | Your tool | Suggested path |
 |----------|----------|
@@ -83,7 +92,7 @@ Pick one default path for your tool.
 | CodeBuddy / WorkBuddy / ZCode (built-in) | Use the IDE’s built-in CloudBase plugin or connector; for CodeBuddy you can also [install via plugin marketplace](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/codebuddy) |
 | Other MCP-capable IDEs | MCP config only (below) |
 
-### Plugin
+#### Plugin
 
 ```bash
 npx plugins add TencentCloudBase/cloudbase-plugin
@@ -91,7 +100,7 @@ npx plugins add TencentCloudBase/cloudbase-plugin
 
 Details and IDE differences: [AI plugin docs](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ai-agent-plugins).
 
-### MCP only
+#### MCP only
 
 ```json
 {
@@ -105,6 +114,8 @@ Details and IDE differences: [AI plugin docs](https://docs.cloudbase.net/ai/clou
 ```
 
 Hosted HTTP, self-hosted Cloud Mode, and plugin scoping: [Install & connect](#install--connect).
+
+</details>
 
 ### First prompts
 
@@ -120,7 +131,7 @@ Skills shape structure and practice; MCP handles environment and resources. You 
 
 ### Supported AI IDEs
 
-<img width="1200" alt="Supported AI IDEs" src="scripts/assets/ide-support-grid.png" />
+<img width="1200" alt="Supported AI IDEs" src="https://raw.githubusercontent.com/TencentCloudBase/CloudBase-AI-Toolkit/main/scripts/assets/ide-support-grid.png" />
 
 | Tool | Platform | Guide |
 |------|------|------|

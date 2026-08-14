@@ -1028,6 +1028,11 @@ CloudBase 云函数统一只读入口。通过更自解释的 action 查询 Clou
 
 **定时任务 / cron / 定时跑**：使用 `listFunctionTriggers` 查询函数的 timer 触发器配置。
 
+**层（Layer）说明**：
+- 层为 SCF 账号级共享命名空间：不同环境创建同名层会共享同一层的版本序列；删除某版本会影响所有绑定该版本的环境的函数
+- 创建层必须用带环境标识的唯一层名，固定格式：`\{layerName\}_\{当前envId\}`（如 `common_cloud1-d9ghadgak3edf6b36`）。不要在不同环境使用相同裸层名，创建前先 `listLayers` 查重
+- `listLayers` / `listLayerVersions` / `getLayerVersionDetail` 返回账号级视图，可能含其他环境创建的层
+
 **区分 `queryLogs` 工具**：
 - 本工具用于查询特定 CloudBase 云函数的执行日志
 - `queryLogs` 工具用于搜索 CLS 日志服务（跨服务日志聚合）
@@ -1040,7 +1045,7 @@ CloudBase 云函数统一只读入口。通过更自解释的 action 查询 Clou
       name: "action",
       type: "string",
       required: true,
-      description: `只读操作类型： - \`listFunctions\`: 列出所有 CloudBase 云函数 - \`getFunctionDetail\`: 获取 CloudBase 云函数详情（需要 functionName） - \`listFunctionLogs\`: 查询 CloudBase 云函数执行日志（需要 functionName） - \`getFunctionLogDetail\`: 获取日志详情（需要 requestId） - \`listFunctionLayers\`: 列出函数绑定的层 - \`listLayers\`: 列出所有层 - \`listLayerVersions\`: 列出层的版本（注意：是 Versions 不是 Version） - \`getLayerVersionDetail\`: 获取层版本详情 - \`listFunctionTriggers\`: 列出函数触发器（用于查看定时任务 / cron / timer 配置） - \`getFunctionDownloadUrl\`: 获取函数代码下载地址 可填写的值: "listFunctions", "getFunctionDetail", "listFunctionLogs", "getFunctionLogDetail", "listFunctionLayers", "listLayers", "listLayerVersions", "getLayerVersionDetail", "listFunctionTriggers", "getFunctionDownloadUrl"`,
+      description: `只读操作类型： - \`listFunctions\`: 列出所有 CloudBase 云函数 - \`getFunctionDetail\`: 获取 CloudBase 云函数详情（需要 functionName） - \`listFunctionLogs\`: 查询 CloudBase 云函数执行日志（需要 functionName） - \`getFunctionLogDetail\`: 获取日志详情（需要 requestId） - \`listFunctionLayers\`: 列出函数绑定的层 - \`listLayers\`: 列出所有层（账号级视图，含其他环境创建的层） - \`listLayerVersions\`: 列出层的版本（注意：是 Versions 不是 Version；账号级视图） - \`getLayerVersionDetail\`: 获取层版本详情（账号级视图） - \`listFunctionTriggers\`: 列出函数触发器（用于查看定时任务 / cron / timer 配置） - \`getFunctionDownloadUrl\`: 获取函数代码下载地址 可填写的值: "listFunctions", "getFunctionDetail", "listFunctionLogs", "getFunctionLogDetail", "listFunctionLayers", "listLayers", "listLayerVersions", "getLayerVersionDetail", "listFunctionTriggers", "getFunctionDownloadUrl"`,
     },
     {
       name: "functionName",
@@ -1095,7 +1100,7 @@ CloudBase 云函数统一只读入口。通过更自解释的 action 查询 Clou
     {
       name: "layerName",
       type: "string",
-      description: `层名称。\`listLayerVersions\`、\`getLayerVersionDetail\` 操作必填`,
+      description: `层名称。\`listLayerVersions\`、\`getLayerVersionDetail\` 操作必填。层为账号级共享命名空间；推荐固定格式 \`{layerName}_{当前envId}\`（如 common_cloud1-d9ghadgak3edf6b36）`,
     },
     {
       name: "layerVersion",
@@ -1110,6 +1115,11 @@ CloudBase 云函数统一只读入口。通过更自解释的 action 查询 Clou
 ### `manageFunctions`
 CloudBase 云函数统一写入口。支持创建函数、更新代码、更新配置、调用函数、管理定时跑 / 定时任务 / scheduled job 的 timer 触发器和层绑定。如果要创建 cron 定时任务，先用 createFunction 创建函数，再用 createFunctionTrigger 创建 timer 触发器（支持7段cron表达式），deleteFunctionTrigger 删除触发器。镜像部署（Runtime=CustomImage）：先把代码经 zip→COS→CloudApp custom 构建→TCR 推镜像（这一阶段为裸腾讯云 API，本工具不覆盖），再用 createFunction(func.runtime="CustomImage", imageConfig) 基于 TCR 镜像创建 HTTP 函数；后续迭代用 updateFunctionCode + imageConfig 换镜像 tag。危险操作需要显式 confirm=true。
 
+**层（Layer）说明**：
+- 层为 SCF 账号级共享命名空间：不同环境创建同名层会共享同一层的版本序列；删除某版本会影响所有绑定该版本的环境的函数
+- 创建层必须用带环境标识的唯一层名，固定格式：`\{layerName\}_\{当前envId\}`（如 `common_cloud1-d9ghadgak3edf6b36`）。不要在不同环境使用相同裸层名，创建前先 `listLayers` 查重
+- 相关 action：`createLayerVersion` / `deleteLayerVersion` / `attachLayer` / `detachLayer` / `updateFunctionLayers`（只读查询见 queryFunctions 的 listLayers / listLayerVersions / getLayerVersionDetail）
+
 #### 参数
 
 <ParameterTable
@@ -1118,7 +1128,7 @@ CloudBase 云函数统一写入口。支持创建函数、更新代码、更新�
       name: "action",
       type: "string",
       required: true,
-      description: `写操作类型，例如 createFunction、updateFunctionCode、incrementalDeployFunction、invokeFunction、deleteFunction、createFunctionTrigger（定时任务 / cron / timer）、deleteFunctionTrigger、attachLayer、detachLayer 可填写的值: "createFunction", "updateFunctionCode", "updateFunctionConfig", "invokeFunction", "deleteFunction", "createFunctionTrigger", "deleteFunctionTrigger", "createLayerVersion", "deleteLayerVersion", "attachLayer", "detachLayer", "updateFunctionLayers", "incrementalDeployFunction"`,
+      description: `写操作类型，例如 createFunction、updateFunctionCode、incrementalDeployFunction、invokeFunction、deleteFunction、createFunctionTrigger（定时任务 / cron / timer）、deleteFunctionTrigger、createLayerVersion、deleteLayerVersion、attachLayer、detachLayer、updateFunctionLayers。层名推荐固定格式 \`{layerName}_{当前envId}\`（如 common_cloud1-d9ghadgak3edf6b36） 可填写的值: "createFunction", "updateFunctionCode", "updateFunctionConfig", "invokeFunction", "deleteFunction", "createFunctionTrigger", "deleteFunctionTrigger", "createLayerVersion", "deleteLayerVersion", "attachLayer", "detachLayer", "updateFunctionLayers", "incrementalDeployFunction"`,
     },
     {
       name: "func",
@@ -1371,7 +1381,7 @@ CloudBase 云函数统一写入口。支持创建函数、更新代码、更新�
     {
       name: "layerName",
       type: "string",
-      description: `层名称`,
+      description: `层名称。创建层推荐固定格式 \`{layerName}_{当前envId}\`（如 common_cloud1-d9ghadgak3edf6b36）；不要跨环境复用裸层名。层为账号级共享命名空间`,
     },
     {
       name: "layerVersion",
@@ -1486,7 +1496,7 @@ CloudBase 云函数统一写入口。支持创建函数、更新代码、更新�
 ---
 
 ### `manageHosting`
-管理 CloudBase 静态托管的变更操作。action=upload 上传本地构建产物到共享域名（域名格式：&lt;envId&gt;-&lt;appId&gt;.tcloudbaseapp.com/&lt;cloudPath&gt;）；action=delete 删除托管文件或目录（必须 confirm=true）；action=setWebsiteDocument 设置首页/错误页/路由规则；action=enableService 开通静态托管；action=bindDomain / unbindDomain / updateDomain 管理自定义域名；action=downloadFile / downloadDirectory 下载托管内容到本地。⚠️ 新项目部署优先使用 manageApps（部署到独立子域名），本工具适合已有老项目继续使用或作为 manageApps 的 fallback。manageApps 与 manageHosting 域名不同，切换会导致老链接失效。若任务只是查看配置、文件或域名状态，请改用 queryHosting。
+管理 CloudBase 静态托管的变更操作。action=upload 上传本地构建产物到共享域名（域名格式：&lt;envId&gt;-&lt;appId&gt;.tcloudbaseapp.com/&lt;cloudPath&gt;）；action=delete 删除托管文件或目录（必须 confirm=true）；action=setWebsiteDocument 设置首页/错误页/路由规则；action=enableService 开通静态托管；action=bindDomain / unbindDomain / updateDomain 管理自定义域名；action=downloadFile / downloadDirectory 下载托管内容到本地。⚠️ 本工具没有关闭默认域名（*.tcloudbaseapp.com）的 action；要禁用该默认公网域名，请用 manageGateway(action="disableRoute", domain=该 STATIC_STORE IsDefault 域名, path="/")（底层 ModifyHTTPServiceRoute，不是 ModifyGatewayRoute）。⚠️ 新项目部署优先使用 manageApps（部署到独立子域名），本工具适合已有老项目继续使用或作为 manageApps 的 fallback。manageApps 与 manageHosting 域名不同，切换会导致老链接失效。若任务只是查看配置、文件或域名状态，请改用 queryHosting。
 
 #### 参数
 
@@ -1828,7 +1838,7 @@ CloudBase 云函数统一写入口。支持创建函数、更新代码、更新�
 - aider: Aider AI编辑器
 
 特别说明：
-- rules 模板会自动包含当前 mcp 版本号信息（版本号：2.25.10），便于后续维护和版本追踪
+- rules 模板会自动包含当前 mcp 版本号信息（版本号：2.26.0），便于后续维护和版本追踪
 - 下载 rules 模板时，如果项目中已存在 README.md 文件，系统会自动保护该文件不被覆盖（除非设置 overwrite=true）
 
 #### 参数
@@ -1899,13 +1909,13 @@ CloudBase 云函数统一写入口。支持创建函数、更新代码、更新�
 文档名：web-development 文档介绍：Use when users need to implement, integrate, debug, build, deploy, or validate a Web frontend after the product direction is already clear, especially for React, Vue, Vite, browser flows, or CloudBase Web integration.
 
       OpenAPI 文档 (openapi) 查询只需要传 mode="openapi" 和 apiName，不要传 action；action 仅用于 mode="docs"。当前支持 7 个 API 文档，分别是：
-      API名：functions API介绍：Cloud Functions API - 云函数 HTTP API
+      API名：mysqldb API介绍：关系型数据库 RESTful API (MySQL/PostgreSQL) - 云开发关系型数据库 HTTP API
+API名：functions API介绍：Cloud Functions API - 云函数 HTTP API
+API名：auth API介绍：Authentication API - 身份认证 HTTP API
 API名：cloudrun API介绍：CloudRun API - 云托管服务 HTTP API
-API名：mysqldb API介绍：关系型数据库 RESTful API (MySQL/PostgreSQL) - 云开发关系型数据库 HTTP API
 API名：storage API介绍：Storage API - 云存储 HTTP API
 API名：nosql API介绍：NoSQL RESTful API - 文档型数据库 HTTP API
 API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
-API名：auth API介绍：Authentication API - 身份认证 HTTP API
 
 #### 参数
 
@@ -1925,7 +1935,7 @@ API名：auth API介绍：Authentication API - 身份认证 HTTP API
     {
       name: "apiName",
       type: "string",
-      description: `mode=openapi 时指定。API 名称。 可填写的值: "functions", "cloudrun", "mysqldb", "storage", "nosql", "ai_model", "auth"`,
+      description: `mode=openapi 时指定。API 名称。 可填写的值: "mysqldb", "functions", "auth", "cloudrun", "storage", "nosql", "ai_model"`,
     },
     {
       name: "action",
@@ -2438,7 +2448,7 @@ CloudBase HTTP 网关统一只读入口（Domain/Route）。查询域名下路�
 ---
 
 ### `manageGateway`
-CloudBase HTTP 网关统一写入口（Domain/Route）。createRoute/updateRoute/deleteRoute 把域名下的 path 转到上游；未传 domain 时用 DomainType=HTTPSERVICE 的 IsDefault 默认 HTTP 域名（形如 *.\{region\}.app.tcloudbase.com），不会使用静态托管 CDN 域名（*.tcloudbaseapp.com，DomainType=STATIC_STORE）。这是网关默认域上的路径路由，不是 STATIC_STORE 上游绑定；STATIC_STORE 上游必须显式传 upstreamResourceType=STATIC_STORE。创建后可用 queryGateway(action="listRoutes") 核对 Domain / DomainType / Path / UpstreamResourceType。上游类型只用一个参数 upstreamResourceType（也可写在 route.upstreamResourceType，route 优先）：WEB_SCF=HTTP云函数，SCF=Event云函数，CBR=云托管，STATIC_STORE=静态托管，LH=轻量应用服务器；配合 targetName 或 route.serviceName（云函数名/云托管服务名/静态托管实例名，常见 staticstore）。createRoute 只建网关入口，不改上游权限。enablePathTransmission：默认 false 剥触发路径前缀；true 透传完整路径（CBR 多路由、WEB_SCF 自管子路径常需 true；STATIC_STORE 自定义触发路径映射站点根通常 false）。⚠️ 自定义域名访问：若环境已有自定义域名（先 queryGateway listCustomDomains），优先 createRoute 并显式传入该 domain，无需 certificateId；仅首次绑定全新自定义域名时用 bindCustomDomain（需 certificateId）。CORS/安全域名用 envDomainManagement。enableService/authSwitch：HTTP 网关总开关与访问鉴权开关；createRoute 后若访问报 HTTPSERVICE_NONACTIVATED，通常是总开关未开启（用 queryGateway getPrivilege 查询、enableService 开启）。
+CloudBase HTTP 网关统一写入口（Domain/Route）。createRoute/updateRoute/deleteRoute 把域名下的 path 转到上游；enableRoute/disableRoute 启用或禁用已有路由（底层 ModifyHTTPServiceRoute 的 Routes[].Enable，不是 ModifyGatewayRoute）。未传 domain 时用 DomainType=HTTPSERVICE 的 IsDefault 默认 HTTP 域名（形如 *.\{region\}.app.tcloudbase.com），不会使用静态托管 CDN 域名（*.tcloudbaseapp.com，DomainType=STATIC_STORE）。这是网关默认域上的路径路由，不是 STATIC_STORE 上游绑定；STATIC_STORE 上游必须显式传 upstreamResourceType=STATIC_STORE。关闭静态托管默认域名（*.tcloudbaseapp.com）：先 queryGateway(listRoutes) 找到 DomainType=STATIC_STORE 且 IsDefault=true 的 domain，再 manageGateway(action="disableRoute", domain=该域名, path="/")；勿用 manageHosting。创建后可用 queryGateway(action="listRoutes") 核对 Domain / DomainType / Path / UpstreamResourceType。上游类型只用一个参数 upstreamResourceType（也可写在 route.upstreamResourceType，route 优先）：WEB_SCF=HTTP云函数，SCF=Event云函数，CBR=云托管，STATIC_STORE=静态托管，LH=轻量应用服务器；配合 targetName 或 route.serviceName（云函数名/云托管服务名/静态托管实例名，常见 staticstore）。createRoute 只建网关入口，不改上游权限。enablePathTransmission：默认 false 剥触发路径前缀；true 透传完整路径（CBR 多路由、WEB_SCF 自管子路径常需 true；STATIC_STORE 自定义触发路径映射站点根通常 false）。⚠️ 自定义域名访问：若环境已有自定义域名（先 queryGateway listCustomDomains），优先 createRoute 并显式传入该 domain，无需 certificateId；仅首次绑定全新自定义域名时用 bindCustomDomain（需 certificateId）。CORS/安全域名用 envDomainManagement。enableService/authSwitch：HTTP 网关总开关与访问鉴权开关；createRoute 后若访问报 HTTPSERVICE_NONACTIVATED，通常是总开关未开启（用 queryGateway getPrivilege 查询、enableService 开启）。
 
 #### 参数
 
@@ -2448,7 +2458,7 @@ CloudBase HTTP 网关统一写入口（Domain/Route）。createRoute/updateRoute
       name: "action",
       type: "string",
       required: true,
-      description: `写操作：createRoute/updateRoute/deleteRoute 管理路由；bindCustomDomain/deleteCustomDomain 管理自定义域名；enableService/authSwitch 开关 HTTP 网关总开关与访问鉴权（需配合 enable 参数）。createRoute/updateRoute 必须提供 upstreamResourceType。已有自定义域名时优先 createRoute(domain=已有域名) 实现访问，不必再次 bindCustomDomain / 传入 certificateId；bindCustomDomain 仅用于首次绑定新域名（需 certificateId；可选 accessType=DIRECT|CDN|CUSTOM，CUSTOM 需 customCname；普通场景用默认 DIRECT）。接入说明：https://docs.cloudbase.net/service/custom-domain 可填写的值: "createRoute", "updateRoute", "deleteRoute", "bindCustomDomain", "deleteCustomDomain", "enableService", "authSwitch"`,
+      description: `写操作：createRoute/updateRoute/deleteRoute 管理路由；enableRoute/disableRoute 启用或禁用已有路由（需 path，建议显式传 domain）；bindCustomDomain/deleteCustomDomain 管理自定义域名；enableService/authSwitch 开关 HTTP 网关总开关与访问鉴权（需配合 enable 参数）。createRoute/updateRoute 必须提供 upstreamResourceType；enableRoute/disableRoute 会先 listRoutes 定位已有路由，通常不必重填上游。updateRoute 也可传 enable/route.enable 直接改 Routes[].Enable。关闭 *.tcloudbaseapp.com 默认静态托管域：disableRoute + domain=该 STATIC_STORE IsDefault 域名 + path="/"。已有自定义域名时优先 createRoute(domain=已有域名) 实现访问，不必再次 bindCustomDomain / 传入 certificateId；bindCustomDomain 仅用于首次绑定新域名（需 certificateId；可选 accessType=DIRECT|CDN|CUSTOM，CUSTOM 需 customCname；普通场景用默认 DIRECT）。接入说明：https://docs.cloudbase.net/service/custom-domain 可填写的值: "createRoute", "updateRoute", "deleteRoute", "enableRoute", "disableRoute", "bindCustomDomain", "deleteCustomDomain", "enableService", "authSwitch"`,
     },
     {
       name: "targetName",
@@ -2478,7 +2488,7 @@ CloudBase HTTP 网关统一写入口（Domain/Route）。createRoute/updateRoute
     {
       name: "route",
       type: "object",
-      description: `路由对象（可选写法）。例：云函数 {upstreamResourceType:"WEB_SCF",serviceName:"fn",path:"/api"}；云托管 {upstreamResourceType:"CBR",serviceName:"svc",path:"/api"}；静态托管 {upstreamResourceType:"STATIC_STORE",serviceName:"staticstore",path:"/"}。`,
+      description: `路由对象（可选写法）。例：云函数 {upstreamResourceType:"WEB_SCF",serviceName:"fn",path:"/api"}；云托管 {upstreamResourceType:"CBR",serviceName:"svc",path:"/api"}；静态托管 {upstreamResourceType:"STATIC_STORE",serviceName:"staticstore",path:"/"}；禁用路由 {path:"/",enable:false}（配合 updateRoute，或直接用 disableRoute）。`,
       children: [
         {
           name: "path",
@@ -2506,14 +2516,14 @@ CloudBase HTTP 网关统一写入口（Domain/Route）。createRoute/updateRoute
         {
           name: "enable",
           type: "boolean",
-          description: `路由级开关（Route.Enable）。createRoute/updateRoute 可用：enable=false 禁用该 Domain+Path（访问返回 GATEWAY_ROUTE_DISABLED）；enable=true 重新启用。updateRoute 也可用顶层 enable 表达同一语义。`,
+          description: `路由级开关（Routes[].Enable / Route.Enable）。createRoute/updateRoute 可用：enable=false 禁用该 Domain+Path（访问返回 GATEWAY_ROUTE_DISABLED）；enable=true 重新启用。updateRoute 也可用顶层 enable 表达同一语义；也可用专用 action enableRoute/disableRoute。route.enable 优先于顶层 enable。`,
         }
       ],
     },
     {
       name: "domain",
       type: "string",
-      description: `域名。省略时自动使用环境 DomainType=HTTPSERVICE 的 IsDefault 默认 HTTP 域名（*.{region}.app.tcloudbase.com），不会回退到静态托管 CDN 域名（*.tcloudbaseapp.com，DomainType=STATIC_STORE）；也不是 STATIC_STORE 上游绑定。可用 queryGateway(action="listRoutes") 核对实际 Domain / DomainType。已有自定义域名时请显式传入该域名并 createRoute/updateRoute/deleteRoute，即可实现自定义域名访问且无需证书 ID；仅 bindCustomDomain 时表示要新绑定的域名。`,
+      description: `域名。省略时自动使用环境 DomainType=HTTPSERVICE 的 IsDefault 默认 HTTP 域名（*.{region}.app.tcloudbase.com），不会回退到静态托管 CDN 域名（*.tcloudbaseapp.com，DomainType=STATIC_STORE）；也不是 STATIC_STORE 上游绑定。可用 queryGateway(action="listRoutes") 核对实际 Domain / DomainType。enableRoute/disableRoute 操作 *.tcloudbaseapp.com 时必须显式传入该域名。已有自定义域名时请显式传入该域名并 createRoute/updateRoute/deleteRoute，即可实现自定义域名访问且无需证书 ID；仅 bindCustomDomain 时表示要新绑定的域名。`,
     },
     {
       name: "certificateId",
@@ -2533,7 +2543,7 @@ CloudBase HTTP 网关统一写入口（Domain/Route）。createRoute/updateRoute
     {
       name: "enable",
       type: "boolean",
-      description: `开关目标状态：enableService / authSwitch 必填（true 开启 / false 关闭）；bindCustomDomain 可选：enable=false 表示绑定后禁用域名（默认启用）；updateRoute 可选：映射到 Route.Enable（也可用 route.enable，route 优先）。省略或非布尔值在 enableService/authSwitch 会返回参数错误。`,
+      description: `开关目标状态：enableService / authSwitch 必填（true 开启 / false 关闭）；bindCustomDomain 可选：enable=false 表示绑定后禁用域名（默认启用）；updateRoute 可选：映射到 Routes[].Enable（也可用 route.enable，route 优先；也可用专用 action enableRoute/disableRoute）。省略或非布尔值在 enableService/authSwitch 会返回参数错误。`,
     }
   ]}
 />
