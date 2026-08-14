@@ -2,7 +2,6 @@ import { McpServer, type RegisteredTool } from "@modelcontextprotocol/sdk/server
 import { registerDatabaseTools } from "./tools/databaseNoSQL.js";
 import { registerPGDatabaseTools } from "./tools/databasePG.js";
 import { registerSQLDatabaseTools } from "./tools/databaseSQL.js";
-import { registerDownloadTools } from "./tools/download.js";
 import { registerEnvTools } from "./tools/env.js";
 import { registerFunctionTools } from "./tools/functions.js";
 import { registerHostingTools } from "./tools/hosting.js";
@@ -54,7 +53,6 @@ const DEFAULT_PLUGINS = [
   "permissions",
   "logs",
   "agents",
-  "download",
   "capi",
 ];
 
@@ -99,7 +97,6 @@ const AVAILABLE_PLUGINS: Record<string, PluginDefinition> = {
   storage: { name: "storage", register: registerStorageTools },
   setup: { name: "setup", register: registerSetupTools },
   rag: { name: "rag", register: registerRagTools },
-  download: { name: "download", register: registerDownloadTools },
   gateway: { name: "gateway", register: registerGatewayTools },
   "app-auth": { name: "app-auth", register: registerAppAuthTools },
   permissions: { name: "permissions", register: registerPermissionTools },
