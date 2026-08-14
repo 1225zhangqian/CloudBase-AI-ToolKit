@@ -77,7 +77,6 @@ const PLUGIN_MAP = {
   queryAgents:               'AI Agent',
   manageAgents:               'AI Agent',
   downloadTemplate:           '模板与文件',
-  downloadRemoteFile:         '模板与文件',
   searchKnowledgeBase:        '搜索与知识库',
   activateInviteCode:         '激励计划',
   callCloudApi:               '云 API',
