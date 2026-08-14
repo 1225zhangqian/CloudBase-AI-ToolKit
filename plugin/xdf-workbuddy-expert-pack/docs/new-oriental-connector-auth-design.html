@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>新东方等平台客户 · 连接器授权本地回调方案设计</title>
+<style>
+  :root{
+    --bg:#ffffff; --fg:#1f2329; --fg2:#646a73; --fg3:#8f959e;
+    --line:#e5e6eb; --line2:#c9cdd4;
+    --blue:#185fa5; --blue-bg:#e6f1fb; --teal:#0f6e56; --teal-bg:#e1f5ee;
+    --red:#a32d2d; --red-bg:#fcebeb; --amber:#854f0b; --amber-bg:#faeeda;
+    --gray-bg:#f1efee; --mono:"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--fg); font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",Arial,sans-serif; line-height:1.65; font-size:14px;}
+  .wrap{max-width:960px; margin:0 auto; padding:40px 32px 80px;}
+  h1{font-size:22px; font-weight:600; letter-spacing:.3px;}
+  h2{font-size:17px; font-weight:600; margin:44px 0 14px; padding-top:8px; border-top:1px solid var(--line);}
+  h3{font-size:15px; font-weight:600; margin:24px 0 8px;}
+  p{margin:8px 0;}
+  .sub{color:var(--fg2); font-size:13px; margin-top:6px;}
+  .meta{display:flex; gap:20px; flex-wrap:wrap; color:var(--fg3); font-size:12px; margin-top:10px;}
+  .meta b{color:var(--fg2); font-weight:500;}
+  code{font-family:var(--mono); font-size:12.5px; background:var(--gray-bg); padding:1px 5px; border-radius:4px;}
+  pre{font-family:var(--mono); font-size:12.5px; background:#faf9f7; border:0.5px solid var(--line); border-radius:10px; padding:14px 16px; overflow-x:auto; margin:10px 0; line-height:1.6;}
+  .card{background:#fff; border:0.5px solid var(--line); border-radius:12px; padding:16px 18px; margin:12px 0;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr;}}
+  .tag{display:inline-block; font-size:12px; padding:1px 8px; border-radius:10px; font-weight:500;}
+  .t-blue{background:var(--blue-bg); color:var(--blue);}
+  .t-teal{background:var(--teal-bg); color:var(--teal);}
+  .t-red{background:var(--red-bg); color:var(--red);}
+  .t-amber{background:var(--amber-bg); color:var(--amber);}
+  .t-gray{background:var(--gray-bg); color:var(--fg2);}
+  table{width:100%; border-collapse:collapse; margin:12px 0; font-size:13px;}
+  th{background:#f7f8fa; text-align:left; font-weight:500; padding:8px 10px; border:0.5px solid var(--line);}
+  td{padding:8px 10px; border:0.5px solid var(--line); vertical-align:top;}
+  td code{white-space:nowrap;}
+  .num{display:inline-flex; width:22px; height:22px; border-radius:50%; background:var(--blue); color:#fff; font-size:12px; align-items:center; justify-content:center; margin-right:8px; flex:none;}
+  .flowstep{display:flex; align-items:center; margin:6px 0;}
+  .callout{border-left:3px solid var(--blue); background:var(--blue-bg); padding:10px 14px; border-radius:0 8px 8px 0; margin:12px 0;}
+  .warn{border-left:3px solid var(--red); background:var(--red-bg); padding:10px 14px; border-radius:0 8px 8px 0; margin:12px 0;}
+  .ok{border-left:3px solid var(--teal); background:var(--teal-bg); padding:10px 14px; border-radius:0 8px 8px 0; margin:12px 0;}
+  .fig{background:#fcfcfd; border:0.5px solid var(--line); border-radius:12px; padding:16px; margin:14px 0;}
+  .fig svg{width:100%; height:auto; display:block;}
+  .figcap{color:var(--fg2); font-size:12.5px; margin-top:8px; text-align:center;}
+  ul,ol{margin:8px 0 8px 22px;}
+  li{margin:4px 0;}
+  .kv{display:grid; grid-template-columns:150px 1fr; gap:6px 14px; font-size:13px;}
+  .kv dt{color:var(--fg2); font-weight:500;}
+  .kv dd{margin:0;}
+  a{color:var(--blue); text-decoration:none;}
+  .foot{margin-top:48px; padding-top:16px; border-top:1px solid var(--line); color:var(--fg3); font-size:12px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>新东方等平台客户 ·「无腾讯云账号」接入 CloudBase 连接器</h1>
+<div class="sub">专家内嵌「本地授权回调」方案设计 —— 消除跨应用跳转与手工复制密钥</div>
+<div class="meta">
+  <span><b>场景</b> 平台站外下发 envId + 环境 API Key 的下游用户</span>
+  <span><b>依赖</b> toolbox !32 / CLI !237 / weda-alternative !5799（已发布）</span>
+  <span><b>日期</b> 2026-08-10</span>
+</div>
+
+<h2>1. 背景与问题</h2>
+<p>公域插件（如 WorkBuddy）触发 <code>tcb login --flow web</code> 走统一登录态。但新东方这类平台客户的大部分下游用户<strong>没有腾讯云账号</strong>，他们的环境 ID（envId）与环境 API Key 由平台站外下发，无法走开发者账号登录。</p>
+<p>已发布的三连 MR（toolbox !32 核心逻辑 + CLI !237 配合 + /login 页 !5799 的 API Key 表单）打通了 <code>/login?cliAuth=1</code> 的「环境 API Key 登录」入口：授权后经 localhost 回调把 envId+key 交回本地进程换临时 STS 凭证。但客户反馈<strong>操作链路太长</strong>：</p>
+
+<div class="fig">
+  <svg viewBox="0 0 680 250" role="img" aria-label="现状五步流程" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker>
+    </defs>
+    <g font-family="-apple-system,'PingFang SC',sans-serif">
+      <g>
+        <rect x="40"  y="70" width="104" height="56" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+        <text x="92" y="90" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#0C447C">WorkBuddy</text>
+        <text x="92" y="108" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185FA5">对话</text>
+      </g>
+      <g>
+        <rect x="160" y="70" width="104" height="56" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+        <text x="212" y="90" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#0C447C">呼出新东方</text>
+        <text x="212" y="108" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185FA5">授权</text>
+      </g>
+      <g>
+        <rect x="280" y="70" width="104" height="56" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+        <text x="332" y="90" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#0C447C">回到 WorkBuddy</text>
+        <text x="332" y="108" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185FA5">启用连接器</text>
+      </g>
+      <g>
+        <rect x="400" y="70" width="104" height="56" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+        <text x="452" y="90" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#0C447C">弹出网页</text>
+        <text x="452" y="108" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185FA5">授权</text>
+      </g>
+      <g>
+        <rect x="520" y="70" width="104" height="56" rx="8" fill="#FCEBEB" stroke="#A32D2D" stroke-width="0.5"/>
+        <text x="572" y="90" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#791F1F">复制 APIKEY</text>
+        <text x="572" y="108" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#A32D2D">ENVID 手填</text>
+      </g>
+      <path d="M144 98 L158 98" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+      <path d="M264 98 L278 98" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+      <path d="M384 98 L398 98" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+      <path d="M504 98 L518 98" fill="none" stroke="#888780" stroke-width="1.5" marker-end="url(#arr)"/>
+      <rect x="40" y="160" width="584" height="64" rx="10" fill="#FCEBEB" stroke="#A32D2D" stroke-width="0.5" stroke-dasharray="4 3"/>
+      <text x="332" y="184" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#791F1F">痛点：5 次跨应用跳转 + 手工复制密钥</text>
+      <text x="332" y="204" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#A32D2D">密钥是敏感凭据，复制粘贴易出错、易泄露，卡住非技术用户</text>
+    </g>
+  </svg>
+</div>
+
+<p>目标：把「网页授权 + 复制粘贴」这一步在<strong>新东方自己的专家里</strong>完成 —— 由专家在本机起一个授权回调流程，静默拿到 envId + apiKey 并直接写入 toolbox 凭证文件；用户只剩「启用连接器」一个动作。</p>
+
+<h2>2. 已发布能力盘点（代码事实）</h2>
+<p>设计建立在以下已验证的机制上（源码在 <code>cloudbase-toolbox/src/auth/</code>）：</p>
+
+<table>
+  <tr><th style="width:190px">机制</th><th>事实</th><th style="width:120px">来源</th></tr>
+  <tr><td>授权 URL</td><td>统一指向 <code>https://tcb.cloud.tencent.com/login?cliAuth=1&amp;_redirect_uri=&lt;encoded&gt;&amp;authCallbackUrl=&lt;127.0.0.1:port&gt;&amp;port=…&amp;hash=…&amp;mac=…&amp;os=…&amp;from=cli</code>。回调地址由<strong>发起方自定端口</strong>，页面授权成功后 redirect 到该本地端口并携带 query。</td><td><code>web-auth.ts</code></td></tr>
+  <tr><td>API Key 回调分支</td><td>回调 query 带 <code>authSource=api_key&amp;envId=…&amp;apiKey=…</code> 时，本地进程调 <code>exchangeApiKeyForCredential</code>（POST <code>https://&lt;envId&gt;.&lt;region&gt;.tcb-api.tencentcloudapi.com/capi/credential</code>，Bearer apiKey）换临时 STS。</td><td><code>web-auth.ts</code> / <code>api-key.ts</code></td></tr>
+  <tr><td>凭证落盘</td><td><code>~/.config/.cloudbase/auth.json</code>，结构 <code>{_: 说明, credential: {tmpSecretId, tmpSecretKey, tmpToken, tmpExpired, envId, authSource:'api_key', apiKey}}</code>。全局 / 项目级（<code>projects/&lt;cwd-hash&gt;/</code>）两级，读取顺序：项目级 → 环境变量 → 全局。</td><td><code>localstore.ts</code> / <code>credential.ts</code></td></tr>
+  <tr><td>自动续期</td><td><code>checkAndGetCredential</code> 对 <code>authSource='api_key'</code> 的凭证：未过期直接用，过期后用落盘的 apiKey 重新换取；<strong>跳过 CheckTcbService 校验</strong>（临时密钥 policy 可能不含该权限，与 loginByApiKey 一致）。</td><td><code>credential.ts:221</code></td></tr>
+  <tr><td>回调超时</td><td>本地回调默认等待 <strong>600s</strong>（原 180s），覆盖用户选登录方式、填表时间。</td><td><code>web/web.ts:138</code></td></tr>
+  <tr><td>CLI 非交互登录</td><td><code>tcb login --cloudbase-api-key &lt;key&gt; -e &lt;envId&gt;</code> 已支持无交互写凭证（无需 --flow web）。</td><td><code>commands/account/login.ts</code></td></tr>
+  <tr><td>连接器侧</td><td>WorkBuddy CloudBase 连接器 = <code>npx @cloudbase/cloudbase-mcp@latest</code>（现 v2.25.5），其 <code>auth</code> 工具已支持 <code>action=login_by_api_key</code>，且读取同一 toolbox 凭证体系 —— <strong>写对 auth.json 即连接器可登录</strong>。</td><td>connector mcp.json / cloudbase-mcp dist</td></tr>
+  <tr><td>会话加载</td><td>MCP 工具在会话初始化时加载；连接器进程内 AuthSupervisor 为单例缓存。→ 启用/切换凭证后<strong>必须新开会话</strong>才生效。</td><td>运行机制</td></tr>
+</table>
+
+<div class="callout"><b>核心洞察：</b>本地回调机制并不绑定 CLI —— 它就是一个「起本地 HTTP 服务 → 打开授权页 → 收 query」的模式，<code>_redirect_uri</code>/<code>authCallbackUrl</code> 允许任意本地端口。因此<strong>新东方专家的 helper 可以完整复刻这一机制</strong>，把 envId+apiKey 静默落到凭证文件，用户全程不复制任何东西。</div>
+
+<h2>3. 目标方案总览</h2>
+<div class="grid2">
+  <div class="card">
+    <span class="tag t-blue">方案定位</span>
+    <p style="margin-top:8px">新东方专家包内嵌一个 <strong>auth-bootstrap helper</strong>（自包含 Node 脚本 + 引导 Prompt）。用户在 WorkBuddy 会话里对专家说一句「我要连接 CloudBase」，专家即：起本地回调 → 打开授权页 → 收 envId+apiKey → 写凭证文件 → 引导启用连接器 → 提示新开会话。</p>
+  </div>
+  <div class="card">
+    <span class="tag t-teal">交互变化</span>
+    <p style="margin-top:8px">用户侧从 5 步（含复制密钥）降为 <strong>2 步</strong>：① 在会话里完成授权（粘贴平台下发的 key 一次，或走页面授权）；② 启用连接器并新开会话。密钥不再跨应用复制。</p>
+  </div>
+</div>
+
+<div class="fig">
+  <svg viewBox="0 0 680 700" role="img" aria-label="目标方案时序图" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="arr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker>
+    </defs>
+    <g font-family="-apple-system,'PingFang SC',sans-serif">
+      <g>
+        <rect x="67" y="50" width="76" height="34" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+        <text x="105" y="67" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#0C447C">用户</text>
+      </g>
+      <g>
+        <rect x="212" y="50" width="76" height="34" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+        <text x="250" y="67" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#085041">专家 helper</text>
+      </g>
+      <g>
+        <rect x="312" y="50" width="76" height="34" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+        <text x="350" y="67" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#2C2C2A">授权页/平台</text>
+      </g>
+      <g>
+        <rect x="462" y="50" width="76" height="34" rx="8" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+        <text x="500" y="67" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#633806">auth.json</text>
+      </g>
+      <g>
+        <rect x="564" y="50" width="76" height="34" rx="8" fill="#FBEAF0" stroke="#993556" stroke-width="0.5"/>
+        <text x="602" y="67" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#72243E">连接器</text>
+      </g>
+      <path d="M105 84 v600" stroke="#C9CDD4" stroke-width="0.5" stroke-dasharray="3 4"/>
+      <path d="M250 84 v600" stroke="#C9CDD4" stroke-width="0.5" stroke-dasharray="3 4"/>
+      <path d="M350 84 v600" stroke="#C9CDD4" stroke-width="0.5" stroke-dasharray="3 4"/>
+      <path d="M500 84 v600" stroke="#C9CDD4" stroke-width="0.5" stroke-dasharray="3 4"/>
+      <path d="M602 84 v600" stroke="#C9CDD4" stroke-width="0.5" stroke-dasharray="3 4"/>
+
+      <path d="M105 120 L248 120" fill="none" stroke="#185FA5" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="176" y="112" text-anchor="middle" font-size="12" fill="#1F2329">「我要连接 CloudBase」</text>
+
+      <path d="M276 150 a20 20 0 0 1 20 0" fill="none" stroke="#0F6E56" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="314" y="150" text-anchor="start" font-size="12" fill="#1F2329">起本地回调服务 127.0.0.1:随机端口</text>
+
+      <path d="M250 190 L348 190" fill="none" stroke="#0F6E56" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="299" y="182" text-anchor="middle" font-size="12" fill="#1F2329">打开 /login?cliAuth=1&amp;_redirect_uri=…</text>
+
+      <path d="M350 228 L107 228" fill="none" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="228" y="220" text-anchor="middle" font-size="12" fill="#1F2329">浏览器弹出授权页（账号登录 / API Key 入口）</text>
+
+      <path d="M105 266 L348 266" fill="none" stroke="#185FA5" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="226" y="258" text-anchor="middle" font-size="12" fill="#1F2329">完成授权（粘贴平台下发的 key 或页面表单）</text>
+
+      <path d="M350 304 L252 304" fill="none" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="301" y="296" text-anchor="middle" font-size="12" fill="#1F2329">回调 redirect：authSource=api_key&amp;envId&amp;apiKey</text>
+
+      <path d="M250 342 L348 342" fill="none" stroke="#0F6E56" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="299" y="334" text-anchor="middle" font-size="12" fill="#1F2329">POST /capi/credential 换临时 STS</text>
+
+      <path d="M350 376 L252 376" fill="none" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="301" y="368" text-anchor="middle" font-size="12" fill="#1F2329">返回 TmpSecretId/Key/Token</text>
+
+      <path d="M250 414 L498 414" fill="none" stroke="#854F0B" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="374" y="406" text-anchor="middle" font-size="12" fill="#1F2329">写 credential{authSource:'api_key', apiKey, envId, tmp*}</text>
+
+      <path d="M250 452 L107 452" fill="none" stroke="#0F6E56" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="178" y="444" text-anchor="middle" font-size="12" fill="#1F2329">「授权成功 → 去启用连接器」</text>
+
+      <path d="M105 490 L600 490" fill="none" stroke="#993556" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="352" y="482" text-anchor="middle" font-size="12" fill="#1F2329">启用 CloudBase 连接器</text>
+
+      <path d="M602 528 L502 528" fill="none" stroke="#993556" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="552" y="520" text-anchor="middle" font-size="12" fill="#1F2329">checkAndGetCredential() 读凭证</text>
+
+      <path d="M500 562 L600 562" fill="none" stroke="#5F5E5A" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="550" y="554" text-anchor="middle" font-size="12" fill="#1F2329">返回 api_key 凭证，auth status=已登录</text>
+
+      <path d="M105 600 L600 600" fill="none" stroke="#993556" stroke-width="1.5" marker-end="url(#arr2)"/>
+      <text x="352" y="592" text-anchor="middle" font-size="12" fill="#1F2329">新开会话（MCP 工具加载新凭证）</text>
+
+      <rect x="40" y="628" width="600" height="52" rx="10" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+      <text x="340" y="646" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#085041">用户全程只需：1 次授权 + 1 次启用连接器 + 1 次新会话</text>
+      <text x="340" y="666" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#0F6E56">密钥由回调自动交付，不跨应用、不复制粘贴</text>
+    </g>
+  </svg>
+  <div class="figcap">目标方案主时序图：专家 helper 完整复刻 CLI 的本地授权回调</div>
+</div>
+
+<h2>4. 凭证写入路径（三选一，按推荐排序）</h2>
+<p>回调拿到 envId + apiKey 后，落到 <code>~/.config/.cloudbase/auth.json</code> 有 3 条路径，终点一致：</p>
+
+<div class="fig">
+  <svg viewBox="0 0 680 320" role="img" aria-label="凭证写入三路径" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="arr3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker>
+    </defs>
+    <g font-family="-apple-system,'PingFang SC',sans-serif">
+      <g>
+        <rect x="40" y="40" width="180" height="56" rx="8" fill="#E1F5EE" stroke="#0F6E56" stroke-width="0.5"/>
+        <text x="130" y="60" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#085041">路径 A · helper 自包含</text>
+        <text x="130" y="78" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#0F6E56">回调 + 换 STS + 写文件</text>
+      </g>
+      <g>
+        <rect x="250" y="40" width="180" height="56" rx="8" fill="#E6F1FB" stroke="#185FA5" stroke-width="0.5"/>
+        <text x="340" y="60" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#0C447C">路径 B · toolbox API</text>
+        <text x="340" y="78" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#185FA5">loginByWebAuth / loginByApiKey</text>
+      </g>
+      <g>
+        <rect x="460" y="40" width="180" height="56" rx="8" fill="#FAEEDA" stroke="#854F0B" stroke-width="0.5"/>
+        <text x="550" y="60" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#633806">路径 C · CLI（已装 node）</text>
+        <text x="550" y="78" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#854F0B">tcb login --cloudbase-api-key</text>
+      </g>
+      <path d="M130 96 L480 208" fill="none" stroke="#0F6E56" stroke-width="1.5" marker-end="url(#arr3)"/>
+      <path d="M340 96 L500 208" fill="none" stroke="#185FA5" stroke-width="1.5" marker-end="url(#arr3)"/>
+      <path d="M550 96 L520 208" fill="none" stroke="#854F0B" stroke-width="1.5" marker-end="url(#arr3)"/>
+      <g>
+        <rect x="200" y="200" width="280" height="56" rx="8" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+        <text x="340" y="220" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#2C2C2A">~/.config/.cloudbase/auth.json</text>
+        <text x="340" y="238" text-anchor="middle" dominant-baseline="central" font-size="12" fill="#5F5E5A">credential{authSource:'api_key', …}</text>
+      </g>
+      <path d="M340 256 L340 268" fill="none" stroke="#993556" stroke-width="1.5" marker-end="url(#arr3)"/>
+      <g>
+        <rect x="240" y="272" width="200" height="40" rx="8" fill="#FBEAF0" stroke="#993556" stroke-width="0.5"/>
+        <text x="340" y="292" text-anchor="middle" dominant-baseline="central" font-size="13" font-weight="500" fill="#72243E">WorkBuddy 连接器</text>
+      </g>
+    </g>
+  </svg>
+  <div class="figcap">三条写入路径收敛到同一凭证文件，连接器无感复用</div>
+</div>
+
+<table>
+  <tr><th style="width:130px">路径</th><th>做法</th><th>优点</th><th>代价 / 前置</th></tr>
+  <tr>
+    <td><span class="tag t-teal">A · 推荐</span></td>
+    <td>helper 内嵌一个零依赖 Node 脚本：本地回调（复刻 <code>web-auth.ts</code> URL 构造）→ 调 <code>/capi/credential</code> 换 STS → 按 <code>resolveWebCredential</code> 的 <code>tmp*</code> 结构直接写 auth.json。</td>
+    <td>只需 node（WorkBuddy 自带运行时）；无网络安装依赖；UX/安全完全可控；离线环境可用</td>
+    <td>耦合凭证文件内部格式（envelope + tmp* 字段，需与库同步演进）</td>
+  </tr>
+  <tr>
+    <td><span class="tag t-blue">B · 库保证</span></td>
+    <td>helper 里 <code>require('@cloudbase/toolbox')</code>，调 <code>AuthSupervisor.loginByWebAuth({flow:'web'})</code> 或 <code>loginByApiKey(apiKey, envId)</code>。</td>
+    <td>格式与换证逻辑由库保证，无需关心细节；API 一行完成</td>
+    <td>需能解析 @cloudbase/toolbox（临时 npm 安装或复用 CLI 依赖）；可能受网络/镜像限制</td>
+  </tr>
+  <tr>
+    <td><span class="tag t-amber">C · CLI</span></td>
+    <td>若用户环境已装 CloudBase CLI：<code>tcb login --cloudbase-api-key &lt;key&gt; -e &lt;envId&gt;</code>（非交互，一次到位）。</td>
+    <td>无需自研；老用户零学习成本；与官方行为 100% 一致</td>
+    <td>要求用户已装 node + CLI（npx 拉最新版亦可）；仍需拿到 key 后粘贴到终端</td>
+  </tr>
+</table>
+
+<div class="ok"><b>建议：</b>专家包以 <b>路径 A</b> 为主实现（体验最顺、依赖最少），<b>路径 B</b> 作为探测到 toolbox 可解析时的升级分支，<b>路径 C</b> 作为「用户已有 CLI」时的快捷引导。三者写入的 auth.json 格式可被 resolveCredential 兼容读取。</div>
+
+<h3>4.1 capi 换证接口规格（路径 A 的换证实现参考）</h3>
+<p>路径 A 的 helper 需自实现换证逻辑，接口规格如下（与 <code>exchangeApiKeyForCredential</code> 完全一致，见 <code>api-key.ts</code>）：</p>
+
+<table>
+  <tr><th style="width:160px">项</th><th>值</th></tr>
+  <tr><td>域名</td><td><code>https://&lt;envId&gt;.&lt;region&gt;.tcb-api.tencentcloudapi.com</code>（region 默认 <code>ap-shanghai</code>；整体可被环境变量 <code>CLOUDBASE_API_ENDPOINT</code> 覆盖，适配客户内网网关）</td></tr>
+  <tr><td>路径 / 方法</td><td><code>POST /capi/credential</code></td></tr>
+  <tr><td>请求头</td><td><code>Content-Type: application/json</code> + <code>Authorization: Bearer &lt;apiKey&gt;</code></td></tr>
+  <tr><td>请求体</td><td><code>{"env": "&lt;envId&gt;"}</code></td></tr>
+  <tr><td>超时 / 代理</td><td>15000ms；支持 HTTP 代理（getProxy）</td></tr>
+  <tr><td>成功响应</td><td><code>{ "code": 0, "data": { "TmpSecretId", "TmpSecretKey", "Token", "ExpiredTime" } }</code></td></tr>
+  <tr><td>失败响应</td><td><code>code !== 0</code> → 抛 <code>CloudBaseError(message)</code>（key 无效 / 环境无权限，登录即报错）</td></tr>
+  <tr><td>并发控制</td><td>AsyncMerge 同 envId 5s 内合并请求，连点不重复打</td></tr>
+</table>
+
+<pre>curl -X POST "https://&lt;envId&gt;.ap-shanghai.tcb-api.tencentcloudapi.com/capi/credential" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer &lt;apiKey&gt;" \
+  -d '{"env": "&lt;envId&gt;"}'</pre>
+
+<ul>
+  <li><b>ExpiredTime 是秒级时间戳</b>，写盘前 ×1000 转毫秒存 <code>tmpExpired</code>。</li>
+  <li>响应 <code>data</code> 直接是 STS 三要素，<strong>无二次包装</strong>；字段名以 <code>Tmp*</code> 开头，落盘后 SDK 直接可用。</li>
+  <li>helper 换证成功后按 <code>resolveWebCredential</code> 的 <code>tmp*</code> 结构写 auth.json（见第 2 节表格）。</li>
+</ul>
+
+<h2>5. 安全设计</h2>
+<ul>
+  <li><b>回调只信本地：</b>helper 只监听 <code>127.0.0.1</code> 随机端口，一次性使用，收到回调立即关闭；<code>_redirect_uri</code> 不信任外部可控值，由 helper 自拼（与 CLI 现状一致）。</li>
+  <li><b>密钥不落地明文日志：</b>apiKey 打印时脱敏（<code>前缀…后4位</code>），不写入任何日志文件；helper 输出仅含 envId 与脱敏后的 key。</li>
+  <li><b>凭证文件权限：</b>写入后 <code>chmod 600</code> auth.json（当前实现遵循默认 umask，建议 helper 显式收紧）。</li>
+  <li><b>生命周期：</b>apiKey 是环境级长期凭据，明文存于本机。与 loginByApiKey 现状一致；建议授权成功后引导用户在平台侧做 key 轮换 / 设置有效期。</li>
+  <li><b>已知弱项（与 CLI 同款）：</b>本地回调无一次性 state 校验，同机恶意进程可伪造回调注入自己的 key（后果 = 你的工具用了别人的环境，可被察觉）。建议后续在 /login 页支持透传随机 state 并回显校验，本次不阻塞。</li>
+</ul>
+
+<h2>6. 异常与回退</h2>
+<table>
+  <tr><th style="width:220px">场景</th><th>处理</th></tr>
+  <tr><td>用户已用账号登录过（auth.json 已有凭证）</td><td>helper 先读 <code>checkAndGetCredential</code>，已有有效凭证则提示「已登录」；切换平台环境时明确覆盖并提示旧凭证失效。</td></tr>
+  <tr><td>回调超时（600s）</td><td>提示重新发起；可支持 <code>--no-browser</code> 打印 URL 让用户手动打开（TCB_NO_BROWSER 同款）。</td></tr>
+  <tr><td>用户环境没有 node / 沙箱无运行时</td><td>回退路径 C 引导（如有 CLI）；否则引导用户手动：启用连接器 → 新会话 → 调 MCP <code>auth</code> 工具 <code>action=login_by_api_key</code> 填入 apiKey+envId（该 action 底层即 loginByApiKey，已支持）。</td></tr>
+  <tr><td>平台只发 key、不发 envId 所在地域</td><td>exchange 默认 ap-shanghai；envId 含地域前缀时自动识别，helper 支持 <code>CLOUDBASE_API_ENDPOINT</code> 覆盖。</td></tr>
+  <tr><td>连接器已启用但会话内工具未出现</td><td>符合预期：MCP 工具会话加载 + 进程内凭证缓存 → <b>必须新开会话</b>。helper 成功文案里内置该引导。</td></tr>
+</table>
+
+<h2>7. 落地清单（新东方专家包）</h2>
+<ol>
+  <li><b>新增 skill：</b>专家包 <code>skills/cloudbase-auth-bootstrap/</code>，含 <code>helper.js</code>（路径 A 自包含实现）+ <code>SKILL.md</code>（触发词：连接 CloudBase、启用连接器、环境 API Key 登录）。</li>
+  <li><b>helper.js 职责：</b>① 探测本地凭证状态；② 起本地回调服务并构造 <code>/login?cliAuth=1</code> URL（复刻 web-auth.ts 参数）；③ 收回调解析 <code>authSource/apiKey/envId</code>；④ 调 <code>/capi/credential</code> 换 STS；⑤ 写 auth.json（tmp* 结构 + chmod 600）；⑥ 输出「授权成功 → 设置中启用 CloudBase 连接器 → 新开会话」引导文案。</li>
+  <li><b>专家 Prompt 引导：</b>识别「连接/启用 CloudBase」意图 → 提示即将打开浏览器 → 执行 helper → 分步播报进度（起服务/等授权/换证/落盘）→ 收尾引导。</li>
+  <li><b>验收（首次启用后新会话）：</b>在新会话用 MCP <code>auth</code> 工具查 status 为已登录；跑一次 <code>queryEnv</code> 或任一资源查询验证 envId 正确。</li>
+  <li><b>可选增强：</b>helper 支持 <code>--from-key</code> 模式（用户直接把平台下发的 key 粘贴进会话，helper 跳过网页直接换证写盘）—— 专治「平台站外下发 key」场景，连浏览器都不用开。</li>
+</ol>
+
+<div class="callout"><b>总结：</b>已发布的三连 MR 把「机制」备好了（任意本地进程可复用 /login?cliAuth=1 回调收 envId+apiKey），缺的只是「体验」——由新东方专家包内置 auth-bootstrap helper 补齐。用户在专家会话内完成授权，凭证直写 toolbox auth.json，之后仅剩「启用连接器 + 新会话」两步。无腾讯云账号不再是接入门槛。</div>
+
+<div class="foot">
+  依据源码：cloudbase-toolbox/src/auth/{web-auth,api-key,credential,index,common}.ts · src/web/web.ts · src/localstore.ts；cloudbase-cli/src/{auth/login.ts,commands/account/login.ts}；@cloudbase/cloudbase-mcp v2.25.5（auth 工具 login_by_api_key）。
+</div>
+
+</div>
+</body>
+</html>

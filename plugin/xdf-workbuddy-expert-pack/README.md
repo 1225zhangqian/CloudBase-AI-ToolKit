@@ -10,7 +10,8 @@
 | --- | --- |
 | `agents/cloudbase-baas-expert.md` | 专家 Agent 正文（**无** frontmatter `hooks`） |
 | `skills/minimal-web-baas-demo/` | 可加载 BaaS Fast-path skill（Trust 前 `Skill()` 可用） |
-| `scripts/install-skill.sh` | 安装到 `~/.workbuddy/skills/`（及 `~/.codebuddy/skills/`） |
+| `skills/cloudbase-auth-bootstrap/` | 平台客户无腾讯云账号：本地授权回调 helper + skill（写 `auth.json`） |
+| `scripts/install-skill.sh` | 安装全部 skills 到 `~/.workbuddy/skills/`（及 `~/.codebuddy/skills/`） |
 | `briefs/baas-fast-path.md` | `minimal-web-baas-demo` 一页指针 |
 | `settings.snippet.json` | 合并进 `~/.workbuddy/settings.json` 的 SessionStart 片段 |
 | `scripts/render-settings.sh` | 把片段里的路径渲染成绝对路径 |
@@ -57,13 +58,20 @@ bash plugin/xdf-workbuddy-expert-pack/scripts/render-settings.sh --merge
 # 3) 把 agents/cloudbase-baas-expert.md 粘进 WorkBuddy 专家 / 系统提示
 #    或复制到 ~/.workbuddy/agents/（若伙伴用本地 agents）
 
-# 4) 安装 BaaS skill 到本机 skill 面（Trust / MCP 之前也要能 Skill()）
+# 4) 安装 skills 到本机 skill 面（Trust / MCP 之前也要能 Skill()）
 bash plugin/xdf-workbuddy-expert-pack/scripts/install-skill.sh
-# 期望：~/.workbuddy/skills/minimal-web-baas-demo/SKILL.md 存在
+# 期望：
+#   ~/.workbuddy/skills/minimal-web-baas-demo/SKILL.md
+#   ~/.workbuddy/skills/cloudbase-auth-bootstrap/SKILL.md
+#   ~/.workbuddy/skills/cloudbase-auth-bootstrap/helper.js
 
-# 5) 配置 CloudBase 连接器（Trust 后才可用 searchKnowledgeBase；Step0 不依赖它）
+# 5) 无腾讯云账号的平台用户：在专家会话说「连接 CloudBase」
+#    → Skill("cloudbase-auth-bootstrap") → node helper.js
+#    → 写 ~/.config/.cloudbase/auth.json → 启用连接器 → 新开会话
 
-# 6) 新开 WorkBuddy 会话，cwd 选空项目目录；引导凭据时检查：
+# 6) 配置 CloudBase 连接器（Trust 后才可用 searchKnowledgeBase；Step0 不依赖它）
+
+# 7) 新开 WorkBuddy 会话，cwd 选空项目目录；引导凭据时检查：
 #    cat <cwd>/.cloudbase-prewarm/state.json      # status=ready
 #    cat <cwd>/.cloudbase-sites/preview.json     # internalUrl @ 17173..17272
 #    保持 sibling plugin/cloudbase-sites 可用（或设 CLOUDBASE_SITES_BIN）
@@ -92,6 +100,7 @@ hooks 装不上时仍可改善体验，但弱于 SessionStart 后台任务。Pre
 - [ ] 空目录新会话 → ~20–40s 内 `.cloudbase-prewarm/state.json` 为 `ready`
 - [ ] 同期出现 `.cloudbase-sites/preview.json`（端口池 17173..17272，非 5173）
 - [ ] `Skill("minimal-web-baas-demo")` 在 **未 Trust** 时也可解析（已跑 `install-skill.sh`）
+- [ ] `Skill("cloudbase-auth-bootstrap")` 可解析；`helper.js --status` 可运行
 - [ ] 专家不为留言板创建云函数（对齐 skill 契约）
 - [ ] `allowUntrustedFrontmatterHooks` **未**因本包被强制打开
 
@@ -99,4 +108,6 @@ hooks 装不上时仍可改善体验，但弱于 SessionStart 后台任务。Pre
 
 - Spike：`plugin/workbuddy-template-prewarm`（SessionStart 可行 + Sites preview 对齐）
 - Skill：`minimal-web-baas-demo`（BaaS-first 契约）
+- Skill：`cloudbase-auth-bootstrap`（平台客户 API Key 本地回调写 auth.json）
 - Prompt rewrite：ATO artifact `xdf-workbuddy-expert-prompt.md`（本包 Agent 已吸收并加上 skill 指针）
+- 设计：`docs/new-oriental-connector-auth-design.html`

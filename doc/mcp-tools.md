@@ -1899,13 +1899,13 @@ CloudBase 云函数统一写入口。支持创建函数、更新代码、更新�
 文档名：web-development 文档介绍：Use when users need to implement, integrate, debug, build, deploy, or validate a Web frontend after the product direction is already clear, especially for React, Vue, Vite, browser flows, or CloudBase Web integration.
 
       OpenAPI 文档 (openapi) 查询只需要传 mode="openapi" 和 apiName，不要传 action；action 仅用于 mode="docs"。当前支持 7 个 API 文档，分别是：
-      API名：mysqldb API介绍：关系型数据库 RESTful API (MySQL/PostgreSQL) - 云开发关系型数据库 HTTP API
-API名：functions API介绍：Cloud Functions API - 云函数 HTTP API
-API名：auth API介绍：Authentication API - 身份认证 HTTP API
+      API名：functions API介绍：Cloud Functions API - 云函数 HTTP API
 API名：cloudrun API介绍：CloudRun API - 云托管服务 HTTP API
+API名：mysqldb API介绍：关系型数据库 RESTful API (MySQL/PostgreSQL) - 云开发关系型数据库 HTTP API
 API名：storage API介绍：Storage API - 云存储 HTTP API
 API名：nosql API介绍：NoSQL RESTful API - 文档型数据库 HTTP API
 API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
+API名：auth API介绍：Authentication API - 身份认证 HTTP API
 
 #### 参数
 
@@ -1925,7 +1925,7 @@ API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
     {
       name: "apiName",
       type: "string",
-      description: `mode=openapi 时指定。API 名称。 可填写的值: "mysqldb", "functions", "auth", "cloudrun", "storage", "nosql", "ai_model"`,
+      description: `mode=openapi 时指定。API 名称。 可填写的值: "functions", "cloudrun", "mysqldb", "storage", "nosql", "ai_model", "auth"`,
     },
     {
       name: "action",
@@ -2043,7 +2043,7 @@ API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
 ---
 
 ### `manageCloudRun`
-管理云托管服务，按开发顺序支持：开通云托管环境（initEnv）、初始化项目（可从模板开始，模板列表可通过 queryCloudRun 查询）、下载服务代码、本地运行（仅函数型服务）、部署代码、仅更新配置（updateConfig，无需重新上传代码）、删除服务。deploy 对已存在服务会先读取远程配置再合并（保留 VpcConf/EnvParams/OpenAccessTypes）。updateConfig 对齐控制台服务设置页。删除操作需要确认，建议设置force=true。新环境首次部署前若提示未开通云托管，先调用 initEnv 开通（异步、幂等）。
+管理云托管服务，按开发顺序支持：开通云托管环境（initEnv）、初始化项目（可从模板开始，模板列表可通过 queryCloudRun 查询）、下载服务代码、本地运行（仅函数型服务）、部署代码、仅更新配置（updateConfig，无需重新上传代码）、删除服务。deploy 支持两种方式：1) 源码构建（传入 targetPath，本地代码打包上传，默认路径）；2) 已有镜像部署（传入 imageUrl，如 ccr.ccs.tencentyun.com/ns/img:v1，走 DeployType=image 容器型部署，targetPath 可省略）。deploy 对已存在服务会先读取远程配置再合并（保留 VpcConf/EnvParams/OpenAccessTypes）。updateConfig 对齐控制台服务设置页。删除操作需要确认，建议设置force=true。新环境首次部署前若提示未开通云托管，先调用 initEnv 开通（异步、幂等）。
 
 #### 参数
 
@@ -2053,7 +2053,7 @@ API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
       name: "action",
       type: "string",
       required: true,
-      description: `云托管服务管理操作类型：init=从模板初始化新的云托管项目代码（在targetPath目录下创建以serverName命名的子目录，支持多种语言和框架模板），download=从云端下载现有服务的代码到本地进行开发，run=在本地运行函数型云托管服务（用于开发和调试，仅支持函数型服务），deploy=将本地代码部署到云端云托管服务（支持函数型和容器型；已存在服务会 Read-Merge-Write 保留远程 VpcConf/EnvParams/OpenAccessTypes），updateConfig=仅更新服务配置不重新上传代码（对齐控制台服务设置，走 SubmitServerConfigChangeDiff；不需要 targetPath），delete=删除指定的云托管服务（不可恢复，需要确认），createAgent=创建函数型Agent（基于函数型云托管开发AI智能体），initEnv=开通当前环境的云托管（异步创建云托管环境，幂等：已开通直接返回；适合新环境首次部署前使用） 可填写的值: "init", "download", "run", "deploy", "delete", "createAgent", "updateConfig", "initEnv"`,
+      description: `云托管服务管理操作类型：init=从模板初始化新的云托管项目代码（在targetPath目录下创建以serverName命名的子目录，支持多种语言和框架模板），download=从云端下载现有服务的代码到本地进行开发，run=在本地运行函数型云托管服务（用于开发和调试，仅支持函数型服务），deploy=将本地代码部署到云端云托管服务（支持函数型和容器型；传 imageUrl 时改为已有镜像部署，走 DeployType=image 容器型，targetPath 可省略；已存在服务会 Read-Merge-Write 保留远程 VpcConf/EnvParams/OpenAccessTypes），updateConfig=仅更新服务配置不重新上传代码（对齐控制台服务设置，走 SubmitServerConfigChangeDiff；不需要 targetPath），delete=删除指定的云托管服务（不可恢复，需要确认），createAgent=创建函数型Agent（基于函数型云托管开发AI智能体），initEnv=开通当前环境的云托管（异步创建云托管环境，幂等：已开通直接返回；适合新环境首次部署前使用） 可填写的值: "init", "download", "run", "deploy", "delete", "createAgent", "updateConfig", "initEnv"`,
     },
     {
       name: "serverName",
@@ -2074,7 +2074,12 @@ API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
     {
       name: "targetPath",
       type: "string",
-      description: `本地代码路径，必须是绝对路径。在deploy操作中指定要部署的代码目录，在download操作中指定下载目标目录，在init操作中指定云托管服务的上级目录（会在该目录下创建以serverName命名的子目录）。updateConfig 不需要此参数。建议约定：项目根目录下的cloudrun/目录，例如：/Users/username/projects/my-project/cloudrun`,
+      description: `本地代码路径，必须是绝对路径。在deploy操作中指定要部署的代码目录，在download操作中指定下载目标目录，在init操作中指定云托管服务的上级目录（会在该目录下创建以serverName命名的子目录）。updateConfig 不需要此参数。建议约定：项目根目录下的cloudrun/目录，例如：/Users/username/projects/my-project/cloudrun。使用 imageUrl 部署已有镜像时此参数可省略`,
+    },
+    {
+      name: "imageUrl",
+      type: "string",
+      description: `已有镜像部署（action=deploy 时使用）：直接指定容器镜像地址，如 ccr.ccs.tencentyun.com/ns/img:v1 或公网 registry 地址。传入后走 DeployType="image"（容器型）部署，无需本地源码目录（targetPath 可省略）。支持：1) 公网匿名可拉取的镜像直填地址；2) 私有/需登录的镜像（如 ghcr.io）需先在本地 docker pull → docker tag/push 到腾讯云 CCR → 填入 CCR 地址。不传则维持源码构建（本地代码打包上传）。注意：无论哪种部署方式，环境都需先开通云托管（未开通时先调用 initEnv，Status=normal 后再部署）`,
     },
     {
       name: "envParamsReplaceAll",

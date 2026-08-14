@@ -46,7 +46,7 @@ const queryCloudRunInputSchema = {
 
 // Input schema for manageCloudRun tool
 const ManageCloudRunInputSchema = {
-  action: z.enum(['init', 'download', 'run', 'deploy', 'delete', 'createAgent', 'updateConfig', 'initEnv']).describe('云托管服务管理操作类型：init=从模板初始化新的云托管项目代码（在targetPath目录下创建以serverName命名的子目录，支持多种语言和框架模板），download=从云端下载现有服务的代码到本地进行开发，run=在本地运行函数型云托管服务（用于开发和调试，仅支持函数型服务），deploy=将本地代码部署到云端云托管服务（支持函数型和容器型；已存在服务会 Read-Merge-Write 保留远程 VpcConf/EnvParams/OpenAccessTypes），updateConfig=仅更新服务配置不重新上传代码（对齐控制台服务设置，走 SubmitServerConfigChangeDiff；不需要 targetPath），delete=删除指定的云托管服务（不可恢复，需要确认），createAgent=创建函数型Agent（基于函数型云托管开发AI智能体），initEnv=开通当前环境的云托管（异步创建云托管环境，幂等：已开通直接返回；适合新环境首次部署前使用）'),
+  action: z.enum(['init', 'download', 'run', 'deploy', 'delete', 'createAgent', 'updateConfig', 'initEnv']).describe('云托管服务管理操作类型：init=从模板初始化新的云托管项目代码（在targetPath目录下创建以serverName命名的子目录，支持多种语言和框架模板），download=从云端下载现有服务的代码到本地进行开发，run=在本地运行函数型云托管服务（用于开发和调试，仅支持函数型服务），deploy=将本地代码部署到云端云托管服务（支持函数型和容器型；传 imageUrl 时改为已有镜像部署，走 DeployType=image 容器型，targetPath 可省略；已存在服务会 Read-Merge-Write 保留远程 VpcConf/EnvParams/OpenAccessTypes），updateConfig=仅更新服务配置不重新上传代码（对齐控制台服务设置，走 SubmitServerConfigChangeDiff；不需要 targetPath），delete=删除指定的云托管服务（不可恢复，需要确认），createAgent=创建函数型Agent（基于函数型云托管开发AI智能体），initEnv=开通当前环境的云托管（异步创建云托管环境，幂等：已开通直接返回；适合新环境首次部署前使用）'),
   serverName: z.string().describe('云托管服务名称，用于标识和管理服务。命名规则：支持大小写字母、数字、连字符和下划线，必须以字母开头，长度3-45个字符。在init操作中会作为在targetPath下创建的子目录名，在其他操作中作为目标服务名。initEnv 操作不需要此参数'),
 
   // InitEnv operation parameters
@@ -54,7 +54,8 @@ const ManageCloudRunInputSchema = {
   packageType: z.enum(CLOUDRUN_PACKAGE_TYPES).optional().default('Trial').describe('云托管环境套餐类型（action=initEnv 时使用）：Trial=试用，Standard=标准，Professional=专业，Enterprise=企业。默认 Trial'),
 
   // Deploy operation parameters
-  targetPath: z.string().optional().describe('本地代码路径，必须是绝对路径。在deploy操作中指定要部署的代码目录，在download操作中指定下载目标目录，在init操作中指定云托管服务的上级目录（会在该目录下创建以serverName命名的子目录）。updateConfig 不需要此参数。建议约定：项目根目录下的cloudrun/目录，例如：/Users/username/projects/my-project/cloudrun'),
+  targetPath: z.string().optional().describe('本地代码路径，必须是绝对路径。在deploy操作中指定要部署的代码目录，在download操作中指定下载目标目录，在init操作中指定云托管服务的上级目录（会在该目录下创建以serverName命名的子目录）。updateConfig 不需要此参数。建议约定：项目根目录下的cloudrun/目录，例如：/Users/username/projects/my-project/cloudrun。使用 imageUrl 部署已有镜像时此参数可省略'),
+  imageUrl: z.string().optional().describe('已有镜像部署（action=deploy 时使用）：直接指定容器镜像地址，如 ccr.ccs.tencentyun.com/ns/img:v1 或公网 registry 地址。传入后走 DeployType="image"（容器型）部署，无需本地源码目录（targetPath 可省略）。支持：1) 公网匿名可拉取的镜像直填地址；2) 私有/需登录的镜像（如 ghcr.io）需先在本地 docker pull → docker tag/push 到腾讯云 CCR → 填入 CCR 地址。不传则维持源码构建（本地代码打包上传）。注意：无论哪种部署方式，环境都需先开通云托管（未开通时先调用 initEnv，Status=normal 后再部署）'),
   envParamsReplaceAll: z.boolean().optional().default(false).describe('EnvParams 合并策略（deploy / updateConfig）：false（默认）= 与远程按 key 合并（输入覆盖同名 key，远程其余 key 保留）；true= 用输入 EnvParams 整包替换远程。仅当显式传入 EnvParams 时生效'),
   serverConfig: z.object({
     OpenAccessTypes: z.array(z.enum(CLOUDRUN_ACCESS_TYPES)).optional().describe('公网访问类型配置，控制服务的访问权限：OA=办公网访问，PUBLIC=公网访问（默认，可通过HTTPS域名访问），MINIAPP=小程序访问，VPC=VPC访问（仅同VPC内可访问）。可配置多个类型'),
@@ -145,6 +146,7 @@ type ManageCloudRunInput = {
   action: 'init' | 'download' | 'run' | 'deploy' | 'delete' | 'createAgent' | 'updateConfig' | 'initEnv';
   serverName: string;
   targetPath?: string;
+  imageUrl?: string;
   serverConfig?: any;
   envParamsReplaceAll?: boolean;
   template?: string;
@@ -490,6 +492,41 @@ function normalizeCloudRunDomainUrl(input: unknown): string | undefined {
     : `https://${raw}`;
 }
 
+/**
+ * 从服务详情 / 最新部署记录中提取镜像信息（镜像部署时才有）。
+ * 镜像部署（DeployType=image）的服务详情与部署记录通常会携带 ImageUrl 等字段；
+ * 源码构建的服务无此字段，返回 undefined 表示无镜像信息。
+ */
+export function extractCloudRunImageInfo(
+  serviceDetail: any,
+  latestDeploy?: any,
+): { imageUrl?: string; deployType?: string } | undefined {
+  const candidates = [
+    latestDeploy,
+    serviceDetail?.ServerConfig,
+    serviceDetail?.BaseInfo,
+    serviceDetail,
+  ];
+  for (const source of candidates) {
+    if (!source || typeof source !== "object") continue;
+    const imageUrl =
+      source.ImageUrl ??
+      source.imageUrl ??
+      (typeof source.ImageInfo === "string" ? source.ImageInfo : undefined) ??
+      (typeof source.ImageInfo?.ImageUrl === "string" ? source.ImageInfo.ImageUrl : undefined);
+    if (typeof imageUrl === "string" && imageUrl.trim()) {
+      const deployType =
+        typeof source.DeployType === "string"
+          ? source.DeployType
+          : typeof source.deployType === "string"
+            ? source.deployType
+            : undefined;
+      return { imageUrl: imageUrl.trim(), ...(deployType ? { deployType } : {}) };
+    }
+  }
+  return undefined;
+}
+
 function resolveCloudRunFallbackAccess(details: any): {
   url?: string;
   source?:
@@ -657,6 +694,10 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                     data: {
                       service: result,
                       latestDeploy,
+                      // 若最新部署记录带镜像信息（镜像部署），透出便于展示
+                      ...(extractCloudRunImageInfo(result, latestDeploy)
+                        ? { imageInfo: extractCloudRunImageInfo(result, latestDeploy) }
+                        : {}),
                       ...(deployRecordsWarning ? { deployRecordsWarning } : {})
                     },
                     message
@@ -841,7 +882,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
     "manageCloudRun",
     {
       title: "管理 CloudRun 服务",
-      description: "管理云托管服务，按开发顺序支持：开通云托管环境（initEnv）、初始化项目（可从模板开始，模板列表可通过 queryCloudRun 查询）、下载服务代码、本地运行（仅函数型服务）、部署代码、仅更新配置（updateConfig，无需重新上传代码）、删除服务。deploy 对已存在服务会先读取远程配置再合并（保留 VpcConf/EnvParams/OpenAccessTypes）。updateConfig 对齐控制台服务设置页。删除操作需要确认，建议设置force=true。新环境首次部署前若提示未开通云托管，先调用 initEnv 开通（异步、幂等）。",
+      description: "管理云托管服务，按开发顺序支持：开通云托管环境（initEnv）、初始化项目（可从模板开始，模板列表可通过 queryCloudRun 查询）、下载服务代码、本地运行（仅函数型服务）、部署代码、仅更新配置（updateConfig，无需重新上传代码）、删除服务。deploy 支持两种方式：1) 源码构建（传入 targetPath，本地代码打包上传，默认路径）；2) 已有镜像部署（传入 imageUrl，如 ccr.ccs.tencentyun.com/ns/img:v1，走 DeployType=image 容器型部署，targetPath 可省略）。deploy 对已存在服务会先读取远程配置再合并（保留 VpcConf/EnvParams/OpenAccessTypes）。updateConfig 对齐控制台服务设置页。删除操作需要确认，建议设置force=true。新环境首次部署前若提示未开通云托管，先调用 initEnv 开通（异步、幂等）。",
       inputSchema: ManageCloudRunInputSchema,
       annotations: {
         readOnlyHint: false,
@@ -1148,15 +1189,18 @@ for await (let x of res.textStream) {
           }
 
           case 'deploy': {
-            if (!targetPath) {
-              throw new Error("targetPath is required for deploy operation");
+            if (!targetPath && !input.imageUrl) {
+              throw new Error("targetPath (source build) or imageUrl (existing image) is required for deploy operation");
             }
 
             // Determine service type - use input.serverType if provided, otherwise auto-detect
             let serverType: 'function' | 'container';
             let remoteServerConfig: CloudRunServerConfigLike | null = null;
             let existingService = false;
-            if (input.serverType) {
+            if (input.imageUrl) {
+              // Image deploy is always container type (SDK: DeployInfo={DeployType:"image", ImageUrl}).
+              serverType = 'container';
+            } else if (input.serverType) {
               serverType = input.serverType;
             } else {
               try {
@@ -1167,12 +1211,12 @@ for await (let x of res.textStream) {
                 existingService = true;
               } catch (e) {
                 // If service doesn't exist, determine by project structure
-                const dockerfilePath = path.join(targetPath, 'Dockerfile');
+                const dockerfilePath = path.join(targetPath!, 'Dockerfile');
                 if (fs.existsSync(dockerfilePath)) {
                   serverType = 'container';
                 } else {
                   // Check if it's a Node.js function project (has package.json with specific structure)
-                  const packageJsonPath = path.join(targetPath, 'package.json');
+                  const packageJsonPath = path.join(targetPath!, 'package.json');
                   if (fs.existsSync(packageJsonPath)) {
                     try {
                       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
@@ -1237,6 +1281,10 @@ for await (let x of res.textStream) {
               serverType: serverType,
             };
 
+            if (input.imageUrl) {
+              deployParams.imageUrl = input.imageUrl;
+            }
+
             if (effectiveServerConfig && Object.keys(effectiveServerConfig).length > 0) {
               deployParams.serverConfig = effectiveServerConfig;
             }
@@ -1261,22 +1309,27 @@ for await (let x of res.textStream) {
               throw new Error(buildManageCloudRunErrorMessage('deploy', input.serverName, error));
             }
 
-            // Generate cloudbaserc.json configuration file
+            // Generate cloudbaserc.json configuration file (source-build only; image deploy has no local project dir)
             const currentEnvId = await getEnvId(cloudBaseOptions);
-            const cloudbasercPath = path.join(targetPath, 'cloudbaserc.json');
-            const cloudbasercContent = {
-              envId: currentEnvId,
-              cloudrun: {
-                name: input.serverName
-              }
-            };
-            const consoleUrl = `https://tcb.cloud.tencent.com/dev?envId=${currentEnvId}#/platform-run/service/detail?serverName=${input.serverName}&tabId=overview&envId=${currentEnvId}`;
+            let cloudbasercGenerated = false;
+            if (targetPath) {
+              const cloudbasercPath = path.join(targetPath, 'cloudbaserc.json');
+              const cloudbasercContent = {
+                envId: currentEnvId,
+                cloudrun: {
+                  name: input.serverName
+                }
+              };
+              const consoleUrl = `https://tcb.cloud.tencent.com/dev?envId=${currentEnvId}#/platform-run/service/detail?serverName=${input.serverName}&tabId=overview&envId=${currentEnvId}`;
 
-            try {
-              fs.writeFileSync(cloudbasercPath, JSON.stringify(cloudbasercContent, null, 2));
-            } catch (error) {
-              debug('cloudbaserc.json creation skipped:', error instanceof Error ? error : new Error(String(error)));
+              try {
+                fs.writeFileSync(cloudbasercPath, JSON.stringify(cloudbasercContent, null, 2));
+                cloudbasercGenerated = true;
+              } catch (error) {
+                debug('cloudbaserc.json creation skipped:', error instanceof Error ? error : new Error(String(error)));
+              }
             }
+            const consoleUrl = `https://tcb.cloud.tencent.com/dev?envId=${currentEnvId}#/platform-run/service/detail?serverName=${input.serverName}&tabId=overview&envId=${currentEnvId}`;
 
             let preferredAccessUrl: string | undefined;
             let preferredAccessUrls: string[] = [];
@@ -1316,7 +1369,7 @@ for await (let x of res.textStream) {
 
             // Send deployment notification to CodeBuddy IDE
             try {
-              const projectName = path.basename(targetPath);
+              const projectName = targetPath ? path.basename(targetPath) : input.serverName;
               await sendDeployNotification(server, {
                 deployType: 'cloudrun',
                 url: preferredAccessUrl ?? "",
@@ -1349,9 +1402,11 @@ for await (let x of res.textStream) {
                     data: {
                       serviceName: input.serverName,
                       status: 'deploying',
-                      deployPath: targetPath,
+                      deployType: input.imageUrl ? 'image' : 'source',
+                      ...(targetPath ? { deployPath: targetPath } : {}),
+                      ...(input.imageUrl ? { imageUrl: input.imageUrl } : {}),
                       serverType: serverType,
-                      cloudbasercGenerated: true,
+                      cloudbasercGenerated,
                       consoleUrl,
                       ...(existingService
                         ? {
@@ -1374,7 +1429,7 @@ for await (let x of res.textStream) {
                         : {}),
                       ...(warnings.length > 0 ? { warnings } : {}),
                     },
-                    message: `Triggered deployment for ${serverType} service '${input.serverName}' from ${targetPath}. You can follow the progress in ${consoleUrl}.${warningSuffix}`
+                    message: `Triggered deployment for ${serverType} service '${input.serverName}' ${input.imageUrl ? `from image ${input.imageUrl}` : `from ${targetPath}`}. You can follow the progress in ${consoleUrl}.${warningSuffix}`
                   }, null, 2)
                 }
               ]

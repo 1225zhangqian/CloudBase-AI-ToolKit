@@ -1,7 +1,7 @@
 ---
 name: cloudrun-development
 description: CloudBase Run backend development rules (Function mode/Container mode). Use this skill when deploying backend services that require long connections, multi-language support, custom environments, AI agent development, or migrating existing/GitHub apps that need VPC access to MySQL/PostgreSQL/Redis. For stateless HTTP services, prefer HTTP cloud functions.
-version: 2.25.13
+version: 2.25.14
 alwaysApply: false
 ---
 
@@ -10,6 +10,10 @@ alwaysApply: false
 Sibling CloudBase skills ship beside this skill. Use local relative paths such as `../auth-tool-cloudbase/SKILL.md`.
 
 If a referenced sibling skill file is missing from this environment, ask the user to install the full CloudBase plugin (or the missing skill). Do **not** HTTP-fetch remote skill or protocol markdown into the agent context.
+
+**Cross-cutting protocols** (required before writing HTTP handlers or deploying images):
+- Sensitive Runtime Data Protection: `../cloudbase-platform/references/protocols/sensitive-runtime-data-protection.md`
+- Deployment Gate: `../cloudbase-platform/references/protocols/deployment-gate.md`
 
 # CloudBase Run Development
 
@@ -54,6 +58,7 @@ If a referenced sibling skill file is missing from this environment, ask the use
 - Confusing `OpenAccessTypes` (how users reach the service) with `VpcConf` (how the service reaches VPC databases).
 - **Deploying to an environment that has not initialized CloudRun** — `CreateCloudRunServer` on an environment with no 大租户 record silently lands in the legacy 小租户 path, creating wrong small-tenant services/versions. Always ensure the environment is initialized first (`manageCloudRun(action="initEnv")`, tcbr) before the first deploy. `manageCloudRun(action="deploy")` now blocks new-service creation on uninitialized environments with guidance.
 - **Using the legacy `tcb` CloudRun API** (`CreateCloudBaseRunResource` / `DescribeCloudBaseRunResource` / `DeleteCloudBaseRunResource`) — these are deprecated 小租户 open APIs and are blocked in `callCloudApi`. CloudRun always goes through `tcbr` (`CreateCloudRunEnv` / `CreateCloudRunServer`). Query a single environment's base info / whether CloudRun is enabled with `DescribeEnvBaseInfo` (`EnvId` required) — use `manageCloudRun(action="initEnv")` to open and `queryCloudRun(action="envStatus")` to poll status; query the environment list / resource info with `DescribeCloudRunEnvs` (`EnvId` optional filter).
+- **Deploying `httpbin` / request-echo images or returning `req.headers` / `process.env`** — CloudBase may inject `x-cloudbase-context` (base64 temporary credentials). Echoing it leaks account cloud access. Follow `../cloudbase-platform/references/protocols/sensitive-runtime-data-protection.md`.
 
 ### Minimal checklist
 
@@ -63,6 +68,7 @@ If a referenced sibling skill file is missing from this environment, ask the use
 - If the app uses TCP databases/caches, resolve and set `VpcConf` (**egress / private network**) before deploy — see `references/vpc-and-database.md`.
 - Keep the service stateless and externalize durable data.
 - Use absolute paths for every local project path.
+- Confirm handlers never echo `x-cloudbase-context`, full headers, or credential env vars; do not deploy httpbin-style reflectors.
 
 ## Overview
 
@@ -155,10 +161,48 @@ Use CloudBase Run when the task needs a deployed backend service rather than a s
 - `manageCloudRun(action="init")` -> create local project
 - `manageCloudRun(action="download")` -> pull remote code
 - `manageCloudRun(action="run")` -> local run for Function mode
-- `manageCloudRun(action="deploy")` -> deploy local project (existing services: RMW preserves remote VpcConf / EnvParams keys / OpenAccessTypes; **new services automatically validate that the environment's CloudRun is initialized** — if not, deploy is blocked with guidance to call `initEnv` first)
+- `manageCloudRun(action="deploy")` -> deploy local project (**two ways**: source build via `targetPath`, or existing image via `imageUrl`) — existing services: RMW preserves remote VpcConf / EnvParams keys / OpenAccessTypes; **new services automatically validate that the environment's CloudRun is initialized** — if not, deploy is blocked with guidance to call `initEnv` first
 - `manageCloudRun(action="updateConfig")` -> config-only update (no code upload; VPC / EnvParams / scaling / access types)
 - `manageCloudRun(action="delete")` -> delete service
 - `manageCloudRun(action="createAgent")` -> create Agent service
+
+## Deploying an existing image (imageUrl)
+
+> 已有一个现成镜像（本地构建好、或第三方发布）时，不需要本地源码目录，直接 `manageCloudRun(action="deploy")` 传入 `imageUrl` 即可，走 `DeployType="image"`（容器型）部署，`targetPath` 可省略。
+
+**决策路径（直填 vs 本地中转）：**
+
+1. **公网匿名可拉取**（如 `ccr.ccs.tencentyun.com/...`、公开 Docker Hub 镜像）→ **直填 imageUrl**：`manageCloudRun(action="deploy", serverName=..., imageUrl="ccr.ccs.tencentyun.com/ns/img:v1", serverConfig={...})`。CloudBase 会直接拉取该 registry 地址构建部署。
+2. **私有 / 需登录的 registry**（`ghcr.io`、私有 ECR/Harbor 等）→ **本地中转到 CCR**：
+   ```
+   docker pull ghcr.io/nousresearch/hermes-agent:latest   # 本地先拉取
+   docker tag ghcr.io/nousresearch/hermes-agent:latest ccr.ccs.tencentyun.com/<ns>/hermes-agent:latest
+   docker login ccr.ccs.tencentyun.com                    # 用腾讯云容器镜像服务账号登录
+   docker push ccr.ccs.tencentyun.com/<ns>/hermes-agent:latest
+   ```
+   然后把 `ccr.ccs.tencentyun.com/<ns>/hermes-agent:latest` 作为 `imageUrl` 传入。
+
+**与 initEnv 联动：** 镜像部署同样要求环境已开通云托管。新环境首次部署前先 `manageCloudRun(action="initEnv", envId=...)`，并用 `queryCloudRun(action="envStatus")` 轮询到 `Status=normal`；未开通时 `deploy` 会被拦截并引导先 `initEnv`。
+
+**示例：**
+
+```json
+{
+  "action": "deploy",
+  "serverName": "hermes-agent",
+  "imageUrl": "ccr.ccs.tencentyun.com/ns/hermes-agent:latest",
+  "serverConfig": {
+    "OpenAccessTypes": ["PUBLIC"],
+    "Cpu": 0.5,
+    "Mem": 1,
+    "MinNum": 1,
+    "MaxNum": 3,
+    "EnvParams": "{\"PORT\":\"3000\"}"
+  }
+}
+```
+
+部署后可用 `queryCloudRun(action="detail")` 查看 `imageInfo`（镜像地址与部署类型）。
 
 ## Access guidance
 
@@ -228,10 +272,11 @@ Use CloudBase Run when the task needs a deployed backend service rather than a s
 
 1. Prefer PRIVATE/VPC or mini-program internal **ingress** when possible.
 2. For TCP database access, always pair private DB URLs with `VpcConf` in the same VPC/region as the database.
-3. Use environment variables for secrets and per-environment configuration.
+3. Use environment variables for secrets and per-environment configuration — **read them server-side only; never return them in HTTP responses**.
 4. Verify configuration before and after deployment with `queryCloudRun(action="detail")`.
 5. Keep startup work small to reduce cold-start impact.
 6. For Agent scenarios, use the Agent SDK skill for protocol and adapter details instead of duplicating them here.
+7. For smoke tests, return a fixed `{ "ok": true }` / health payload — never deploy httpbin or any service that reflects request headers.
 
 ## Troubleshooting hints
 
