@@ -15,16 +15,14 @@
   ```text
   plugin/
     workbuddy-template-prewarm/   # SessionStart + Sites preview CLI（含 vendor）
-    xdf-workbuddy-expert-pack/    # 本包：专家提示词 + settings 片段 + skills/{minimal-web-baas-demo,cloudbase-auth-bootstrap}
+    xdf-workbuddy-expert-pack/    # 本包：专家提示词 + settings 片段 + skills/minimal-web-baas-demo
   ```
 - [ ] `workbuddy-template-prewarm/hooks/on-session-start.sh` 可执行
 - [ ] `workbuddy-template-prewarm/vendor/cloudbase-sites/bin/cloudbase-sites` 存在（或已设 `CLOUDBASE_SITES_BIN`）
 - [ ] `xdf-workbuddy-expert-pack/agents/cloudbase-baas-expert.md` 存在且 **无** frontmatter `hooks`
 - [ ] 已跑 `bash plugin/xdf-workbuddy-expert-pack/scripts/install-skill.sh`  
-      （`~/.workbuddy/skills/minimal-web-baas-demo/SKILL.md` 与  
-       `~/.workbuddy/skills/cloudbase-auth-bootstrap/{SKILL.md,helper.js}` 存在；Trust 前 `Skill()` 可用）
+      （`~/.workbuddy/skills/minimal-web-baas-demo/SKILL.md` 存在；Trust 前 `Skill()` 可用）
 - [ ] CloudBase 连接器可在 WorkBuddy 中配置 / Trust（`searchKnowledgeBase` 为可选回退）
-- [ ] （平台客户）`node ~/.workbuddy/skills/cloudbase-auth-bootstrap/helper.js --status` 可运行（Node 可用）
 
 ---
 
@@ -88,10 +86,9 @@ cp plugin/xdf-workbuddy-expert-pack/agents/cloudbase-baas-expert.md \
    ~/.workbuddy/agents/cloudbase-baas-expert.md
 # 确认无 frontmatter hooks：
 head -20 ~/.workbuddy/agents/cloudbase-baas-expert.md | grep -E '^hooks:' && echo FAIL || echo OK
-# 安装 Skill()-addressable skills（Trust 前必需）：
+# 安装 Skill()-addressable skill（Trust 前必需）：
 bash plugin/xdf-workbuddy-expert-pack/scripts/install-skill.sh
 test -f ~/.workbuddy/skills/minimal-web-baas-demo/SKILL.md && echo SKILL_OK
-test -f ~/.workbuddy/skills/cloudbase-auth-bootstrap/helper.js && echo AUTH_BOOTSTRAP_OK
 ```
 
 ---
@@ -264,5 +261,3 @@ node plugin/workbuddy-template-prewarm/hooks/prewarm.mjs --status --cwd "$TMP"
 | `briefs/baas-fast-path.md` | 一页 BaaS 指针 |
 | `../workbuddy-template-prewarm/README.md` | prewarm / Sites preview 细节 |
 | `skills/minimal-web-baas-demo/` + `scripts/install-skill.sh` | 完整 Fast-path 契约（Trust 前 Skill 面） |
-| `skills/cloudbase-auth-bootstrap/` | 无腾讯云账号：本地回调写 auth.json（设计见 `docs/new-oriental-connector-auth-design.html`） |
-| `docs/new-oriental-connector-auth-design.html` | 连接器授权本地回调方案（现状/目标时序、路径 A/B/C、capi 规格） |
