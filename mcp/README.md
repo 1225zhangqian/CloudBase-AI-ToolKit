@@ -85,7 +85,7 @@ You need a [CloudBase environment](https://tcb.cloud.tencent.com/dev) and should
 }
 ```
 
-Hosted URLs can use `site` (`domestic` / `intl`) to pick the login site—domestic-site Singapore must pass `site=domestic` to avoid being routed as `intl`—plus `enable_plugins` / `disable_plugins` (comma-separated). Canonical plugin names: see `src/server.ts` in this package (e.g. `env`, `database`, `functions`, `hosting`, `storage`, `pg_database`, `cloudrun`, `logs`).
+Hosted URLs can use `site=domestic` to pin the login site—domestic-site Singapore must pass `site=domestic`—plus `enable_plugins` / `disable_plugins` (comma-separated). Canonical plugin names: see `src/server.ts` in this package (e.g. `env`, `database`, `functions`, `hosting`, `storage`, `pg_database`, `cloudrun`, `logs`).
 
 **Self-hosted Cloud Mode**: set `CLOUDBASE_MCP_CLOUD_MODE=true` (or `MCP_CLOUD_MODE=true`) so local file and process tools are disabled for remote callers.
 

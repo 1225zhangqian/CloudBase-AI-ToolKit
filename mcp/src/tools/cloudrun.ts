@@ -1320,7 +1320,6 @@ for await (let x of res.textStream) {
                   name: input.serverName
                 }
               };
-              const consoleUrl = `https://tcb.cloud.tencent.com/dev?envId=${currentEnvId}#/platform-run/service/detail?serverName=${input.serverName}&tabId=overview&envId=${currentEnvId}`;
 
               try {
                 fs.writeFileSync(cloudbasercPath, JSON.stringify(cloudbasercContent, null, 2));
