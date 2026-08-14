@@ -41,6 +41,7 @@ CloudBase MCP 支持两种连接方式：**本地模式**（MCP 服务在本机�
 | `TENCENTCLOUD_SECRETKEY` | 腾讯云 SecretKey（可选） | 同上 |
 | `TENCENTCLOUD_SESSIONTOKEN` | 腾讯云临时密钥 Token（可选） | 仅在使用临时密钥时需要，可通过 [STS 服务](https://console.cloud.tencent.com/cam/capi) 获取 |
 | `TCB_REGION` | 腾讯云地域，如 `ap-shanghai`（可选） | 不设则使用 SDK 默认 |
+| `TCB_SITE` | 站点：`domestic`（国内站）或 `intl`（国际站）（可选） | 不设则按 `region` 反查映射表；`ap-singapore` 歧义时默认 `intl`。国内站新加坡用户必须显式设 `domestic`，避免被误判为国际站 |
 | `TCB_AUTH_OAUTH_ENDPOINT` | 自定义 device-code 登录 endpoint（可选，推荐作为主要覆盖项） | 不设则使用默认登录 endpoint |
 | `TCB_AUTH_CLIENT_ID` | 自定义 device-code 登录 `client_id`（高级可选） | 不设则使用默认 `client_id` |
 | `TCB_AUTH_OAUTH_CUSTOM` | 自定义 endpoint 返回格式开关（高级可选） | 未配置 endpoint 时默认 `false`；配置 endpoint 后默认 `true` |
@@ -104,6 +105,78 @@ TCB_AUTH_OAUTH_ENDPOINT=https://auth.your-domain.com/oauth
 
 ---
 
+## 站点与地域（site / region）
+
+CloudBase 有**国内站**（`domestic`，cloud.tencent.com）与**国际站**（`intl`，tencentcloud.com）两套独立的账号体系与登录域名。MCP 用 `site` 决定登录域名/凭证槽位，用 `region` 决定 API 路由目标，两者解耦。
+
+### 解析优先级
+
+```
+显式 cloudBaseOptions.site/region
+  > 环境变量 TCB_SITE / TCB_REGION
+  > 项目级配置 .cloudbase/project.json
+  > 全局默认：domestic + ap-shanghai
+```
+
+### 地域与站点的默认关系
+
+| region | 未配 site 时的解析结果 |
+|--------|------------------------|
+| `ap-shanghai` / `ap-guangzhou` | `domestic`（国内站） |
+| `ap-singapore` | **歧义**：国内站与国际站都有该地域，未配 site 时默认 `intl`（兼容既有行为） |
+
+### 国际站用户
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "command": "npx",
+      "args": ["@cloudbase/cloudbase-mcp@latest"],
+      "env": {
+        "TCB_SITE": "intl",
+        "TCB_REGION": "ap-singapore"
+      }
+    }
+  }
+}
+```
+
+### 国内站新加坡用户（重要迁移指引）
+
+国内站现已支持新加坡地域。**只配置 `TCB_REGION=ap-singapore` 会被默认按国际站处理**（登录跳国际站、NoSQL 工具被跳过）。国内站新加坡用户必须显式配置站点：
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "command": "npx",
+      "args": ["@cloudbase/cloudbase-mcp@latest"],
+      "env": {
+        "TCB_SITE": "domestic",
+        "TCB_REGION": "ap-singapore"
+      }
+    }
+  }
+}
+```
+
+也可以使用项目级配置 `.cloudbase/project.json`（独立文件，不并入 `cloudbaserc.json`），让同一目录下的所有会话自动带入正确的站点：
+
+```json
+{
+  "site": "domestic",
+  "region": "ap-singapore",
+  "envId": "your-env-id"
+}
+```
+
+### 多站点凭证并存
+
+登录凭证按站点分槽存储（`~/.config/.cloudbase/auth.json` 的 `credential` 升级为 `credential.domestic` / `credential.intl`），国内站与国际站可分别登录并存，切换环境无需重新登录。旧版单槽数据读取时自动视为 `domestic`，首次写回时自动升级为分槽格式。
+
+---
+
 ## 托管模式
 
 ### 含义与适用场景
@@ -151,11 +224,26 @@ https://tcb-api.cloud.tencent.com/mcp/v1?env_id=YOUR_ENV_ID&disable_plugins=rag,
 
 当前可配置的插件名以 `mcp/src/server.ts` 为准，建议优先使用 canonical 名称：`env`, `database`, `pg_database`, `pg_storage`, `mysql_database`, `functions`, `hosting`, `storage`, `setup`, `rag`, `download`, `gateway`, `cloudrun`, `app-auth`, `permissions`, `logs`, `agents`, `apps`, `capi`, `database-nosql`, `database-sql`, `data-model`。
 
+### 通过 URL 指定站点（site）（仅托管模式）
+
+托管模式与本地模式一样区分**国内站**（`domestic`）与**国际站**（`intl`）。可通过 `site` query 参数显式指定站点，用于国内站新加坡地域等 `ap-singapore` 场景的正确路由：
+
+- `site=domestic`：国内站（cloud.tencent.com）
+- `site=intl`：国际站（tencentcloud.com）
+- 不传 `site` 时由服务端按环境归属解析；`ap-singapore` 地域国内站与国际站都存在，无法归属时默认按 `intl` 处理
+
+```
+# 国内站新加坡地域：必须显式传 site=domestic，避免被按国际站处理
+https://tcb-api.cloud.tencent.com/mcp/v1?env_id=YOUR_ENV_ID&site=domestic
+```
+
+国内站新加坡用户（`TCB_REGION` 对应 `ap-singapore`）请务必在托管 URL 中带上 `site=domestic`，否则登录与 NoSQL 工具等能力可能被按国际站处理。
+
 ### 托管模式环境变量说明
 
-托管模式下，MCP 服务运行在云端，环境变量在**服务端**配置。若你自建托管服务，可参考 [MCP 工具 - 云端 MCP 配置说明](/ai/cloudbase-ai-toolkit/mcp-tools#云端-mcp-配置说明) 中的可选环境变量表（如 `TENCENTCLOUD_SECRETID`、`TENCENTCLOUD_SECRETKEY`、`CLOUDBASE_ENV_ID` 等）。
+托管模式下，MCP 服务运行在云端，环境变量在**服务端**配置。若你自建托管服务，可参考 [MCP 工具 - 云端 MCP 配置说明](/ai/cloudbase-ai-toolkit/mcp-tools#云端-mcp-配置说明) 中的可选环境变量表（如 `TENCENTCLOUD_SECRETID`、`TENCENTCLOUD_SECRETKEY`、`CLOUDBASE_ENV_ID` 等）；站点同样支持用 `TCB_SITE` 环境变量指定（`domestic` / `intl`），与本地模式行为一致。
 
-使用腾讯云提供的托管 MCP 时，通过上述 URL 与 headers 传入 `env_id` 和密钥即可，无需再配置服务端环境变量。
+使用腾讯云提供的托管 MCP 时，通过上述 URL 与 headers 传入 `env_id` 和密钥即可，无需再配置服务端环境变量；如需指定站点，直接在 URL 上加 `site=domestic` 或 `site=intl` 参数（见上文）。
 
 ---
 

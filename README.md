@@ -255,7 +255,7 @@ Others: [IDE setup guide](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide
 }
 ```
 
-Hosted URLs can use `enable_plugins` / `disable_plugins`. Canonical names live in `mcp/src/server.ts`.
+Hosted URLs can use `site` (`domestic` / `intl`) to pick the login site (e.g. domestic-site Singapore needs `site=domestic`), plus `enable_plugins` / `disable_plugins` to trim tools. Canonical names live in `mcp/src/server.ts`.
 
 **Self-hosted Cloud Mode**: set `CLOUDBASE_MCP_CLOUD_MODE=true` (or `MCP_CLOUD_MODE=true`) so local file and process tools are disabled for remote callers.
 
@@ -320,6 +320,21 @@ The Toolkit (including MCP) is open source under MIT. CloudBase has free quotas;
 <summary>Login says environment does not exist?</summary>
 
 Confirm an environment exists and is healthy in the [console](https://tcb.cloud.tencent.com/), then login again and pick the right one.
+
+</details>
+
+<details>
+<summary>Domestic site env at `ap-singapore` is treated as international?</summary>
+
+Both the domestic site (cloud.tencent.com) and the international site (tencentcloud.com) offer the `ap-singapore` region, so region alone is ambiguous. Without an explicit site, MCP defaults to `intl` for `ap-singapore` (backward compatible). Domestic-site Singapore users must set `TCB_SITE=domestic` (together with `TCB_REGION=ap-singapore`) in the MCP `env`, or add a `.cloudbase/project.json` at the project root:
+
+```json
+{ "site": "domestic", "region": "ap-singapore", "envId": "your-env-id" }
+```
+
+Credentials are stored per site (`credential.domestic` / `credential.intl`) so domestic and international logins can coexist; legacy single-slot `auth.json` is read as `domestic` and migrated on first write.
+
+**Hosted mode**: add `site=domestic` to the hosted URL (`https://tcb-api.cloud.tencent.com/mcp/v1?env_id=<env_id>&site=domestic`), since the URL is the only place hosted mode can carry the site (there is no MCP `env` block for HTTP servers).
 
 </details>
 

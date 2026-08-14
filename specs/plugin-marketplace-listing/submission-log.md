@@ -50,7 +50,7 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 
 | Field | Value |
 |-------|-------|
-| Status | **PR opened** — conflict resolved 2026-07-29; awaiting xAI review |
+| Status | **PR mergeable** — conflict re-resolved 2026-08-13; CI green; awaiting xAI review |
 | PR | https://github.com/xai-org/plugin-marketplace/pull/151 |
 | Source repo | https://github.com/TencentCloudBase/cloudbase-plugin.git |
 | Pinned SHA | `b615a7f8bfad6637f2297e1a993d29f6a292a13d` |
@@ -61,6 +61,13 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 1. Watch PR #151 CI + review comments: https://github.com/xai-org/plugin-marketplace/pull/151
 2. After merge, confirm entry in https://github.com/xai-org/plugin-marketplace/blob/main/.grok-plugin/marketplace.json
 3. Install / browse from Grok Build marketplace UI
+
+### 2026-08-13 — Grok PR #151 conflict re-resolved
+
+- Upstream `main` moved again (daily pin bumps + mongodb reformat + new `mongodb-atlas`/`base44` entries), making PR #151 conflicting.
+- Merged latest `main` into `binggg/plugin-marketplace:add-cloudbase-plugin` (commit `d6b9848`), kept cloudbase pin `b615a7f`, adopted upstream mongodb changes, regenerated `plugin-index.json`.
+- `mergeable: MERGEABLE`, `mergeStateStatus: BLOCKED` (needs maintainer review/approve). All CI checks pass (Socket Security, semgrep).
+- Left comment asking for review: https://github.com/xai-org/plugin-marketplace/pull/151#issuecomment-5275877974
 
 ## cursor.directory
 
@@ -84,20 +91,38 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 
 | Field | Value |
 |-------|-------|
-| Status | **Intake re-passed** — awaiting maintainer re-review (`ready-for-review`) |
+| Status | **Re-submitted #2645 — intake passed, ready-for-review; awaiting maintainer `/approve` to create listing PR** |
 | Issue | https://github.com/github/awesome-copilot/issues/2459 |
+| Re-submission | https://github.com/github/awesome-copilot/issues/2645 (opened 2026-08-13, intake passed) |
 | Packet | `specs/plugin-marketplace-listing/awesome-copilot-submission-packet.md` |
 | Response | `specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md` |
 | Source | `TencentCloudBase/cloudbase-plugin` @ `4082ba957d41f8fc6545411d8a929884ab88980c` |
 | Submitted at | 2026-07-28 |
 | Rejected at | 2026-08-04 (security: agent-directed remote skill fetch) |
 | Re-run at | 2026-08-05 (`/rerun-intake` after stripping `cnb.cool/.../git/raw` skill URLs; intake passed) |
+| Closed at | 2026-08-12 by `aaronpowell`, stateReason `COMPLETED`, no comment |
 
 ### How to check progress (Awesome Copilot)
 
-1. Watch issue #2459 labels / comments
-2. After merge, confirm entry in https://github.com/github/awesome-copilot/blob/main/plugins/external.json
-3. Install test: `copilot plugin install cloudbase@awesome-copilot`
+1. Watch re-submission #2645 labels / comments; request maintainer `/approve`
+2. After `/approve`, the bot opens an `[external-plugin] Add cloudbase` PR and merges it
+3. After merge, confirm entry in https://github.com/github/awesome-copilot/blob/main/plugins/external.json
+4. Install test: `copilot plugin install cloudbase@awesome-copilot`
+
+### 2026-08-13 — #2459 closure = batch cleanup (silently dropped), re-submitted as #2645
+
+- Maintainer `aaronpowell` closed #2459 on 2026-08-12 with stateReason `COMPLETED`, **no comment**, and **no `[external-plugin] Add cloudbase` PR**; `cloudbase` absent from `plugins/external.json`.
+- Closure was part of a **6-issue batch cleanup** at 2026-08-12 01:54–01:55Z (#2286 teams-sdk, #2184 Arize, #2354 vscode-crash-recovery-skills, #2447 modellix, #2459 cloudbase, #2465 security-test-plugin). The batch also closed issues still in `requires-submitter-fixes` (and #2354 that aaronpowell explicitly called "too niche"), so `COMPLETED` here means **queue cleanup, NOT approval** — no `/approve` command, no `approved` label, no listing PR.
+- **Re-advance:** reopen #2459 was rejected (submitter lacks permission to reopen issues closed by maintainer). Instead:
+  1. Commented on #2459 asking for confirmation + `/approve` → https://github.com/github/awesome-copilot/issues/2459#issuecomment-5276131129
+  2. Opened re-submission #2645 (same plugin payload, references #2459). Intake re-ran and passed: vally lint ✅ / install smoke test ✅ / version match ✅; labels `external-plugin` + `ready-for-review`.
+- **Blocked on:** maintainer running `/approve` on #2645, which triggers the `external-plugin-approval` automation to open+merge the `[external-plugin] Add cloudbase` PR. Until `cloudbase` appears in `external.json`, treat as **not listed**.
+
+### 2026-08-13 — Poll #2645 /approve status: no change, still awaiting maintainer
+
+- Checked https://github.com/github/awesome-copilot/issues/2645 — still **OPEN**, labels `external-plugin` + `ready-for-review`. Only comment is the intake bot (passed with spec warnings). No `/approve` command, no `approved` label, no `[external-plugin] Add cloudbase` PR.
+- Confirmed `cloudbase` **absent** from https://github.com/github/awesome-copilot/blob/main/plugins/external.json → still **not listed**.
+- Nothing to do on our side; the ball is with maintainer `aaronpowell`. Next poll point: watch for `/approve` on #2645, then verify the auto-opened listing PR merges and `cloudbase` appears in `external.json`.
 
 ## Trae community MCP list
 

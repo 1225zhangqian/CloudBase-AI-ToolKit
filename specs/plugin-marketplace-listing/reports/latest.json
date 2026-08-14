@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-08-05T07:36:57.965Z",
+  "generated_at": "2026-08-13T07:49:31.668Z",
   "matrix_version": 1,
   "reviewed_stale_days": 90,
   "total_markets": 42,
   "summary": {
-    "ready_to_submit": 6,
-    "needs_packaging_or_manifest": 1,
+    "ready_to_submit": 5,
+    "needs_packaging_or_manifest": 2,
     "needs_partner_outreach": 12,
     "listed": 7,
     "not_applicable": 15,
@@ -339,9 +339,9 @@
           "https://github.com/xai-org/plugin-marketplace/pull/151",
           "https://x.ai/news/grok-plugin-marketplace"
         ],
-        "submit_url_or_process": "Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.\nStatus 2026-07-28: PR opened https://github.com/xai-org/plugin-marketplace/pull/151\nSource: TencentCloudBase/cloudbase-plugin @ 93b747b3287787b8c3ad0811ef4f9b51e2479ec9\n",
+        "submit_url_or_process": "Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.\nStatus 2026-07-28: PR opened https://github.com/xai-org/plugin-marketplace/pull/151\nSource: TencentCloudBase/cloudbase-plugin @ b615a7f8bfad6637f2297e1a993d29f6a292a13d\n",
         "recommended_install_path": null,
-        "last_reviewed_at": "2026-07-28",
+        "last_reviewed_at": "2026-08-13",
         "owner": "cloudbase-ai-toolkit",
         "local_evidence": [
           {
@@ -375,7 +375,9 @@
         "priority": "ready_to_submit",
         "stale": false,
         "manual_submit_only": true
-      },
+      }
+    ],
+    "needs_packaging_or_manifest": [
       {
         "id": "vscode-agent-plugins",
         "product": "Visual Studio Code",
@@ -391,15 +393,18 @@
           "docs_only": "listed"
         },
         "eligibility": "marketplace_add_or_catalog_pr",
-        "blockers": [],
+        "blockers": [
+          "awaiting maintainer /approve on re-submission github/awesome-copilot#2645 to trigger the Add cloudbase listing PR"
+        ],
         "evidence_links": [
           "https://code.visualstudio.com/docs/agent-customization/agent-plugins",
           "https://github.com/github/awesome-copilot/issues/2459",
+          "https://github.com/github/awesome-copilot/issues/2645",
           "specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md"
         ],
-        "submit_url_or_process": "Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.\nStatus 2026-08-05: Awesome Copilot #2459 intake re-passed after stripping remote skill-fetch URLs (SHA 4082ba95...). Awaiting maintainer re-review.\nSee specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md\n",
+        "submit_url_or_process": "Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.\nStatus 2026-08-05: Awesome Copilot #2459 intake re-passed after stripping remote skill-fetch URLs (SHA 4082ba95...). Label ready-for-review.\nStatus 2026-08-12: maintainer aaronpowell closed #2459 as COMPLETED (no comment); cloudbase NOT yet in plugins/external.json.\nStatus 2026-08-13: Reopening #2459 blocked by permissions; commented on #2459 asking for /approve (issuecomment-5276131129); opened re-submission #2645, intake passed, ready-for-review.\nStatus 2026-08-13 poll: #2645 still OPEN (labels external-plugin + ready-for-review); no /approve yet; cloudbase NOT in plugins/external.json.\nSee specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md\n",
         "recommended_install_path": "doc/ide-setup/vscode.mdx",
-        "last_reviewed_at": "2026-08-05",
+        "last_reviewed_at": "2026-08-13",
         "owner": "cloudbase-ai-toolkit",
         "local_evidence": [
           {
@@ -422,6 +427,7 @@
         "submit_checklist": [
           "Users can add TencentCloudBase/CloudBase-MCP as marketplace",
           "Strip remote skill-fetch URLs; sync cloudbase-plugin; /rerun-intake on",
+          "Re-submission",
           {
             "Optional": "PR/request inclusion in default curated catalogs"
           }
@@ -436,16 +442,18 @@
             "status": "repo_ready_or_external"
           },
           {
+            "item": "Re-submission",
+            "status": "repo_ready_or_external"
+          },
+          {
             "item": "[object Object]",
             "status": "repo_ready_or_external"
           }
         ],
-        "priority": "ready_to_submit",
+        "priority": "needs_packaging_or_manifest",
         "stale": false,
         "manual_submit_only": true
-      }
-    ],
-    "needs_packaging_or_manifest": [
+      },
       {
         "id": "qoder-plugin",
         "product": "Qoder / QoderWork",
@@ -797,16 +805,19 @@
         },
         "eligibility": "partner_outreach_required",
         "blockers": [
-          "No public developer submit form for Trae official MCP marketplace"
+          "No public developer submit form for Trae official MCP marketplace",
+          "Awaiting Trae product / community reply on curation sync + partner contact"
         ],
         "evidence_links": [
           "https://docs.trae.cn/work_remote-mcp-server",
           "https://docs.trae.cn/ide_model-context-protocol",
           "https://github.com/trae-community/trae-mcp/pull/4",
+          "https://github.com/trae-community/trae-mcp/issues/5",
           "https://github.com/trae-community/trae-mcp/blob/main/README.md",
-          "doc/ide-setup/trae.mdx"
+          "doc/ide-setup/trae.mdx",
+          "specs/plugin-marketplace-listing/trae-official-outreach-packet.md"
         ],
-        "submit_url_or_process": "Users can add MCP from Trae built-in MCP marketplace or manual config. Third-party submission into Trae MCP marketplace is not publicly documented.\nStatus 2026-08-05: Community list PR merged https://github.com/trae-community/trae-mcp/pull/4 (README catalog; not official Trae store).\n",
+        "submit_url_or_process": "Users can add MCP from Trae built-in MCP marketplace or manual config. Third-party submission into Trae MCP marketplace is not publicly documented.\nStatus 2026-08-05: Community list PR merged https://github.com/trae-community/trae-mcp/pull/4 (README catalog; not official Trae store).\nOutreach 2026-08-05: Asked community maintainers for official in-app curation path — https://github.com/trae-community/trae-mcp/issues/5\nPacket: specs/plugin-marketplace-listing/trae-official-outreach-packet.md\n",
         "recommended_install_path": "doc/ide-setup/trae.mdx",
         "last_reviewed_at": "2026-08-05",
         "owner": "cloudbase-ai-toolkit",
@@ -821,11 +832,23 @@
           }
         ],
         "submit_checklist": [
-          "Partner outreach for official MCP marketplace inclusion"
+          "Partner outreach for official MCP marketplace inclusion",
+          "Await reply on trae-community/trae-mcp#5",
+          {
+            "Human": "post forum draft from outreach packet (社区伙伴 / 产品建议)"
+          }
         ],
         "materials": [
           {
             "item": "Partner outreach for official MCP marketplace inclusion",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "Await reply on trae-community/trae-mcp#5",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "[object Object]",
             "status": "repo_ready_or_external"
           }
         ],
@@ -849,22 +872,30 @@
         },
         "eligibility": "partner_outreach_required",
         "blockers": [
-          "Official Trae Work in-app skill market publisher path not documented"
+          "Official Trae Work in-app skill market publisher path not documented",
+          "Awaiting Trae product / community reply on curation sync + partner contact"
         ],
         "evidence_links": [
           "https://docs.trae.cn/solo_skills",
           "https://github.com/trae-community/trae-skills/pull/20",
+          "https://github.com/trae-community/trae-skills/issues/21",
           "https://github.com/trae-community/trae-skills/blob/main/README.md",
-          "https://github.com/trae-community/trae-skills/blob/main/skills/cloudbase/SKILL.md"
+          "https://github.com/trae-community/trae-skills/blob/main/skills/cloudbase/SKILL.md",
+          "https://forum.trae.cn/t/topic/171994",
+          "specs/plugin-marketplace-listing/trae-official-outreach-packet.md"
         ],
-        "submit_url_or_process": "Community catalog: trae-community/trae-skills (merged PR #20).\nUsers can also upload local SKILL.md zip/.skill or install from Trae Work skills marketplace.\nOfficial Trae Work publisher onboarding still unclear / partner outreach.\nStatus 2026-08-05: Community skills PR merged https://github.com/trae-community/trae-skills/pull/20\n",
+        "submit_url_or_process": "Community catalog: trae-community/trae-skills (merged PR #20).\nUsers can also upload local SKILL.md zip/.skill or install from Trae Work skills marketplace.\nOfficial Trae Work publisher onboarding still unclear / partner outreach.\nStatus 2026-08-05: Community skills PR merged https://github.com/trae-community/trae-skills/pull/20\nOutreach 2026-08-05: Asked community maintainers for official skills market path — https://github.com/trae-community/trae-skills/issues/21\nForum signal (custom skills not globally shareable via upload): https://forum.trae.cn/t/topic/171994\nPacket: specs/plugin-marketplace-listing/trae-official-outreach-packet.md\n",
         "recommended_install_path": "doc/ide-setup/trae.mdx",
         "last_reviewed_at": "2026-08-05",
         "owner": "cloudbase-ai-toolkit",
         "local_evidence": [],
         "submit_checklist": [
           "Confirm Trae Work official skill market publisher process",
-          "Package SKILL.md zip if official market requires it"
+          "Await reply on trae-community/trae-skills#21",
+          "Package SKILL.md zip if official market requires it",
+          {
+            "Human": "post forum draft from outreach packet (TraeWork 专区 / 社区伙伴)"
+          }
         ],
         "materials": [
           {
@@ -872,7 +903,15 @@
             "status": "manual_or_external"
           },
           {
+            "item": "Await reply on trae-community/trae-skills#21",
+            "status": "manual_or_external"
+          },
+          {
             "item": "Package SKILL.md zip if official market requires it",
+            "status": "manual_or_external"
+          },
+          {
+            "item": "[object Object]",
             "status": "manual_or_external"
           }
         ],
@@ -2247,9 +2286,9 @@
         "https://github.com/xai-org/plugin-marketplace/pull/151",
         "https://x.ai/news/grok-plugin-marketplace"
       ],
-      "submit_url_or_process": "Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.\nStatus 2026-07-28: PR opened https://github.com/xai-org/plugin-marketplace/pull/151\nSource: TencentCloudBase/cloudbase-plugin @ 93b747b3287787b8c3ad0811ef4f9b51e2479ec9\n",
+      "submit_url_or_process": "Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.\nStatus 2026-07-28: PR opened https://github.com/xai-org/plugin-marketplace/pull/151\nSource: TencentCloudBase/cloudbase-plugin @ b615a7f8bfad6637f2297e1a993d29f6a292a13d\n",
       "recommended_install_path": null,
-      "last_reviewed_at": "2026-07-28",
+      "last_reviewed_at": "2026-08-13",
       "owner": "cloudbase-ai-toolkit",
       "local_evidence": [
         {
@@ -2352,15 +2391,18 @@
         "docs_only": "listed"
       },
       "eligibility": "marketplace_add_or_catalog_pr",
-      "blockers": [],
+      "blockers": [
+        "awaiting maintainer /approve on re-submission github/awesome-copilot#2645 to trigger the Add cloudbase listing PR"
+      ],
       "evidence_links": [
         "https://code.visualstudio.com/docs/agent-customization/agent-plugins",
         "https://github.com/github/awesome-copilot/issues/2459",
+        "https://github.com/github/awesome-copilot/issues/2645",
         "specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md"
       ],
-      "submit_url_or_process": "Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.\nStatus 2026-08-05: Awesome Copilot #2459 intake re-passed after stripping remote skill-fetch URLs (SHA 4082ba95...). Awaiting maintainer re-review.\nSee specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md\n",
+      "submit_url_or_process": "Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.\nStatus 2026-08-05: Awesome Copilot #2459 intake re-passed after stripping remote skill-fetch URLs (SHA 4082ba95...). Label ready-for-review.\nStatus 2026-08-12: maintainer aaronpowell closed #2459 as COMPLETED (no comment); cloudbase NOT yet in plugins/external.json.\nStatus 2026-08-13: Reopening #2459 blocked by permissions; commented on #2459 asking for /approve (issuecomment-5276131129); opened re-submission #2645, intake passed, ready-for-review.\nStatus 2026-08-13 poll: #2645 still OPEN (labels external-plugin + ready-for-review); no /approve yet; cloudbase NOT in plugins/external.json.\nSee specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md\n",
       "recommended_install_path": "doc/ide-setup/vscode.mdx",
-      "last_reviewed_at": "2026-08-05",
+      "last_reviewed_at": "2026-08-13",
       "owner": "cloudbase-ai-toolkit",
       "local_evidence": [
         {
@@ -2383,6 +2425,7 @@
       "submit_checklist": [
         "Users can add TencentCloudBase/CloudBase-MCP as marketplace",
         "Strip remote skill-fetch URLs; sync cloudbase-plugin; /rerun-intake on",
+        "Re-submission",
         {
           "Optional": "PR/request inclusion in default curated catalogs"
         }
@@ -2397,11 +2440,15 @@
           "status": "repo_ready_or_external"
         },
         {
+          "item": "Re-submission",
+          "status": "repo_ready_or_external"
+        },
+        {
           "item": "[object Object]",
           "status": "repo_ready_or_external"
         }
       ],
-      "priority": "ready_to_submit",
+      "priority": "needs_packaging_or_manifest",
       "stale": false,
       "manual_submit_only": true
     },
@@ -2768,16 +2815,19 @@
       },
       "eligibility": "partner_outreach_required",
       "blockers": [
-        "No public developer submit form for Trae official MCP marketplace"
+        "No public developer submit form for Trae official MCP marketplace",
+        "Awaiting Trae product / community reply on curation sync + partner contact"
       ],
       "evidence_links": [
         "https://docs.trae.cn/work_remote-mcp-server",
         "https://docs.trae.cn/ide_model-context-protocol",
         "https://github.com/trae-community/trae-mcp/pull/4",
+        "https://github.com/trae-community/trae-mcp/issues/5",
         "https://github.com/trae-community/trae-mcp/blob/main/README.md",
-        "doc/ide-setup/trae.mdx"
+        "doc/ide-setup/trae.mdx",
+        "specs/plugin-marketplace-listing/trae-official-outreach-packet.md"
       ],
-      "submit_url_or_process": "Users can add MCP from Trae built-in MCP marketplace or manual config. Third-party submission into Trae MCP marketplace is not publicly documented.\nStatus 2026-08-05: Community list PR merged https://github.com/trae-community/trae-mcp/pull/4 (README catalog; not official Trae store).\n",
+      "submit_url_or_process": "Users can add MCP from Trae built-in MCP marketplace or manual config. Third-party submission into Trae MCP marketplace is not publicly documented.\nStatus 2026-08-05: Community list PR merged https://github.com/trae-community/trae-mcp/pull/4 (README catalog; not official Trae store).\nOutreach 2026-08-05: Asked community maintainers for official in-app curation path — https://github.com/trae-community/trae-mcp/issues/5\nPacket: specs/plugin-marketplace-listing/trae-official-outreach-packet.md\n",
       "recommended_install_path": "doc/ide-setup/trae.mdx",
       "last_reviewed_at": "2026-08-05",
       "owner": "cloudbase-ai-toolkit",
@@ -2792,11 +2842,23 @@
         }
       ],
       "submit_checklist": [
-        "Partner outreach for official MCP marketplace inclusion"
+        "Partner outreach for official MCP marketplace inclusion",
+        "Await reply on trae-community/trae-mcp#5",
+        {
+          "Human": "post forum draft from outreach packet (社区伙伴 / 产品建议)"
+        }
       ],
       "materials": [
         {
           "item": "Partner outreach for official MCP marketplace inclusion",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "Await reply on trae-community/trae-mcp#5",
+          "status": "repo_ready_or_external"
+        },
+        {
+          "item": "[object Object]",
           "status": "repo_ready_or_external"
         }
       ],
@@ -2820,22 +2882,30 @@
       },
       "eligibility": "partner_outreach_required",
       "blockers": [
-        "Official Trae Work in-app skill market publisher path not documented"
+        "Official Trae Work in-app skill market publisher path not documented",
+        "Awaiting Trae product / community reply on curation sync + partner contact"
       ],
       "evidence_links": [
         "https://docs.trae.cn/solo_skills",
         "https://github.com/trae-community/trae-skills/pull/20",
+        "https://github.com/trae-community/trae-skills/issues/21",
         "https://github.com/trae-community/trae-skills/blob/main/README.md",
-        "https://github.com/trae-community/trae-skills/blob/main/skills/cloudbase/SKILL.md"
+        "https://github.com/trae-community/trae-skills/blob/main/skills/cloudbase/SKILL.md",
+        "https://forum.trae.cn/t/topic/171994",
+        "specs/plugin-marketplace-listing/trae-official-outreach-packet.md"
       ],
-      "submit_url_or_process": "Community catalog: trae-community/trae-skills (merged PR #20).\nUsers can also upload local SKILL.md zip/.skill or install from Trae Work skills marketplace.\nOfficial Trae Work publisher onboarding still unclear / partner outreach.\nStatus 2026-08-05: Community skills PR merged https://github.com/trae-community/trae-skills/pull/20\n",
+      "submit_url_or_process": "Community catalog: trae-community/trae-skills (merged PR #20).\nUsers can also upload local SKILL.md zip/.skill or install from Trae Work skills marketplace.\nOfficial Trae Work publisher onboarding still unclear / partner outreach.\nStatus 2026-08-05: Community skills PR merged https://github.com/trae-community/trae-skills/pull/20\nOutreach 2026-08-05: Asked community maintainers for official skills market path — https://github.com/trae-community/trae-skills/issues/21\nForum signal (custom skills not globally shareable via upload): https://forum.trae.cn/t/topic/171994\nPacket: specs/plugin-marketplace-listing/trae-official-outreach-packet.md\n",
       "recommended_install_path": "doc/ide-setup/trae.mdx",
       "last_reviewed_at": "2026-08-05",
       "owner": "cloudbase-ai-toolkit",
       "local_evidence": [],
       "submit_checklist": [
         "Confirm Trae Work official skill market publisher process",
-        "Package SKILL.md zip if official market requires it"
+        "Await reply on trae-community/trae-skills#21",
+        "Package SKILL.md zip if official market requires it",
+        {
+          "Human": "post forum draft from outreach packet (TraeWork 专区 / 社区伙伴)"
+        }
       ],
       "materials": [
         {
@@ -2843,7 +2913,15 @@
           "status": "manual_or_external"
         },
         {
+          "item": "Await reply on trae-community/trae-skills#21",
+          "status": "manual_or_external"
+        },
+        {
           "item": "Package SKILL.md zip if official market requires it",
+          "status": "manual_or_external"
+        },
+        {
+          "item": "[object Object]",
           "status": "manual_or_external"
         }
       ],

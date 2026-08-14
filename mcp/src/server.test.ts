@@ -21,6 +21,7 @@ const {
   mockRegisterLogTools,
   mockRegisterAgentTools,
   mockRegisterAppTools,
+  mockResolveSiteAndRegion,
 } = vi.hoisted(() => ({
   mockRegisterEnvTools: vi.fn(),
   mockRegisterDatabaseTools: vi.fn(),
@@ -42,6 +43,7 @@ const {
   mockRegisterLogTools: vi.fn(),
   mockRegisterAgentTools: vi.fn(),
   mockRegisterAppTools: vi.fn(),
+  mockResolveSiteAndRegion: vi.fn(() => ({ site: "domestic", region: "ap-shanghai" })),
 }));
 
 vi.mock("./tools/env.js", () => ({ registerEnvTools: mockRegisterEnvTools }));
@@ -72,7 +74,13 @@ vi.mock("./utils/cloud-mode.js", () => ({
   enableCloudMode: vi.fn(),
   isCloudMode: vi.fn(() => false),
 }));
-vi.mock("./utils/tencent-cloud.js", () => ({ isInternationalRegion: vi.fn(() => false) }));
+vi.mock("./utils/site-map.js", () => ({
+  resolveSiteAndRegion: mockResolveSiteAndRegion,
+  SITE_REGION_MAP: {
+    domestic: { capabilities: { noSql: true } },
+    intl: { capabilities: { noSql: false } },
+  },
+}));
 vi.mock("@modelcontextprotocol/sdk/types.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@modelcontextprotocol/sdk/types.js")>();
   return {
@@ -127,5 +135,43 @@ describe("server plugin registration", () => {
     expect(mockRegisterPermissionTools).toHaveBeenCalledTimes(1);
     expect(mockRegisterAppAuthTools).toHaveBeenCalledTimes(1);
     expect(mockRegisterAppTools).toHaveBeenCalledTimes(1);
+  });
+
+  it("should register NoSQL database tools for domestic site even with ap-singapore region", async () => {
+    mockResolveSiteAndRegion.mockReturnValue({ site: "domestic", region: "ap-singapore" });
+
+    const { createCloudBaseMcpServer } = await import("./server.js");
+    await createCloudBaseMcpServer({
+      enableTelemetry: false,
+      pluginsEnabled: ["database"],
+    });
+
+    expect(mockRegisterDatabaseTools).toHaveBeenCalledTimes(1);
+    expect(mockRegisterDataModelTools).toHaveBeenCalledTimes(1);
+  });
+
+  it("should skip NoSQL database tools for intl site", async () => {
+    mockResolveSiteAndRegion.mockReturnValue({ site: "intl", region: "ap-singapore" });
+
+    const { createCloudBaseMcpServer } = await import("./server.js");
+    await createCloudBaseMcpServer({
+      enableTelemetry: false,
+      pluginsEnabled: ["database"],
+    });
+
+    expect(mockRegisterDatabaseTools).not.toHaveBeenCalled();
+    expect(mockRegisterDataModelTools).toHaveBeenCalledTimes(1);
+  });
+
+  it("should skip NoSQL tools for database-nosql plugin on intl site", async () => {
+    mockResolveSiteAndRegion.mockReturnValue({ site: "intl", region: "ap-singapore" });
+
+    const { createCloudBaseMcpServer } = await import("./server.js");
+    await createCloudBaseMcpServer({
+      enableTelemetry: false,
+      pluginsEnabled: ["database-nosql"],
+    });
+
+    expect(mockRegisterDatabaseTools).not.toHaveBeenCalled();
   });
 });

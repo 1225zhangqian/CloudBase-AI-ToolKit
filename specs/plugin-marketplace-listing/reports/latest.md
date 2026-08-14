@@ -1,6 +1,6 @@
 # CloudBase Plugin Marketplace Analysis
 
-Generated: 2026-08-05T07:36:57.965Z
+Generated: 2026-08-13T07:49:31.668Z
 
 > This report does not auto-submit to any marketplace. All submissions are manual.
 
@@ -10,8 +10,8 @@ Total markets: **42**
 
 | Priority | Count |
 |----------|------:|
-| ready_to_submit | 6 |
-| needs_packaging_or_manifest | 1 |
+| ready_to_submit | 5 |
+| needs_packaging_or_manifest | 2 |
 | needs_partner_outreach | 12 |
 | listed | 7 |
 | not_applicable | 15 |
@@ -212,7 +212,7 @@ Recommended install docs: `doc/ide-setup/codex.mdx`
 - Region: global
 - Channel: `community_plugin_directory`
 - Eligibility: `public_github_pr_required`
-- Last reviewed: 2026-07-28
+- Last reviewed: 2026-08-13
 - Manual submit only: yes
 
 Statuses:
@@ -240,7 +240,7 @@ Process:
 ```
 Open a PR to xai-org/plugin-marketplace adding a remote catalog entry pinned to commit SHA.
 Status 2026-07-28: PR opened https://github.com/xai-org/plugin-marketplace/pull/151
-Source: TencentCloudBase/cloudbase-plugin @ 93b747b3287787b8c3ad0811ef4f9b51e2479ec9
+Source: TencentCloudBase/cloudbase-plugin @ b615a7f8bfad6637f2297e1a993d29f6a292a13d
 ```
 
 Evidence:
@@ -249,12 +249,14 @@ Evidence:
 - https://github.com/xai-org/plugin-marketplace/pull/151
 - https://x.ai/news/grok-plugin-marketplace
 
+## needs_packaging_or_manifest
+
 ### vscode-agent-plugins — Visual Studio Code
 
 - Region: global
 - Channel: `self_hosted_marketplace`
 - Eligibility: `marketplace_add_or_catalog_pr`
-- Last reviewed: 2026-08-05
+- Last reviewed: 2026-08-13
 - Manual submit only: yes
 
 Statuses:
@@ -267,6 +269,10 @@ Statuses:
 - `mcp_or_skill_registry`: not_applicable
 - `docs_only`: listed
 
+Blockers:
+
+- awaiting maintainer /approve on re-submission github/awesome-copilot#2645 to trigger the Add cloudbase listing PR
+
 Local evidence:
 
 - `self_marketplace_claude`: **present** — .claude-plugin/marketplace.json lists cloudbase
@@ -276,13 +282,17 @@ Submit checklist:
 
 - [ ] Users can add TencentCloudBase/CloudBase-MCP as marketplace
 - [ ] Strip remote skill-fetch URLs; sync cloudbase-plugin; /rerun-intake on
+- [ ] Re-submission
 - [ ] [object Object]
 
 Process:
 
 ```
 Users add marketplaces via chat.plugins.marketplaces (default: github/copilot-plugins, awesome-copilot). Can point at this repo; curated default catalog inclusion needs outreach.
-Status 2026-08-05: Awesome Copilot #2459 intake re-passed after stripping remote skill-fetch URLs (SHA 4082ba95...). Awaiting maintainer re-review.
+Status 2026-08-05: Awesome Copilot #2459 intake re-passed after stripping remote skill-fetch URLs (SHA 4082ba95...). Label ready-for-review.
+Status 2026-08-12: maintainer aaronpowell closed #2459 as COMPLETED (no comment); cloudbase NOT yet in plugins/external.json.
+Status 2026-08-13: Reopening #2459 blocked by permissions; commented on #2459 asking for /approve (issuecomment-5276131129); opened re-submission #2645, intake passed, ready-for-review.
+Status 2026-08-13 poll: #2645 still OPEN (labels external-plugin + ready-for-review); no /approve yet; cloudbase NOT in plugins/external.json.
 See specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md
 ```
 
@@ -290,11 +300,10 @@ Evidence:
 
 - https://code.visualstudio.com/docs/agent-customization/agent-plugins
 - https://github.com/github/awesome-copilot/issues/2459
+- https://github.com/github/awesome-copilot/issues/2645
 - specs/plugin-marketplace-listing/awesome-copilot-rejection-response.md
 
 Recommended install docs: `doc/ide-setup/vscode.mdx`
-
-## needs_packaging_or_manifest
 
 ### qoder-plugin — Qoder / QoderWork
 
@@ -582,6 +591,7 @@ Statuses:
 Blockers:
 
 - No public developer submit form for Trae official MCP marketplace
+- Awaiting Trae product / community reply on curation sync + partner contact
 
 Local evidence:
 
@@ -590,12 +600,16 @@ Local evidence:
 Submit checklist:
 
 - [ ] Partner outreach for official MCP marketplace inclusion
+- [ ] Await reply on trae-community/trae-mcp#5
+- [ ] [object Object]
 
 Process:
 
 ```
 Users can add MCP from Trae built-in MCP marketplace or manual config. Third-party submission into Trae MCP marketplace is not publicly documented.
 Status 2026-08-05: Community list PR merged https://github.com/trae-community/trae-mcp/pull/4 (README catalog; not official Trae store).
+Outreach 2026-08-05: Asked community maintainers for official in-app curation path — https://github.com/trae-community/trae-mcp/issues/5
+Packet: specs/plugin-marketplace-listing/trae-official-outreach-packet.md
 ```
 
 Evidence:
@@ -603,8 +617,10 @@ Evidence:
 - https://docs.trae.cn/work_remote-mcp-server
 - https://docs.trae.cn/ide_model-context-protocol
 - https://github.com/trae-community/trae-mcp/pull/4
+- https://github.com/trae-community/trae-mcp/issues/5
 - https://github.com/trae-community/trae-mcp/blob/main/README.md
 - doc/ide-setup/trae.mdx
+- specs/plugin-marketplace-listing/trae-official-outreach-packet.md
 
 Recommended install docs: `doc/ide-setup/trae.mdx`
 
@@ -629,11 +645,14 @@ Statuses:
 Blockers:
 
 - Official Trae Work in-app skill market publisher path not documented
+- Awaiting Trae product / community reply on curation sync + partner contact
 
 Submit checklist:
 
 - [ ] Confirm Trae Work official skill market publisher process
+- [ ] Await reply on trae-community/trae-skills#21
 - [ ] Package SKILL.md zip if official market requires it
+- [ ] [object Object]
 
 Process:
 
@@ -642,14 +661,20 @@ Community catalog: trae-community/trae-skills (merged PR #20).
 Users can also upload local SKILL.md zip/.skill or install from Trae Work skills marketplace.
 Official Trae Work publisher onboarding still unclear / partner outreach.
 Status 2026-08-05: Community skills PR merged https://github.com/trae-community/trae-skills/pull/20
+Outreach 2026-08-05: Asked community maintainers for official skills market path — https://github.com/trae-community/trae-skills/issues/21
+Forum signal (custom skills not globally shareable via upload): https://forum.trae.cn/t/topic/171994
+Packet: specs/plugin-marketplace-listing/trae-official-outreach-packet.md
 ```
 
 Evidence:
 
 - https://docs.trae.cn/solo_skills
 - https://github.com/trae-community/trae-skills/pull/20
+- https://github.com/trae-community/trae-skills/issues/21
 - https://github.com/trae-community/trae-skills/blob/main/README.md
 - https://github.com/trae-community/trae-skills/blob/main/skills/cloudbase/SKILL.md
+- https://forum.trae.cn/t/topic/171994
+- specs/plugin-marketplace-listing/trae-official-outreach-packet.md
 
 Recommended install docs: `doc/ide-setup/trae.mdx`
 
