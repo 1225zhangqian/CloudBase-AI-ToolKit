@@ -24,15 +24,20 @@ export type CloudRunServiceType = typeof CLOUDRUN_SERVICE_TYPES[number];
 export const CLOUDRUN_ACCESS_TYPES = ['OA', 'PUBLIC', 'MINIAPP', 'VPC'] as const;
 export type CloudRunAccessType = typeof CLOUDRUN_ACCESS_TYPES[number];
 
+// CloudRun env package types (CreateCloudRunEnv.PackageType)
+export const CLOUDRUN_PACKAGE_TYPES = ['Trial', 'Standard', 'Professional', 'Enterprise'] as const;
+export type CloudRunPackageType = typeof CLOUDRUN_PACKAGE_TYPES[number];
+
 // Input schema for queryCloudRun tool
 const queryCloudRunInputSchema = {
-  action: z.enum(['list', 'detail', 'templates', 'getDeployLog']).describe('查询操作类型：list=获取云托管服务列表（支持分页和筛选），detail=查询指定服务的详细信息（包含服务配置和最新部署状态），templates=获取可用的项目模板列表（用于初始化新项目），getDeployLog=获取指定服务最近一次或指定构建的部署日志'),
+  action: z.enum(['list', 'detail', 'templates', 'getDeployLog', 'envStatus']).describe('查询操作类型：list=获取云托管服务列表（支持分页和筛选），detail=查询指定服务的详细信息（包含服务配置和最新部署状态），templates=获取可用的项目模板列表（用于初始化新项目），getDeployLog=获取指定服务最近一次或指定构建的部署日志，envStatus=查询当前环境云托管是否已开通及开通状态（Status=creating开通中/normal已开通），用于initEnv之后轮询进度或deploy之前确认环境是否就绪'),
 
   // List operation parameters
   pageSize: z.number().min(1).max(100).optional().default(10).describe('分页大小，控制每页返回的服务数量。取值范围：1-100，默认值：10。建议根据网络性能和显示需求调整'),
   pageNum: z.number().min(1).optional().default(1).describe('页码，用于分页查询。从1开始，默认值：1。配合pageSize使用可实现分页浏览'),
   serverName: z.string().optional().describe('服务名称筛选条件，支持模糊匹配。例如：输入"test"可匹配"test-service"、"my-test-app"等服务名称。留空则查询所有服务'),
   serverType: z.enum(CLOUDRUN_SERVICE_TYPES).optional().describe('服务类型筛选条件：function=函数型云托管（仅支持Node.js，有特殊的开发要求和限制，适合简单的API服务），container=容器型服务（推荐使用，支持任意语言和框架如Java/Go/Python/PHP/.NET等，适合大多数应用场景）'),
+  envId: z.string().optional().describe('环境 ID（action=envStatus 时使用；不传则使用当前配置的环境）。格式如 env-xxxxxx'),
 
   // Detail and log operation parameters
   detailServerName: z.string().optional().describe('要查询详细信息或部署日志的服务名称。当action为detail或getDeployLog时建议提供，必须是已存在的服务名称。可通过list操作获取可用的服务名称列表'),
@@ -41,8 +46,12 @@ const queryCloudRunInputSchema = {
 
 // Input schema for manageCloudRun tool
 const ManageCloudRunInputSchema = {
-  action: z.enum(['init', 'download', 'run', 'deploy', 'delete', 'createAgent', 'updateConfig']).describe('云托管服务管理操作类型：init=从模板初始化新的云托管项目代码（在targetPath目录下创建以serverName命名的子目录，支持多种语言和框架模板），download=从云端下载现有服务的代码到本地进行开发，run=在本地运行函数型云托管服务（用于开发和调试，仅支持函数型服务），deploy=将本地代码部署到云端云托管服务（支持函数型和容器型；已存在服务会 Read-Merge-Write 保留远程 VpcConf/EnvParams/OpenAccessTypes），updateConfig=仅更新服务配置不重新上传代码（对齐控制台服务设置，走 SubmitServerConfigChangeDiff；不需要 targetPath），delete=删除指定的云托管服务（不可恢复，需要确认），createAgent=创建函数型Agent（基于函数型云托管开发AI智能体）'),
-  serverName: z.string().describe('云托管服务名称，用于标识和管理服务。命名规则：支持大小写字母、数字、连字符和下划线，必须以字母开头，长度3-45个字符。在init操作中会作为在targetPath下创建的子目录名，在其他操作中作为目标服务名'),
+  action: z.enum(['init', 'download', 'run', 'deploy', 'delete', 'createAgent', 'updateConfig', 'initEnv']).describe('云托管服务管理操作类型：init=从模板初始化新的云托管项目代码（在targetPath目录下创建以serverName命名的子目录，支持多种语言和框架模板），download=从云端下载现有服务的代码到本地进行开发，run=在本地运行函数型云托管服务（用于开发和调试，仅支持函数型服务），deploy=将本地代码部署到云端云托管服务（支持函数型和容器型；已存在服务会 Read-Merge-Write 保留远程 VpcConf/EnvParams/OpenAccessTypes），updateConfig=仅更新服务配置不重新上传代码（对齐控制台服务设置，走 SubmitServerConfigChangeDiff；不需要 targetPath），delete=删除指定的云托管服务（不可恢复，需要确认），createAgent=创建函数型Agent（基于函数型云托管开发AI智能体），initEnv=开通当前环境的云托管（异步创建云托管环境，幂等：已开通直接返回；适合新环境首次部署前使用）'),
+  serverName: z.string().describe('云托管服务名称，用于标识和管理服务。命名规则：支持大小写字母、数字、连字符和下划线，必须以字母开头，长度3-45个字符。在init操作中会作为在targetPath下创建的子目录名，在其他操作中作为目标服务名。initEnv 操作不需要此参数'),
+
+  // InitEnv operation parameters
+  envId: z.string().optional().describe('环境 ID（action=initEnv 时使用；不传则使用当前配置的环境）。格式如 env-xxxxxx'),
+  packageType: z.enum(CLOUDRUN_PACKAGE_TYPES).optional().default('Trial').describe('云托管环境套餐类型（action=initEnv 时使用）：Trial=试用，Standard=标准，Professional=专业，Enterprise=企业。默认 Trial'),
 
   // Deploy operation parameters
   targetPath: z.string().optional().describe('本地代码路径，必须是绝对路径。在deploy操作中指定要部署的代码目录，在download操作中指定下载目标目录，在init操作中指定云托管服务的上级目录（会在该目录下创建以serverName命名的子目录）。updateConfig 不需要此参数。建议约定：项目根目录下的cloudrun/目录，例如：/Users/username/projects/my-project/cloudrun'),
@@ -122,17 +131,18 @@ const ManageCloudRunInputSchema = {
 };
 
 type queryCloudRunInput = {
-  action: 'list' | 'detail' | 'templates' | 'getDeployLog';
+  action: 'list' | 'detail' | 'templates' | 'getDeployLog' | 'envStatus';
   pageSize?: number;
   pageNum?: number;
   serverName?: string;
   serverType?: CloudRunServiceType;
   detailServerName?: string;
   buildId?: number;
+  envId?: string;
 };
 
 type ManageCloudRunInput = {
-  action: 'init' | 'download' | 'run' | 'deploy' | 'delete' | 'createAgent' | 'updateConfig';
+  action: 'init' | 'download' | 'run' | 'deploy' | 'delete' | 'createAgent' | 'updateConfig' | 'initEnv';
   serverName: string;
   targetPath?: string;
   serverConfig?: any;
@@ -140,6 +150,8 @@ type ManageCloudRunInput = {
   template?: string;
   force?: boolean;
   serverType?: CloudRunServiceType;
+  envId?: string;
+  packageType?: CloudRunPackageType;
   runOptions?: {
     port?: number;
     envParams?: Record<string, string>;
@@ -251,6 +263,60 @@ export type CloudRunDbNetworkRisk = {
 };
 
 /**
+ * 查询当前环境云托管（大租户）开通状态。
+ *
+ * 使用 tcbr DescribeEnvBaseInfo（2022-02-17）：
+ * - IsExist=false + 空 EnvBaseInfo → 未开通（unopened）
+ * - IsExist=true + Status="creating" → 开通中
+ * - IsExist=true + Status="normal" → 已开通
+ *
+ * 供 initEnv（幂等判断）与 envStatus（状态查询）共用。
+ */
+export type CloudRunEnvStatus =
+  | { isExist: true; status: "creating" | "normal" | "unknown"; baseInfo: Record<string, unknown> }
+  | { isExist: false; status: "unopened"; baseInfo: Record<string, unknown> };
+
+export async function queryCloudRunEnvStatus(options: {
+  cloudBaseOptions?: CloudBaseOptions;
+  envId: string;
+}): Promise<CloudRunEnvStatus> {
+  const manager = await getCloudBaseManager({ cloudBaseOptions: options.cloudBaseOptions });
+  if (!manager?.commonService) {
+    throw new Error(
+      "Current CloudBase Manager does not support commonService; cannot query CloudRun env status.",
+    );
+  }
+  return describeCloudRunEnvStatus(manager, options.envId);
+}
+
+/**
+ * 核心实现：用已获取的 manager 查询云托管开通状态（供 initEnv/envStatus 及
+ * ensureCloudRunEnvInitialized 复用，避免重复 getCloudBaseManager）。
+ */
+export async function describeCloudRunEnvStatus(
+  manager: { commonService: (service: string, version: string) => { call: (options: any) => Promise<any> } },
+  envId: string,
+): Promise<CloudRunEnvStatus> {
+  const result = await manager
+    .commonService("tcbr", "2022-02-17")
+    .call({
+      Action: "DescribeEnvBaseInfo",
+      Param: { EnvId: envId },
+    });
+  const data = (result ?? {}) as Record<string, unknown>;
+  const baseInfo = ((data.EnvBaseInfo ?? {}) as Record<string, unknown>) ?? {};
+  if (data.IsExist !== true) {
+    return { isExist: false, status: "unopened", baseInfo };
+  }
+  const rawStatus = typeof baseInfo.Status === "string" ? baseInfo.Status : "";
+  const status =
+    rawStatus === "creating" || rawStatus === "normal"
+      ? (rawStatus as "creating" | "normal")
+      : "unknown";
+  return { isExist: true, status, baseInfo };
+}
+
+/**
  * 探测当前环境云托管（大租户）是否已初始化。
  *
  * 背景（2026-08-13 用户实测）：新环境未调 CreateCloudRunEnv 初始化云托管时，
@@ -280,14 +346,8 @@ export async function ensureCloudRunEnvInitialized(options: {
     return true;
   }
   try {
-    const result = await manager
-      .commonService("tcbr", "2022-02-17")
-      .call({
-        Action: "DescribeEnvBaseInfo",
-        Param: { EnvId: options.envId },
-      });
-    // 数据信号：IsExist=false + 空 EnvBaseInfo 表示该环境未开通云托管（大租户）。
-    if (result && (result as Record<string, unknown>).IsExist === false) {
+    const status = await describeCloudRunEnvStatus(manager, options.envId);
+    if (!status.isExist) {
       throwCloudRunEnvNotInitialized(options.envId);
     }
     return true;
@@ -311,8 +371,8 @@ function throwCloudRunEnvNotInitialized(envId: string): never {
   throw new Error(
     `当前环境（${envId}）尚未初始化云托管（CloudRun Env）。` +
       `不能直接创建服务（CreateCloudRunServer 在无大租户记录时会默认创建到小租户，产生错误的小租户服务与版本）。\n` +
-      `请先初始化云托管环境，再重试部署：\n` +
-      `- MCP：callCloudApi(service="tcbr", version="2022-02-17", action="CreateCloudRunEnv", params={EnvId:"${envId}"})\n` +
+      `请先开通云托管环境，再重试部署：\n` +
+      `- MCP：manageCloudRun(action="initEnv", envId="${envId}")（异步开通，幂等；开通完成后可用 queryCloudRun(action="envStatus", envId="${envId}") 查询 Status=normal）\n` +
       `- 或控制台：环境 → 云托管 → 开通（https://tcb.cloud.tencent.com/dev?envId=${envId}#/platform-run）\n` +
       `初始化完成后重新调用 manageCloudRun(action="deploy")。`,
   );
@@ -473,7 +533,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
     "queryCloudRun",
     {
       title: "查询 CloudRun 服务信息",
-      description: "查询云托管服务信息，支持获取服务列表、查询服务详情、获取可用模板列表和部署日志。返回的服务信息包括服务名称、状态、访问类型、配置详情以及最近部署上下文。",
+      description: "查询云托管服务信息，支持获取服务列表、查询服务详情、获取可用模板列表、获取部署日志以及查询环境云托管开通状态（envStatus）。返回的服务信息包括服务名称、状态、访问类型、配置详情以及最近部署上下文。",
       inputSchema: queryCloudRunInputSchema,
       annotations: {
         readOnlyHint: true,
@@ -706,6 +766,67 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
             };
           }
 
+          case 'envStatus': {
+            const envId = input.envId?.trim() || (await getEnvId(cloudBaseOptions));
+            if (!manager.commonService) {
+              throw new Error(
+                "Current CloudBase Manager does not support commonService; cannot query CloudRun env status.",
+              );
+            }
+            let status: CloudRunEnvStatus;
+            try {
+              status = await describeCloudRunEnvStatus(manager, envId);
+            } catch (error) {
+              const baseMessage = error instanceof Error ? error.message : String(error);
+              if (
+                /ResourceNotFound|not.?initialized|未开通|未初始化/i.test(baseMessage) ||
+                /InvalidParameter.*(?:Env|CloudRun)/i.test(baseMessage)
+              ) {
+                status = { isExist: false, status: "unopened", baseInfo: {} };
+              } else {
+                throw new Error(`[queryCloudRun/envStatus] ${baseMessage}`);
+              }
+            }
+
+            let message: string;
+            if (!status.isExist) {
+              message = `环境 ${envId} 尚未开通云托管。请先调用 manageCloudRun(action="initEnv", envId="${envId}") 开通（异步、幂等），或前往控制台 环境 → 云托管 → 开通；Status=normal 后即可 deploy。`;
+            } else if (status.status === "creating") {
+              message = `环境 ${envId} 云托管正在开通中（Status=creating）。请稍后重试 manageCloudRun(action="deploy")，或用本 action 再次查询直到 Status=normal。`;
+            } else if (status.status === "normal") {
+              message = `环境 ${envId} 云托管已开通（Status=normal），可直接 manageCloudRun(action="deploy")。`;
+            } else {
+              message = `环境 ${envId} 云托管状态未知（Status=${status.status ?? "unknown"}），请稍后重试。`;
+            }
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    success: true,
+                    data: {
+                      envId,
+                      status: status.status,
+                      isExist: status.isExist,
+                      ...(status.isExist
+                        ? {
+                            envBaseInfo: {
+                              Status: status.baseInfo.Status ?? null,
+                              PackageType: status.baseInfo.PackageType ?? null,
+                              Region: status.baseInfo.Region ?? null,
+                              EnvType: status.baseInfo.EnvType ?? null,
+                            },
+                          }
+                        : {}),
+                    },
+                    message
+                  }, null, 2)
+                }
+              ]
+            };
+          }
+
         default:
           throw new Error(`Unsupported action: ${input.action}`);
       }
@@ -720,7 +841,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
     "manageCloudRun",
     {
       title: "管理 CloudRun 服务",
-      description: "管理云托管服务，按开发顺序支持：初始化项目（可从模板开始，模板列表可通过 queryCloudRun 查询）、下载服务代码、本地运行（仅函数型服务）、部署代码、仅更新配置（updateConfig，无需重新上传代码）、删除服务。deploy 对已存在服务会先读取远程配置再合并（保留 VpcConf/EnvParams/OpenAccessTypes）。updateConfig 对齐控制台服务设置页。删除操作需要确认，建议设置force=true。",
+      description: "管理云托管服务，按开发顺序支持：开通云托管环境（initEnv）、初始化项目（可从模板开始，模板列表可通过 queryCloudRun 查询）、下载服务代码、本地运行（仅函数型服务）、部署代码、仅更新配置（updateConfig，无需重新上传代码）、删除服务。deploy 对已存在服务会先读取远程配置再合并（保留 VpcConf/EnvParams/OpenAccessTypes）。updateConfig 对齐控制台服务设置页。删除操作需要确认，建议设置force=true。新环境首次部署前若提示未开通云托管，先调用 initEnv 开通（异步、幂等）。",
       inputSchema: ManageCloudRunInputSchema,
       annotations: {
         readOnlyHint: false,
@@ -746,6 +867,107 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
       }
 
       switch (input.action) {
+        case 'initEnv': {
+            const envId = input.envId?.trim() || (await getEnvId(cloudBaseOptions));
+            const packageType = input.packageType || 'Trial';
+            if (!manager.commonService) {
+              throw new Error(
+                "Current CloudBase Manager does not support commonService; cannot initialize CloudRun env.",
+              );
+            }
+
+            // 幂等：先查当前开通状态，已开通 / 开通中不重复创建。
+            let current: CloudRunEnvStatus;
+            try {
+              current = await describeCloudRunEnvStatus(manager, envId);
+            } catch (error) {
+              const baseMessage = error instanceof Error ? error.message : String(error);
+              if (
+                /ResourceNotFound|not.?initialized|未开通|未初始化/i.test(baseMessage) ||
+                /InvalidParameter.*(?:Env|CloudRun)/i.test(baseMessage)
+              ) {
+                current = { isExist: false, status: "unopened", baseInfo: {} };
+              } else {
+                throw new Error(`[manageCloudRun/initEnv] ${baseMessage}`);
+              }
+            }
+
+            if (current.isExist && current.status === "normal") {
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: JSON.stringify({
+                      success: true,
+                      data: {
+                        envId,
+                        status: "normal",
+                        packageType: current.baseInfo.PackageType ?? packageType,
+                        created: false
+                      },
+                      message: `环境 ${envId} 已开通云托管（Status=normal），无需重复开通。可直接 manageCloudRun(action="deploy")。`
+                    }, null, 2)
+                  }
+                ]
+              };
+            }
+
+            if (current.isExist && current.status === "creating") {
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: JSON.stringify({
+                      success: true,
+                      data: {
+                        envId,
+                        status: "creating",
+                        created: false
+                      },
+                      message: `环境 ${envId} 云托管正在开通中（Status=creating），无需重复开通。请稍后用 queryCloudRun(action="envStatus", envId="${envId}") 查询，Status=normal 后即可 deploy。`
+                    }, null, 2)
+                  }
+                ]
+              };
+            }
+
+            // 未开通 → 发起异步开通（CreateCloudRunEnv 异步，不阻塞等待）。
+            let createResult: any;
+            try {
+              createResult = await manager
+                .commonService("tcbr", "2022-02-17")
+                .call({
+                  Action: "CreateCloudRunEnv",
+                  Param: { EnvId: envId, PackageType: packageType },
+                });
+            } catch (error) {
+              throw new Error(buildManageCloudRunErrorMessage('initEnv', envId, error));
+            }
+            const tranId =
+              createResult?.TranId ??
+              createResult?.Response?.TranId ??
+              createResult?.tranId;
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    success: true,
+                    data: {
+                      envId,
+                      status: "creating",
+                      packageType,
+                      created: true,
+                      ...(tranId ? { tranId } : {})
+                    },
+                    message: `已发起云托管开通（异步，Status=creating）。请稍后用 queryCloudRun(action="envStatus", envId="${envId}") 查询状态，Status=normal 后即可 manageCloudRun(action="deploy")。`
+                  }, null, 2)
+                }
+              ]
+            };
+          }
+
         case 'createAgent': {
             if (!targetPath) {
               throw new Error("targetPath is required for createAgent operation");
