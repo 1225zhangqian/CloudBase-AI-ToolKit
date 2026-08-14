@@ -7,7 +7,6 @@ const {
   mockRegisterPgDatabaseTools,
   mockRegisterPgStorageTools,
   mockRegisterDataModelTools,
-  mockRegisterDownloadTools,
   mockRegisterFunctionTools,
   mockRegisterHostingTools,
   mockRegisterRagTools,
@@ -29,7 +28,6 @@ const {
   mockRegisterPgDatabaseTools: vi.fn(),
   mockRegisterPgStorageTools: vi.fn(),
   mockRegisterDataModelTools: vi.fn(),
-  mockRegisterDownloadTools: vi.fn(),
   mockRegisterFunctionTools: vi.fn(),
   mockRegisterHostingTools: vi.fn(),
   mockRegisterRagTools: vi.fn(),
@@ -52,7 +50,6 @@ vi.mock("./tools/databaseSQL.js", () => ({ registerSQLDatabaseTools: mockRegiste
 vi.mock("./tools/databasePG.js", () => ({ registerPGDatabaseTools: mockRegisterPgDatabaseTools }));
 vi.mock("./tools/storagePG.js", () => ({ registerPGStorageTools: mockRegisterPgStorageTools }));
 vi.mock("./tools/dataModel.js", () => ({ registerDataModelTools: mockRegisterDataModelTools }));
-vi.mock("./tools/download.js", () => ({ registerDownloadTools: mockRegisterDownloadTools }));
 vi.mock("./tools/functions.js", () => ({ registerFunctionTools: mockRegisterFunctionTools }));
 vi.mock("./tools/hosting.js", () => ({ registerHostingTools: mockRegisterHostingTools }));
 vi.mock("./tools/rag.js", () => ({ registerRagTools: mockRegisterRagTools }));
