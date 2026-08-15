@@ -30,7 +30,7 @@ export type CloudRunPackageType = typeof CLOUDRUN_PACKAGE_TYPES[number];
 
 // Input schema for queryCloudRun tool
 const queryCloudRunInputSchema = {
-  action: z.enum(['list', 'detail', 'templates', 'getDeployLog', 'envStatus']).describe('查询操作类型：list=获取云托管服务列表（支持分页和筛选），detail=查询指定服务的详细信息（包含服务配置和最新部署状态），templates=获取可用的项目模板列表（用于初始化新项目），getDeployLog=获取指定服务最近一次或指定构建的部署日志，envStatus=查询当前环境云托管是否已开通及开通状态（Status=creating开通中/normal已开通），用于initEnv之后轮询进度或deploy之前确认环境是否就绪'),
+  action: z.enum(['list', 'detail', 'templates', 'getDeployLog', 'getDeployRecords', 'envStatus']).describe('查询操作类型：list=获取云托管服务列表（支持分页和筛选），detail=查询指定服务的详细信息（包含服务配置和最新部署状态），templates=获取可用的项目模板列表（用于初始化新项目），getDeployLog=获取指定服务最近一次或指定构建的部署日志，getDeployRecords=获取指定服务的部署记录列表（按部署时间倒序，含 BuildId/RunId/FlowRatio/Status 等字段，用于查看历史发布与回滚上下文），envStatus=查询当前环境云托管是否已开通及开通状态（Status=creating开通中/normal已开通），用于initEnv之后轮询进度或deploy之前确认环境是否就绪'),
 
   // List operation parameters
   pageSize: z.number().min(1).max(100).optional().default(10).describe('分页大小，控制每页返回的服务数量。取值范围：1-100，默认值：10。建议根据网络性能和显示需求调整'),
@@ -40,14 +40,19 @@ const queryCloudRunInputSchema = {
   envId: z.string().optional().describe('环境 ID（action=envStatus 时使用；不传则使用当前配置的环境）。格式如 env-xxxxxx'),
 
   // Detail and log operation parameters
-  detailServerName: z.string().optional().describe('要查询详细信息或部署日志的服务名称。当action为detail或getDeployLog时建议提供，必须是已存在的服务名称。可通过list操作获取可用的服务名称列表'),
+  detailServerName: z.string().optional().describe('要查询详细信息、部署记录或部署日志的服务名称。当action为detail、getDeployLog或getDeployRecords时建议提供，必须是已存在的服务名称。可通过list操作获取可用的服务名称列表'),
   buildId: z.number().optional().describe('构建ID，仅在action=getDeployLog时使用。不传时默认返回最近一次部署的构建日志'),
 };
 
 // Input schema for manageCloudRun tool
 const ManageCloudRunInputSchema = {
-  action: z.enum(['init', 'download', 'run', 'deploy', 'delete', 'createAgent', 'updateConfig', 'initEnv']).describe('云托管服务管理操作类型：init=从模板初始化新的云托管项目代码（在targetPath目录下创建以serverName命名的子目录，支持多种语言和框架模板），download=从云端下载现有服务的代码到本地进行开发，run=在本地运行函数型云托管服务（用于开发和调试，仅支持函数型服务），deploy=将本地代码部署到云端云托管服务（支持函数型和容器型；传 imageUrl 时改为已有镜像部署，走 DeployType=image 容器型，targetPath 可省略；已存在服务会 Read-Merge-Write 保留远程 VpcConf/EnvParams/OpenAccessTypes），updateConfig=仅更新服务配置不重新上传代码（对齐控制台服务设置，走 SubmitServerConfigChangeDiff；不需要 targetPath），delete=删除指定的云托管服务（不可恢复，需要确认），createAgent=创建函数型Agent（基于函数型云托管开发AI智能体），initEnv=开通当前环境的云托管（异步创建云托管环境，幂等：已开通直接返回；适合新环境首次部署前使用）'),
+  action: z.enum(['init', 'download', 'run', 'deploy', 'delete', 'createAgent', 'updateConfig', 'initEnv', 'traffic']).describe('云托管服务管理操作类型：init=从模板初始化新的云托管项目代码（在targetPath目录下创建以serverName命名的子目录，支持多种语言和框架模板），download=从云端下载现有服务的代码到本地进行开发，run=在本地运行函数型云托管服务（用于开发和调试，仅支持函数型服务），deploy=将本地代码部署到云端云托管服务（支持函数型和容器型；传 imageUrl 时改为已有镜像部署，走 DeployType=image 容器型，targetPath 可省略；已存在服务会 Read-Merge-Write 保留远程 VpcConf/EnvParams/OpenAccessTypes），updateConfig=仅更新服务配置不重新上传代码（对齐控制台服务设置，走 SubmitServerConfigChangeDiff；不需要 targetPath），delete=删除指定的云托管服务（不可恢复，需要确认），createAgent=创建函数型Agent（基于函数型云托管开发AI智能体），initEnv=开通当前环境的云托管（异步创建云托管环境，幂等：已开通直接返回；适合新环境首次部署前使用），traffic=流量管理与灰度发布（set=调整稳定版/灰度版流量比例，promote=将灰度版本升级为全量，rollback=回滚到上一个稳定版本；对应 tcb cloudrun traffic 命令）'),
   serverName: z.string().describe('云托管服务名称，用于标识和管理服务。命名规则：支持大小写字母、数字、连字符和下划线，必须以字母开头，长度3-45个字符。在init操作中会作为在targetPath下创建的子目录名，在其他操作中作为目标服务名。initEnv 操作不需要此参数'),
+
+  // Traffic management operation parameters (action=traffic)
+  trafficOp: z.enum(['set', 'promote', 'rollback']).optional().describe('流量管理子操作（action=traffic 时使用）：set=调整灰度流量比例（需先部署新版本至灰度，通过 stablePercent/canaryPercent 设置稳定版与灰度版流量比例，两者之和必须等于100）；promote=将灰度版本全量发布（灰度版本流量置为100%并关闭灰度发布，等价于 tcb cloudrun traffic promote）；rollback=回滚到上一个稳定版本（停止当前灰度/发布中的版本，回到稳定版本，等价于 tcb cloudrun traffic rollback）'),
+  stablePercent: z.number().min(0).max(100).optional().describe('稳定版本流量比例（trafficOp=set 时使用），取值范围0-100。与 canaryPercent 之和必须等于100。例如希望 90% 流量打到稳定版、10% 打到灰度版，则 stablePercent=90, canaryPercent=10'),
+  canaryPercent: z.number().min(0).max(100).optional().describe('灰度版本流量比例（trafficOp=set 时使用），取值范围0-100。与 stablePercent 之和必须等于100。例如希望 90% 流量打到稳定版、10% 打到灰度版，则 stablePercent=90, canaryPercent=10'),
 
   // InitEnv operation parameters
   envId: z.string().optional().describe('环境 ID（action=initEnv 时使用；不传则使用当前配置的环境）。格式如 env-xxxxxx'),
@@ -132,7 +137,7 @@ const ManageCloudRunInputSchema = {
 };
 
 type queryCloudRunInput = {
-  action: 'list' | 'detail' | 'templates' | 'getDeployLog' | 'envStatus';
+  action: 'list' | 'detail' | 'templates' | 'getDeployLog' | 'getDeployRecords' | 'envStatus';
   pageSize?: number;
   pageNum?: number;
   serverName?: string;
@@ -143,7 +148,7 @@ type queryCloudRunInput = {
 };
 
 type ManageCloudRunInput = {
-  action: 'init' | 'download' | 'run' | 'deploy' | 'delete' | 'createAgent' | 'updateConfig' | 'initEnv';
+  action: 'init' | 'download' | 'run' | 'deploy' | 'delete' | 'createAgent' | 'updateConfig' | 'initEnv' | 'traffic';
   serverName: string;
   targetPath?: string;
   imageUrl?: string;
@@ -154,6 +159,9 @@ type ManageCloudRunInput = {
   serverType?: CloudRunServiceType;
   envId?: string;
   packageType?: CloudRunPackageType;
+  trafficOp?: 'set' | 'promote' | 'rollback';
+  stablePercent?: number;
+  canaryPercent?: number;
   runOptions?: {
     port?: number;
     envParams?: Record<string, string>;
@@ -235,7 +243,7 @@ function validateAndNormalizePath(inputPath: string): string {
   return normalizedPath;
 }
 
-function buildManageCloudRunErrorMessage(action: ManageCloudRunInput["action"], serverName: string, error: unknown): string {
+function buildManageCloudRunErrorMessage(action: ManageCloudRunInput["action"] | string, serverName: string, error: unknown): string {
   const baseMessage = error instanceof Error ? error.message : String(error);
   const suggestions: string[] = [];
 
@@ -807,8 +815,52 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
             };
           }
 
+          case 'getDeployRecords': {
+            const serverName = getCloudRunQueryServerName(input);
+
+            if (!serverName) {
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: JSON.stringify({
+                      success: false,
+                      error: "detailServerName or serverName is required for getDeployRecords action",
+                      message: "Please provide detailServerName or serverName."
+                    }, null, 2)
+                  }
+                ]
+              };
+            }
+
+            const deployRecordsResult: any = await cloudrunService.getDeployRecords({ serverName });
+            const deployRecords = Array.isArray(deployRecordsResult?.DeployRecords)
+              ? deployRecordsResult.DeployRecords
+              : [];
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    success: true,
+                    data: {
+                      serverName,
+                      deployRecords,
+                      // 部署记录按部署时间倒序（最新在前），首条为最近一次部署
+                      total: deployRecords.length,
+                      latestDeploy: deployRecords[0] ?? null
+                    },
+                    message: `Retrieved ${deployRecords.length} deploy records for service '${serverName}'`
+                  }, null, 2)
+                }
+              ]
+            };
+          }
+
           case 'envStatus': {
             const envId = input.envId?.trim() || (await getEnvId(cloudBaseOptions));
+
             if (!manager.commonService) {
               throw new Error(
                 "Current CloudBase Manager does not support commonService; cannot query CloudRun env status.",
@@ -1009,7 +1061,118 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
             };
           }
 
-        case 'createAgent': {
+          case 'traffic': {
+            const trafficOp = input.trafficOp;
+            if (!trafficOp) {
+              throw new Error(
+                "trafficOp is required for traffic operation (set | promote | rollback)",
+              );
+            }
+
+            if (trafficOp === 'set') {
+              const stable = input.stablePercent;
+              const canary = input.canaryPercent;
+              if (
+                typeof stable !== 'number' ||
+                typeof canary !== 'number'
+              ) {
+                throw new Error(
+                  "stablePercent and canaryPercent are required for trafficOp=set",
+                );
+              }
+              if (stable + canary !== 100) {
+                throw new Error(
+                  `stablePercent + canaryPercent must equal 100 (got ${stable} + ${canary} = ${stable + canary}). ` +
+                    `Example: 90/10 means 90% to stable version, 10% to canary version.`,
+                );
+              }
+              let setResult: unknown;
+              try {
+                setResult = await cloudrunService.setTraffic(
+                  input.serverName,
+                  stable,
+                  canary,
+                );
+              } catch (error) {
+                throw new Error(
+                  buildManageCloudRunErrorMessage('traffic/set', input.serverName, error),
+                );
+              }
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: JSON.stringify({
+                      success: true,
+                      data: {
+                        serverName: input.serverName,
+                        trafficOp: 'set',
+                        stablePercent: stable,
+                        canaryPercent: canary,
+                        result: setResult ?? null
+                      },
+                      message: `Set traffic for service '${input.serverName}': stable ${stable}% / canary ${canary}%`
+                    }, null, 2)
+                  }
+                ]
+              };
+            }
+
+            if (trafficOp === 'promote') {
+              let promoteResult: unknown;
+              try {
+                promoteResult = await cloudrunService.promote(input.serverName);
+              } catch (error) {
+                throw new Error(
+                  buildManageCloudRunErrorMessage('traffic/promote', input.serverName, error),
+                );
+              }
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: JSON.stringify({
+                      success: true,
+                      data: {
+                        serverName: input.serverName,
+                        trafficOp: 'promote',
+                        result: promoteResult ?? null
+                      },
+                      message: `Promoted canary version to full release for service '${input.serverName}' (100% traffic). This is irreversible.`
+                    }, null, 2)
+                  }
+                ]
+              };
+            }
+
+            // rollback
+            let rollbackResult: unknown;
+            try {
+              rollbackResult = await cloudrunService.rollback(input.serverName);
+            } catch (error) {
+              throw new Error(
+                buildManageCloudRunErrorMessage('traffic/rollback', input.serverName, error),
+              );
+            }
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    success: true,
+                    data: {
+                      serverName: input.serverName,
+                      trafficOp: 'rollback',
+                      result: rollbackResult ?? null
+                    },
+                    message: `Rolled back service '${input.serverName}' to the previous stable version.`
+                  }, null, 2)
+                }
+              ]
+            };
+          }
+
+          case 'createAgent': {
             if (!targetPath) {
               throw new Error("targetPath is required for createAgent operation");
             }
