@@ -107,6 +107,24 @@ describe('publish-to-clawhub command construction', () => {
     expect(isClawhubVersionExistsError(error)).toBe(true);
   });
 
+  // Fingerprint version-already-exists from Actions run 30897797886 (main@95a75f82):
+  // CLI printed the Version line, but failure aggregation only kept "Command failed: ...".
+  test('detects version-already-exists from Actions run 30897797886 log shape', () => {
+    const error = new Error(
+      'Command failed: clawhub skill publish /home/runner/work/CloudBase-AI-Toolkit/CloudBase-AI-Toolkit/.clawhub-publish-output/web-development/skills/web-development --slug web-development --changelog Recent commits --tags latest',
+    );
+    error.stderr = [
+      'Version 1.27.25 already exists. Increment the version number and try again.',
+      '    at handler (../../convex/skills.ts:13078:8)',
+      '    at async handler (../../node_modules/convex-helpers/server/customFunctions.js:268:27) (reset in 42s)',
+      'Error: Version 1.27.25 already exists. Increment the version number and try again.',
+      '    at handler (../../convex/skills.ts:13078:8)',
+      '    at async handler (../../node_modules/convex-helpers/server/customFunctions.js:268:27) (reset in 42s)',
+      '',
+    ].join('\n');
+    expect(isClawhubVersionExistsError(error)).toBe(true);
+  });
+
   test('detects OK already-published messages as idempotent', () => {
     const error = new Error('Command failed: clawhub skill publish ...');
     error.stdout = 'OK. cloudbase@1.92.48 is already published\n';
