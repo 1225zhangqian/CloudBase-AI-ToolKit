@@ -1,6 +1,6 @@
 # CloudBase Plugin Marketplace Analysis
 
-Generated: 2026-08-13T07:49:31.668Z
+Generated: 2026-08-17T08:28:07.160Z
 
 > This report does not auto-submit to any marketplace. All submissions are manual.
 
@@ -12,8 +12,8 @@ Total markets: **42**
 |----------|------:|
 | ready_to_submit | 5 |
 | needs_packaging_or_manifest | 2 |
-| needs_partner_outreach | 12 |
-| listed | 7 |
+| needs_partner_outreach | 11 |
+| listed | 8 |
 | not_applicable | 15 |
 | unknown | 1 |
 
@@ -678,43 +678,6 @@ Evidence:
 
 Recommended install docs: `doc/ide-setup/trae.mdx`
 
-### mcp-official-registry — Official MCP Registry
-
-- Region: global
-- Channel: `mcp_registry_or_aggregator`
-- Eligibility: `mcp_publisher_cli`
-- Last reviewed: 2026-07-27
-- Manual submit only: yes
-
-Statuses:
-
-- `official_curated`: not_applicable
-- `community_directory`: not_applicable
-- `self_marketplace`: not_applicable
-- `native_connector_or_builtin`: not_applicable
-- `open_plugin_spec`: not_applicable
-- `mcp_or_skill_registry`: unknown
-- `docs_only`: unknown
-
-Blockers:
-
-- Confirm whether @cloudbase/cloudbase-mcp is already published to official registry
-
-Submit checklist:
-
-- [ ] server.json / publisher metadata
-- [ ] mcp-publisher publish
-
-Process:
-
-```
-Publish via mcp-publisher CLI to registry.modelcontextprotocol.io; aggregators may ingest afterward.
-```
-
-Evidence:
-
-- https://registry.modelcontextprotocol.io
-
 ### smithery — Smithery
 
 - Region: global
@@ -1092,6 +1055,48 @@ Evidence:
 - doc/ai-agent-plugins.mdx
 
 Recommended install docs: `doc/ide-setup/codex.mdx`
+
+### mcp-official-registry — Official MCP Registry
+
+- Region: global
+- Channel: `mcp_registry_or_aggregator`
+- Eligibility: `mcp_publisher_cli`
+- Last reviewed: 2026-08-17
+- Manual submit only: yes
+
+Statuses:
+
+- `official_curated`: not_applicable
+- `community_directory`: not_applicable
+- `self_marketplace`: not_applicable
+- `native_connector_or_builtin`: not_applicable
+- `open_plugin_spec`: not_applicable
+- `mcp_or_skill_registry`: listed
+- `docs_only`: listed
+
+Local evidence:
+
+- `mcp_registry_server_json`: **present** — mcp/server.json matches npm mcpName io.github.TencentCloudBase/cloudbase-mcp
+
+Submit checklist:
+
+- [ ] server.json / publisher metadata
+- [ ] mcp-publisher publish
+
+Process:
+
+```
+Publish via mcp-publisher CLI to registry.modelcontextprotocol.io; aggregators may ingest afterward.
+Status 2026-08-17: listed as io.github.TencentCloudBase/cloudbase-mcp v2.27.0 (hosted remotes).
+npm packages[] will attach on the next npm release after mcpName ships in @cloudbase/cloudbase-mcp.
+```
+
+Evidence:
+
+- https://registry.modelcontextprotocol.io/v0/servers?search=cloudbase
+- https://github.com/TencentCloudBase/CloudBase-AI-Toolkit
+
+Recommended install docs: `mcp/server.json`
 
 ## not_applicable
 

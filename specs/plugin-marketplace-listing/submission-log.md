@@ -2,6 +2,26 @@
 
 Track manual publisher / listing applications. Update when status changes.
 
+## Official MCP Registry
+
+| Field | Value |
+|-------|-------|
+| Status | **Listed** (hosted remotes; npm `packages[]` pending next npm release) |
+| Registry name | `io.github.TencentCloudBase/cloudbase-mcp` |
+| Version | `2.27.0` |
+| Search | https://registry.modelcontextprotocol.io/v0/servers?search=cloudbase |
+| npm package | `@cloudbase/cloudbase-mcp` (referenced in description; `mcpName` added in repo, not yet on npm 2.27.0) |
+| Publisher | GitHub org `TencentCloudBase` (admin `binggg`, public membership) |
+| Published at | 2026-08-17T08:25:05Z |
+| Follow-up | Next `npm publish` (tag) runs `publish-mcp-registry` in `.github/workflows/npm-publish.yaml` and attaches `packages[]` |
+
+### How to check progress (Official MCP Registry)
+
+1. `curl -sS "https://registry.modelcontextprotocol.io/v0/servers?search=cloudbase"` — `metadata.count` must be ≥ 1
+2. Confirm `server.name` is `io.github.TencentCloudBase/cloudbase-mcp` and description mentions `@cloudbase/cloudbase-mcp`
+3. After the next npm release, confirm `packages[0].identifier` is `@cloudbase/cloudbase-mcp`
+4. Aggregators: Glama and PulseMCP already had GitHub-indexed CloudBase listings as of 2026-08-17; they should pick up the official registry name after ingest
+
 ## Cursor Marketplace
 
 | Field | Value |
