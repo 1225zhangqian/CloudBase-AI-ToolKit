@@ -24,12 +24,6 @@ The CloudBase integration layer for AI coding tools: Plugin installs the stack, 
 
 ## Recent updates
 
-**v2.28.x** (2026-08)
-
-- Reliability: normalize platform status casing for CloudRun deploy records (`FAILED`/`CREATING`), app version `failed`, and gateway default-domain `success` so uppercase/lowercase platform responses are not misclassified
-- CloudRun: `manageCloudRun(initEnv)` EnvType/VPC autofill, envStatus case normalize, CAM auth guidance (from 2.27.x hotfix line)
-- Env: `queryEnv` metrics via `DescribeCurveData`
-
 **v2.27.x** (2026-08)
 
 - Tools: `downloadRemoteFile` removed (high error rate) — download remote assets with shell `curl` / `Invoke-WebRequest` instead (#908, #909)

@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file. Follow the repository's conventional commit guidelines and release workflow documentation when preparing releases.
 
-## [2.28.0] - 2026-08-17
+## Unreleased
 
 ### Bug Fixes
 
@@ -12,8 +12,6 @@ All notable changes to this project will be documented in this file. Follow the 
 ### Features
 
 * **env**: add `queryEnv` metrics branch via `DescribeCurveData`
-
-## Unreleased
 
 ## [1.7.0](https://github.com/TencentCloudBase/CloudBase-AI-ToolKit/compare/v1.6.0...v1.7.0) (2025-06-10)
 
