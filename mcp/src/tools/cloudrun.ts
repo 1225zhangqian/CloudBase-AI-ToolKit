@@ -8,6 +8,7 @@ import type { CloudBaseOptions } from '../types.js';
 import { debug } from '../utils/logger.js';
 import { preferGatewayOrFallback, resolveGatewayAccessUrls } from '../utils/gateway-access-urls.js';
 import { sendDeployNotification } from '../utils/notification.js';
+import { buildCamAuthGuidance, isCamAuthError } from './capi.js';
 import {
   listLikelyRedeployFields,
   mergeCloudRunServerConfig,
@@ -57,6 +58,8 @@ const ManageCloudRunInputSchema = {
   // InitEnv operation parameters
   envId: z.string().optional().describe('环境 ID（action=initEnv 时使用；不传则使用当前配置的环境）。格式如 env-xxxxxx'),
   packageType: z.enum(CLOUDRUN_PACKAGE_TYPES).optional().default('Trial').describe('云托管环境套餐类型（action=initEnv 时使用）：Trial=试用，Standard=标准，Professional=专业，Enterprise=企业。默认 Trial'),
+  vpcId: z.string().optional().describe('VPC 网络 ID（action=initEnv 时可选）。当平台拒绝系统创建网络时必填，格式如 vpc-xxxxxxxx。与 subnetIds 一起透传给 CreateCloudRunEnv 的 VpcId/SubNetIds。多数场景可不传（由系统创建网络）'),
+  subnetIds: z.array(z.string()).optional().describe('子网 ID 列表（action=initEnv 时可选）。当需指定自有 VPC 时必填，如 ["subnet-xxxxxxxx"]。与 vpcId 一起透传给 CreateCloudRunEnv 的 SubNetIds'),
 
   // Deploy operation parameters
   targetPath: z.string().optional().describe('本地代码路径，必须是绝对路径。在deploy操作中指定要部署的代码目录，在download操作中指定下载目标目录，在init操作中指定云托管服务的上级目录（会在该目录下创建以serverName命名的子目录）。updateConfig 不需要此参数。建议约定：项目根目录下的cloudrun/目录，例如：/Users/username/projects/my-project/cloudrun。使用 imageUrl 部署已有镜像时此参数可省略。注意：本地有源码目录不等于必须走源码构建；若用户指定镜像请优先传 imageUrl，不要仅因存在 targetPath 就回退到源码构建'),
@@ -159,6 +162,8 @@ type ManageCloudRunInput = {
   serverType?: CloudRunServiceType;
   envId?: string;
   packageType?: CloudRunPackageType;
+  vpcId?: string;
+  subnetIds?: string[];
   trafficOp?: 'set' | 'promote' | 'rollback';
   stablePercent?: number;
   canaryPercent?: number;
@@ -243,13 +248,25 @@ function validateAndNormalizePath(inputPath: string): string {
   return normalizedPath;
 }
 
-function buildManageCloudRunErrorMessage(action: ManageCloudRunInput["action"] | string, serverName: string, error: unknown): string {
+export function buildManageCloudRunErrorMessage(action: ManageCloudRunInput["action"] | string, serverName: string, error: unknown): string {
   const baseMessage = error instanceof Error ? error.message : String(error);
   const suggestions: string[] = [];
+
+  if (isCamAuthError(baseMessage)) {
+    suggestions.push(buildCamAuthGuidance());
+  }
 
   if (/已有部署发布任务运行中|部署发布任务运行中/i.test(baseMessage)) {
     suggestions.push(`服务 \`${serverName}\` 当前已有部署任务在执行，请等待现有任务完成后再重试。`);
     suggestions.push("如果你确认要覆盖当前流程，可在合适时机使用 `force=true` 再次发起。");
+  }
+
+  if (/云托管资源未开通|无法使用系统创建网络|VpcInfo/i.test(baseMessage)) {
+    suggestions.push(
+      "CreateCloudRunServer 需要有效 VPC：请传 serverConfig.VpcConf（VpcId+SubnetId），" +
+        "或在 initEnv 时传入 vpcId/subnetIds（环境开通后 deploy 会自动从 EnvBaseInfo 回填）。" +
+        "若平台拒绝系统创建网络，必须指定上海地域 VPC。",
+    );
   }
 
   if (suggestions.length === 0) {
@@ -471,11 +488,100 @@ export async function describeCloudRunEnvStatus(
     return { isExist: false, status: "unopened", baseInfo };
   }
   const rawStatus = typeof baseInfo.Status === "string" ? baseInfo.Status : "";
+  // Platform may return NORMAL/CREATING (uppercase); normalize before matching.
+  const normalizedStatus = rawStatus.toLowerCase();
   const status =
-    rawStatus === "creating" || rawStatus === "normal"
-      ? (rawStatus as "creating" | "normal")
+    normalizedStatus === "creating" || normalizedStatus === "normal"
+      ? (normalizedStatus as "creating" | "normal")
       : "unknown";
   return { isExist: true, status, baseInfo };
+}
+
+/** CloudRun EnvType for CreateCloudRunEnv (tcbr DescribeEnvBaseInfo enum). */
+export const CLOUDRUN_ENV_TYPE = "tcbr" as const;
+
+export type CloudRunVpcInfo = {
+  VpcId: string;
+  CreateType: number;
+  SubnetIds: string[];
+};
+
+/**
+ * Extract VPC binding from DescribeEnvBaseInfo.EnvBaseInfo when the env was
+ * opened with an explicit VPC.
+ */
+export function extractEnvBaseInfoVpc(
+  baseInfo: Record<string, unknown> | null | undefined,
+): { VpcId: string; SubnetIds: string[] } | undefined {
+  if (!baseInfo) {
+    return undefined;
+  }
+  const vpcId = typeof baseInfo.VpcId === "string" ? baseInfo.VpcId.trim() : "";
+  const rawSubnets = baseInfo.SubNetIds ?? baseInfo.SubnetIds;
+  const subnetIds = Array.isArray(rawSubnets)
+    ? rawSubnets
+        .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+        .map((item) => item.trim())
+    : [];
+  if (!vpcId || subnetIds.length === 0) {
+    return undefined;
+  }
+  return { VpcId: vpcId, SubnetIds: subnetIds };
+}
+
+/**
+ * Resolve CreateCloudRunServer.VpcInfo: prefer explicit serverConfig.VpcConf,
+ * otherwise fall back to env-level VPC from DescribeEnvBaseInfo.
+ */
+export function resolveCloudRunDeployVpcInfo(options: {
+  vpcConf?: { VpcId?: string; SubnetId?: string } | null;
+  envBaseInfo?: Record<string, unknown> | null;
+}): CloudRunVpcInfo | undefined {
+  const conf = options.vpcConf;
+  if (conf?.VpcId?.trim() && conf?.SubnetId?.trim()) {
+    return {
+      VpcId: conf.VpcId.trim(),
+      CreateType: 2,
+      SubnetIds: [conf.SubnetId.trim()],
+    };
+  }
+  const fromEnv = extractEnvBaseInfoVpc(options.envBaseInfo);
+  if (!fromEnv) {
+    return undefined;
+  }
+  return {
+    VpcId: fromEnv.VpcId,
+    CreateType: 2,
+    SubnetIds: fromEnv.SubnetIds,
+  };
+}
+
+/**
+ * Build CreateCloudRunEnv Param, always including EnvType=tcbr.
+ * Optional vpcId/subnetIds are used when the platform requires an explicit VPC.
+ */
+export function buildCreateCloudRunEnvParam(options: {
+  envId: string;
+  packageType: string;
+  vpcId?: string;
+  subnetIds?: string[];
+}): Record<string, unknown> {
+  const param: Record<string, unknown> = {
+    EnvId: options.envId,
+    PackageType: options.packageType,
+    EnvType: CLOUDRUN_ENV_TYPE,
+  };
+  const vpcId = options.vpcId?.trim();
+  const subnetIds = (options.subnetIds ?? [])
+    .filter((id): id is string => typeof id === "string" && id.trim().length > 0)
+    .map((id) => id.trim());
+  if (vpcId) {
+    param.VpcId = vpcId;
+  }
+  if (subnetIds.length > 0) {
+    param.SubNetIds = subnetIds;
+  }
+  return param;
 }
 
 /**
@@ -1177,13 +1283,19 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
             }
 
             // 未开通 → 发起异步开通（CreateCloudRunEnv 异步，不阻塞等待）。
+            // Always pass EnvType=tcbr; optional vpcId/subnetIds when an explicit VPC is required.
             let createResult: any;
             try {
               createResult = await manager
                 .commonService("tcbr", "2022-02-17")
                 .call({
                   Action: "CreateCloudRunEnv",
-                  Param: { EnvId: envId, PackageType: packageType },
+                  Param: buildCreateCloudRunEnvParam({
+                    envId,
+                    packageType,
+                    vpcId: input.vpcId,
+                    subnetIds: input.subnetIds,
+                  }),
                 });
             } catch (error) {
               throw new Error(buildManageCloudRunErrorMessage('initEnv', envId, error));
@@ -1605,16 +1717,31 @@ for await (let x of res.textStream) {
             }
 
             // Manager SDK create path prefers top-level vpcInfo (CreateCloudRunServer.VpcInfo).
-            // Map serverConfig.VpcConf → vpcInfo so first-time create actually binds VPC.
+            // Prefer serverConfig.VpcConf; if missing, auto-fill from env DescribeEnvBaseInfo
+            // (envs opened with vpcId/subnetIds already carry VpcId/SubNetIds).
             const vpcConf = effectiveServerConfig?.VpcConf as
               | { VpcId?: string; SubnetId?: string }
               | undefined;
-            if (vpcConf?.VpcId?.trim() && vpcConf?.SubnetId?.trim()) {
-              deployParams.vpcInfo = {
-                VpcId: vpcConf.VpcId.trim(),
-                CreateType: 2,
-                SubnetIds: [vpcConf.SubnetId.trim()],
-              };
+            let envBaseInfoForVpc: Record<string, unknown> | null = null;
+            const explicitVpcId = vpcConf?.VpcId?.trim() ?? "";
+            const explicitSubnetId = vpcConf?.SubnetId?.trim() ?? "";
+            if (!explicitVpcId || !explicitSubnetId) {
+              try {
+                const envIdForVpc = await getEnvId(cloudBaseOptions);
+                const envStatusForVpc = await describeCloudRunEnvStatus(manager, envIdForVpc);
+                if (envStatusForVpc.isExist) {
+                  envBaseInfoForVpc = envStatusForVpc.baseInfo;
+                }
+              } catch {
+                // Best-effort: deploy may still succeed without vpcInfo when the platform creates the network.
+              }
+            }
+            const resolvedVpcInfo = resolveCloudRunDeployVpcInfo({
+              vpcConf,
+              envBaseInfo: envBaseInfoForVpc,
+            });
+            if (resolvedVpcInfo) {
+              deployParams.vpcInfo = resolvedVpcInfo;
             }
 
             let result: unknown;
