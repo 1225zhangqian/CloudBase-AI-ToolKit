@@ -747,7 +747,7 @@ AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业
     {
       name: "role",
       type: "string",
-      description: `可选的 PostgreSQL role，会传给 Manager SDK executePGSql；例如需要管理策略时可传 postgres。`,
+      description: `可选的 PostgreSQL role，传给 Manager SDK executePGSql 的 Role（平台会 SET ROLE）。默认 cloudbase_admin。推荐取值：cloudbase_admin / anon / authenticated / service_role。不要传 postgres、postgres_pgdb_* 或从环境名臆造的角色；不确定时省略本字段，或先用 cloudbase_admin 执行 SELECT rolname FROM pg_roles。`,
     },
     {
       name: "objectName",
@@ -2831,14 +2831,16 @@ action=deployApp 上传源码 ZIP 并触发远端构建部署管道：
 ---
 
 ### `queryPermissions`
-查询 CloudBase 权限与用户配置，支持查询资源权限（数据库/云函数/存储桶等）、角色列表/详情、应用用户列表/详情。
+查询 CloudBase 权限与用户配置，支持查询资源权限（数据库/云函数/存储桶等）、角色列表/详情、应用用户列表/详情，以及网关 OPA 授权策略（对齐 CLI `tcb policy list/get`）。
 
 示例：
 - 查询存储桶权限：`action="getResourcePermission", resourceType="storage", resourceId="bucket-name"`
+- 列出旧网关策略：`action="listPolicy"`（PG / OPA 引擎环境返回空列表，与 CLI 一致）
+- 读取用户 Rego：`action="getPolicy"`；平台扩展策略：`action="getPolicy", extension=true`
 
 📌 跨后端边界提示：调用前先用 `envQuery(action="info", envId=...)` 看 `EnvInfo.RuntimeBackends`。`resourceType="noSqlDatabase"` 查询的是 CloudBase NoSQL 集合规则，与 CloudBase PostgreSQL（PG）表的行级安全（RLS）是两套独立机制——同一个 PG 环境里 NoSQL 集合若仍在使用，对那些集合查询本工具结果**仍然有效**。要查 PG 表 RLS，请改用 `queryPgDatabase(action="sql", sql="SELECT * FROM pg_policies WHERE tablename=...")`。本工具不涉及 MySQL 权限。
 
-⚠️ PostgreSQL 环境：平台 `DescribeResourcePermission` 对 PG 环境会直接拒绝。当 `resourceType="function"` 时，本工具会自动回退到 Manager SDK `describeEnvAuthzConfig`（与 CLI `tcb policy get` 一致，读取 `authz.user.rego`）。
+⚠️ PostgreSQL 环境：平台 `DescribeResourcePermission` 对 PG 环境会直接拒绝。当 `resourceType="function"` 时，本工具会自动回退到 Manager SDK `describeEnvAuthzConfig`（与 CLI `tcb policy get` 一致，读取 `authz.user.rego`）。显式 OPA 策略请用 `listPolicy` / `getPolicy`。
 
 #### 参数
 
@@ -2848,7 +2850,7 @@ action=deployApp 上传源码 ZIP 并触发远端构建部署管道：
       name: "action",
       type: "string",
       required: true,
-      description: ` 可填写的值: "getResourcePermission", "listResourcePermissions", "listRoles", "getRole", "listUsers", "getUser"`,
+      description: ` 可填写的值: "getResourcePermission", "listResourcePermissions", "listRoles", "getRole", "listUsers", "getUser", "listPolicy", "getPolicy"`,
     },
     {
       name: "resourceType",
@@ -2890,6 +2892,16 @@ action=deployApp 上传源码 ZIP 并触发远端构建部署管道：
     {
       name: "pageSize",
       type: "number",
+    },
+    {
+      name: "extension",
+      type: "boolean",
+      description: `仅 action=getPolicy。true=读取平台为该环境单独配置的策略（authz.platform.extension.rego），默认 false=用户策略（authz.user.rego），对齐 CLI \`tcb policy get --extension\`。`,
+    },
+    {
+      name: "policyResourceType",
+      type: "string",
+      description: `仅 action=listPolicy。按资源类型过滤，当前仅支持 \`policy\`，对齐 CLI \`tcb policy list --resource-type policy\`。 可填写的值: "policy"`,
     }
   ]}
 />
@@ -2897,12 +2909,13 @@ action=deployApp 上传源码 ZIP 并触发远端构建部署管道：
 ---
 
 ### `managePermissions`
-管理 CloudBase 权限与用户配置，支持修改资源权限（数据库/云函数/存储桶等）、角色管理、成员与策略增删、应用用户 CRUD。
+管理 CloudBase 权限与用户配置，支持修改资源权限（数据库/云函数/存储桶等）、角色管理、成员与策略增删、应用用户 CRUD，以及设置网关 OPA Rego 策略（对齐 CLI `tcb policy set`）。
 
 示例：
 - 设置存储桶为私有：`action="updateResourcePermission", resourceType="storage", resourceId="bucket-name", permission="PRIVATE"`
 - 创建角色：`action="createRole", roleName="admin", roleIdentity="admin"`
 - 放开云函数匿名/未登录访问（PG 会走 OPA，对齐 CLI `tcb policy set`）：`action="updateResourcePermission", resourceType="function", resourceId="myFn", permission="CUSTOM", securityRule='\{"invoke":true\}'`
+- 直接设置用户 Rego：`action="setPolicy", regoContent="package authz.user\n\ndefault allow := false\n", confirm=true`（⚠️ 立即禁用旧网关鉴权）
 
 注意：`createUser` / `updateUser` 是环境侧应用用户管理能力，适合测试账号、管理员或预置用户，不应替代浏览器里的 Web SDK 注册表单；前端用户名密码注册应使用 `auth.signUp(\{ username, password \})`，登录应使用 `auth.signInWithPassword(\{ username, password \})`。直接在浏览器里用 `auth.signUp` 创建用户名密码用户取决于 SDK/provider 支持，使用前必须验证；不支持时应走后端或管理端边界，不能在浏览器暴露密钥。`securityRule` 的详细语义取决于 `resourceType`：`doc._openid`、`auth.openid`、查询条件子集校验，以及 `create` / `update` / `delete` JSON 模板仅适用于 `resourceType="noSqlDatabase"` 的文档数据库安全规则；配置 `function` 或 `storage` 时，请参考各自官方安全规则文档，而不是复用 NoSQL 模板。
 
@@ -2911,7 +2924,7 @@ action=deployApp 上传源码 ZIP 并触发远端构建部署管道：
 - `resourceType="storage"` 控制的是 NoSQL/COS 存储桶 ACL；PG 的 `pgstore` bucket 不在此 `resourceType` 覆盖范围内。
 - 本工具不涉及 MySQL；MySQL 数据库权限请走 MySQL 自身的 GRANT/REVOKE 语句（通过 `manageMysqlDatabase`）。
 
-⚠️ PostgreSQL 环境：平台 `ModifyResourcePermission` 对 PG 环境会直接拒绝。当 `resourceType="function"` 时，本工具会自动回退到 Manager SDK `modifyEnvAuthzConfig`（与 CLI `tcb policy set` 一致，写入 `authz.user.rego`）。`securityRule` 可传完整 Rego（`package authz.user`）或 `'\{"invoke":true\}'`（自动生成放通 anonymous/unauthenticated 调 functions 的策略）。设置 Rego 后旧网关鉴权会失效，行为与 CLI 相同。
+⚠️ PostgreSQL 环境：平台 `ModifyResourcePermission` 对 PG 环境会直接拒绝。当 `resourceType="function"` 时，本工具会自动回退到 Manager SDK `modifyEnvAuthzConfig`（与 CLI `tcb policy set` 一致，写入 `authz.user.rego`）。`securityRule` 可传完整 Rego（`package authz.user`）或 `'\{"invoke":true\}'`（自动生成放通 anonymous/unauthenticated 调 functions 的策略）。设置 Rego 后旧网关鉴权会失效，行为与 CLI 相同。显式 OPA 策略请优先用 `action="setPolicy"`。
 
 #### 参数
 
@@ -2921,7 +2934,7 @@ action=deployApp 上传源码 ZIP 并触发远端构建部署管道：
       name: "action",
       type: "string",
       required: true,
-      description: ` 可填写的值: "updateResourcePermission", "createRole", "updateRole", "deleteRoles", "addRoleMembers", "removeRoleMembers", "addRolePolicies", "removeRolePolicies", "createUser", "updateUser", "deleteUsers"`,
+      description: ` 可填写的值: "updateResourcePermission", "createRole", "updateRole", "deleteRoles", "addRoleMembers", "removeRoleMembers", "addRolePolicies", "removeRolePolicies", "createUser", "updateUser", "deleteUsers", "setPolicy"`,
     },
     {
       name: "resourceType",
@@ -2996,6 +3009,16 @@ action=deployApp 上传源码 ZIP 并触发远端构建部署管道：
       name: "userStatus",
       type: "string",
       description: ` 可填写的值: "ACTIVE", "BLOCKED"`,
+    },
+    {
+      name: "regoContent",
+      type: "string",
+      description: `仅 action=setPolicy。用户 OPA Rego 全文，必须以 \`package authz.user\` 开头，对齐 CLI \`tcb policy set <regoContent>\`。`,
+    },
+    {
+      name: "confirm",
+      type: "boolean",
+      description: `仅 action=setPolicy。设置 Rego 后会立即禁用旧网关鉴权，必须显式传 confirm=true（对齐 CLI 确认提示）。`,
     }
   ]}
 />
