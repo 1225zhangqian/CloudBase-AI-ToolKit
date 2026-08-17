@@ -72,6 +72,103 @@ export function resolveCreateEnvResources(
 }
 
 /**
+ * Resource-usage modules aligned with tcb CLI `USAGE_MODULES`
+ * (`tcb env usage` / `tcb env info --type`).
+ */
+export const ENV_USAGE_MODULE_VALUES = [
+  "FLEXDB",
+  "TDSQL",
+  "SCF",
+  "EKS",
+  "COS",
+  "AI",
+  "HOSTING",
+  "Auth",
+  "APIInvocation",
+  "HTTPInvocation",
+  "VM",
+  "Workflow",
+  "Other",
+] as const;
+
+export type EnvUsageModule = (typeof ENV_USAGE_MODULE_VALUES)[number];
+
+const ENV_USAGE_MODULE_SET = new Set<string>(ENV_USAGE_MODULE_VALUES);
+
+const ENV_USAGE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function resolveEnvUsageModules(
+  type: readonly string[] | undefined,
+): EnvUsageModule[] {
+  if (!Array.isArray(type) || type.length === 0) {
+    return [...ENV_USAGE_MODULE_VALUES];
+  }
+  const normalized = type
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean);
+  const invalid = normalized.filter((item) => !ENV_USAGE_MODULE_SET.has(item));
+  if (invalid.length > 0) {
+    throw new Error(
+      `无效的用量模块 type: ${invalid.join(", ")}。可选值：${ENV_USAGE_MODULE_VALUES.join(", ")}`,
+    );
+  }
+  return normalized as EnvUsageModule[];
+}
+
+export function extractAccountCircleDate(
+  rawTime: unknown,
+): string | undefined {
+  if (typeof rawTime !== "string" || rawTime.trim().length === 0) {
+    return undefined;
+  }
+  const datePart = rawTime.trim().split(/\s+/)[0];
+  return ENV_USAGE_DATE_RE.test(datePart) ? datePart : undefined;
+}
+
+function normalizeUsageDateInput(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
+
+export function resolveEnvUsageDateRange(options: {
+  startDate?: string;
+  endDate?: string;
+  accountCircle?: { StartTime?: string; EndTime?: string } | null;
+}): { startDate: string; endDate: string; dateSource: "params" | "accountCircle" } {
+  const startFromParams = normalizeUsageDateInput(options.startDate);
+  const endFromParams = normalizeUsageDateInput(options.endDate);
+
+  if (startFromParams || endFromParams) {
+    if (!startFromParams || !endFromParams) {
+      throw new Error(
+        "查询资源用量时 startDate 与 endDate 必须同时提供，格式为 YYYY-MM-DD。",
+      );
+    }
+    if (!ENV_USAGE_DATE_RE.test(startFromParams) || !ENV_USAGE_DATE_RE.test(endFromParams)) {
+      throw new Error("startDate / endDate 格式必须为 YYYY-MM-DD。");
+    }
+    if (startFromParams > endFromParams) {
+      throw new Error("startDate 不能晚于 endDate。");
+    }
+    return {
+      startDate: startFromParams,
+      endDate: endFromParams,
+      dateSource: "params",
+    };
+  }
+
+  const startDate = extractAccountCircleDate(options.accountCircle?.StartTime);
+  const endDate = extractAccountCircleDate(options.accountCircle?.EndTime);
+  if (!startDate || !endDate) {
+    throw new Error(
+      "无法从计费周期推导用量日期范围。请显式传入 startDate/endDate（YYYY-MM-DD），或确认环境计费周期可用。",
+    );
+  }
+  return { startDate, endDate, dateSource: "accountCircle" };
+}
+
+/**
  * Simplify environment list data by keeping only essential fields for AI assistant
  * This reduces token consumption when returning environment lists via MCP tools
  * @param envList - Full environment list from API
@@ -1136,6 +1233,15 @@ function buildEnvQueryErrorMessage(error: unknown, action: string): string {
 
   if (hasNetworkError) {
     suggestions.push("网络错误：请检查网络连接，稍后重试。");
+  }
+
+  if (action === "usage" && suggestions.length === 0) {
+    suggestions.push("查询环境资源用量失败，建议：");
+    suggestions.push("1. 先调用 auth(action=\"status\") 确认登录状态；未登录则 auth(action=\"start_auth\")");
+    suggestions.push("2. 使用 queryEnv(action=\"list\") 确认 envId 正确且可访问");
+    suggestions.push(
+      `3. 再调用 queryEnv(action=\"usage\", envId=\"<EnvId>\")；可用 type 过滤模块（${ENV_USAGE_MODULE_VALUES.join(", ")}）`,
+    );
   }
 
   // If no specific pattern matched, provide general guidance
@@ -2211,7 +2317,7 @@ export function registerEnvTools(server: ExtendedMcpServer) {
   );
   } // end: wxide guard for auth tool
 
-  // queryEnv - 环境查询（合并 listEnvs + getEnvInfo + getEnvAuthDomains）
+  // queryEnv - 环境查询（合并 listEnvs + getEnvInfo + getEnvAuthDomains + usage）
   const queryEnvHandler: (args: any) => Promise<any> = async ({
     action,
     alias,
@@ -2220,14 +2326,22 @@ export function registerEnvTools(server: ExtendedMcpServer) {
     limit,
     offset,
     fields,
+    type,
+    startDate,
+    endDate,
+    needUsageDetails,
   }: {
-      action: "list" | "info" | "domains";
+      action: "list" | "info" | "domains" | "usage";
       alias?: string;
       aliasExact?: boolean;
       envId?: string;
       limit?: number;
       offset?: number;
       fields?: EnvFieldName[];
+      type?: EnvUsageModule[];
+      startDate?: string;
+      endDate?: string;
+      needUsageDetails?: boolean;
     }) => {
       try {
         let result;
@@ -2395,6 +2509,53 @@ export function registerEnvTools(server: ExtendedMcpServer) {
             }
             break;
 
+          case "usage": {
+            // Explicit EnvId is required (DescribeEnvPostpayPackage / credits APIs reject missing EnvId).
+            const usageEnvId = normalizeOptionalToolString(envId);
+            if (!usageEnvId) {
+              throw new Error(
+                '查询资源用量时 envId 为必填参数。请先调用 queryEnv(action="list") 获取 EnvId，再调用 queryEnv(action="usage", envId="<EnvId>")。',
+              );
+            }
+            const modules = resolveEnvUsageModules(type);
+            const includeDetails =
+              typeof needUsageDetails === "boolean" ? needUsageDetails : true;
+            const cloudbaseUsage = await getManagerForEnvQuery(usageEnvId);
+            const accountCircle = await cloudbaseUsage.env.describeEnvAccountCircle({
+              EnvId: usageEnvId,
+            });
+            logCloudBaseResult(server.logger, accountCircle);
+            const dateRange = resolveEnvUsageDateRange({
+              startDate,
+              endDate,
+              accountCircle,
+            });
+            const usageDetail = await cloudbaseUsage.env.describeCreditsUsageDetail({
+              EnvId: usageEnvId,
+              Modules: modules,
+              StartDate: dateRange.startDate,
+              EndDate: dateRange.endDate,
+              NeedUsageDetails: includeDetails,
+            });
+            logCloudBaseResult(server.logger, usageDetail);
+            result = {
+              EnvId: usageEnvId,
+              Modules: modules,
+              StartDate: dateRange.startDate,
+              EndDate: dateRange.endDate,
+              DateSource: dateRange.dateSource,
+              NeedUsageDetails: includeDetails,
+              AccountCircle: {
+                StartTime: accountCircle?.StartTime,
+                EndTime: accountCircle?.EndTime,
+                HistoryTime: accountCircle?.HistoryTime ?? [],
+                RequestId: accountCircle?.RequestId,
+              },
+              Usages: usageDetail?.Usages ?? [],
+              RequestId: usageDetail?.RequestId,
+            };
+            break;
+          }
 
           default:
             throw new Error(`不支持的查询类型: ${action}`);
@@ -2431,22 +2592,51 @@ export function registerEnvTools(server: ExtendedMcpServer) {
   const queryEnvToolSchema = {
     title: "CloudBase 环境查询",
     description:
-      "查询 CloudBase 环境相关信息，支持查询环境列表、指定环境详情和安全域名。（曾用名：envQuery、listEnvs、getEnvInfo、getEnvAuthDomains）当 action=list 时，会按 DescribeEnvs 语义做列表/筛选，标准返回字段为 EnvId、Alias、Status、EnvType、Region、PackageId、PackageName、IsDefault，并支持通过 fields 白名单裁剪这些字段；aliasExact=true 时会按别名精确筛选，避免把前缀相近的环境误当作候选；即使传入 envId，action=list 也只返回摘要，不会返回完整资源明细或 expiry。如需查询某个已知 EnvId 对应环境的详细信息（包括资源字段和计费信息），必须使用 action=info 并传入目标环境的 envId 参数。action=info 会在可用时补充 BillingInfo（如 ExpireTime、PayMode、IsAutoRenew 等计费字段）。\n\n🔍 action=info 还会派生三个用于后端选型的字段：\n- `EnvInfo.RuntimeMode`：'postgresql' 或 'nosql'，表示新业务建议默认使用的后端（PG 已开通时为 postgresql，否则为 nosql）。\n- `EnvInfo.RuntimeBackends`：`{postgresql, nosql, mysql}` 三个布尔值，描述当前环境实际并存的后端。\n- `EnvInfo.RuntimeModeHints`：每个后端对应的 API/工具/skill 提示。\n\n🌐 action=info 还会在不改写 `StaticStorages[].StaticDomain`（云 API 名义域名）的前提下，投影网关路由 Enable 状态：`StaticStorages[].staticDomainRouteEnabled` 与 `EnvInfo.staticDomainRouteEnabled`（与 queryHosting websiteConfig 同源）。`false` 表示默认静态域名根路由已禁用（访问会返回 GATEWAY_ROUTE_DISABLED），勿把名义域名当成可达 URL。\n\nAI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业务推荐 `app.rdb()` + RLS（`managePgDatabase action=execute` 跑 `CREATE POLICY`）+ pgstore；已存在的 NoSQL 集合 / 旧 storage / `managePermissions(resourceType=\"noSqlDatabase\")` 在 PG 环境下仍然有效。真正不适用的是 MySQL：当 `RuntimeBackends.mysql === false` 时，`manageMysqlDatabase` / `queryMysqlDatabase` / `relational-database-mcp-cloudbase` skill 都不该使用。",
+      "查询 CloudBase 环境相关信息，支持查询环境列表、指定环境详情、安全域名与资源用量。（曾用名：envQuery、listEnvs、getEnvInfo、getEnvAuthDomains）当 action=list 时，会按 DescribeEnvs 语义做列表/筛选，标准返回字段为 EnvId、Alias、Status、EnvType、Region、PackageId、PackageName、IsDefault，并支持通过 fields 白名单裁剪这些字段；aliasExact=true 时会按别名精确筛选，避免把前缀相近的环境误当作候选；即使传入 envId，action=list 也只返回摘要，不会返回完整资源明细或 expiry。如需查询某个已知 EnvId 对应环境的详细信息（包括资源字段和计费信息），必须使用 action=info 并传入目标环境的 envId 参数。action=info 会在可用时补充 BillingInfo（如 ExpireTime、PayMode、IsAutoRenew 等计费字段）。\n\n📊 action=usage 对齐 tcb env usage/info：透传 Manager SDK describeEnvAccountCircle + describeCreditsUsageDetail，返回计费周期与各模块资源点用量（FLEXDB/SCF/COS 等）。envId 必填；type 可选过滤模块；未传 startDate/endDate 时自动使用当前计费周期。\n\n🔍 action=info 还会派生三个用于后端选型的字段：\n- `EnvInfo.RuntimeMode`：'postgresql' 或 'nosql'，表示新业务建议默认使用的后端（PG 已开通时为 postgresql，否则为 nosql）。\n- `EnvInfo.RuntimeBackends`：`{postgresql, nosql, mysql}` 三个布尔值，描述当前环境实际并存的后端。\n- `EnvInfo.RuntimeModeHints`：每个后端对应的 API/工具/skill 提示。\n\n🌐 action=info 还会在不改写 `StaticStorages[].StaticDomain`（云 API 名义域名）的前提下，投影网关路由 Enable 状态：`StaticStorages[].staticDomainRouteEnabled` 与 `EnvInfo.staticDomainRouteEnabled`（与 queryHosting websiteConfig 同源）。`false` 表示默认静态域名根路由已禁用（访问会返回 GATEWAY_ROUTE_DISABLED），勿把名义域名当成可达 URL。\n\nAI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业务推荐 `app.rdb()` + RLS（`managePgDatabase action=execute` 跑 `CREATE POLICY`）+ pgstore；已存在的 NoSQL 集合 / 旧 storage / `managePermissions(resourceType=\"noSqlDatabase\")` 在 PG 环境下仍然有效。真正不适用的是 MySQL：当 `RuntimeBackends.mysql === false` 时，`manageMysqlDatabase` / `queryMysqlDatabase` / `relational-database-mcp-cloudbase` skill 都不该使用。",
     inputSchema: {
       action: z
-        .enum(["list", "info", "domains"])
+        .enum(["list", "info", "domains", "usage"])
         .describe(
-          "查询类型：list=环境列表/摘要筛选（按 DescribeEnvs 语义筛选，支持通过 envId 筛选，返回 EnvId、Alias、Status、EnvType、Region、PackageId、PackageName、IsDefault，不支持 expiry），info=指定环境的详细信息（必须传入 envId，返回资源字段和计费信息），domains=安全域名列表",
+          "查询类型：list=环境列表/摘要筛选（按 DescribeEnvs 语义筛选，支持通过 envId 筛选，返回 EnvId、Alias、Status、EnvType、Region、PackageId、PackageName、IsDefault，不支持 expiry），info=指定环境的详细信息（必须传入 envId，返回资源字段和计费信息），domains=安全域名列表，usage=环境资源用量/指标（必须传入 envId，对齐 tcb env usage/info）",
         ),
       alias: z.string().optional().describe("按环境别名筛选。action=list 时可选"),
       aliasExact: z.boolean().optional().describe("按环境别名精确筛选。action=list 时可选；与 alias 配合使用"),
-      envId: z.string().optional().describe("按环境 ID 筛选。action=list 时可选（仅按 DescribeEnvs 语义做筛选，仍返回摘要）；action=info 时必填（返回该环境的详细信息，包含资源字段和计费信息）。如果任务已经给出了明确的 EnvId 并要求查询详情，请直接使用 action=info + envId，而不是 action=list"),
+      envId: z
+        .string()
+        .optional()
+        .describe(
+          "环境 ID。action=list 时可选（仅按 DescribeEnvs 语义做筛选，仍返回摘要）；action=info / action=usage 时必填。usage 对齐 DescribeEnvAccountCircle / DescribeCreditsUsageDetail，缺少 EnvId 会导致云 API 参数错误。",
+        ),
       limit: z.number().int().positive().optional().describe("返回数量上限。action=list 时可选"),
       offset: z.number().int().min(0).optional().describe("分页偏移。action=list 时可选"),
       fields: z
         .array(z.enum(DEFAULT_ENV_FIELDS))
         .optional()
         .describe("返回字段白名单。仅支持 EnvId、Alias、Status、EnvType、Region、PackageId、PackageName、IsDefault。action=list 时可选"),
+      type: z
+        .array(z.enum(ENV_USAGE_MODULE_VALUES))
+        .optional()
+        .describe(
+          "用量模块过滤。仅 action=usage 时有效；不传则查询全部模块。可选值对齐 tcb CLI：FLEXDB、TDSQL、SCF、EKS、COS、AI、HOSTING、Auth、APIInvocation、HTTPInvocation、VM、Workflow、Other。",
+        ),
+      startDate: z
+        .string()
+        .optional()
+        .describe(
+          "用量开始日期（YYYY-MM-DD）。仅 action=usage 时有效；与 endDate 成对传入。不传则使用当前计费周期。",
+        ),
+      endDate: z
+        .string()
+        .optional()
+        .describe(
+          "用量结束日期（YYYY-MM-DD）。仅 action=usage 时有效；与 startDate 成对传入。不传则使用当前计费周期。",
+        ),
+      needUsageDetails: z
+        .boolean()
+        .optional()
+        .describe(
+          "是否返回每日用量明细。仅 action=usage 时有效；默认 true。",
+        ),
     },
     annotations: {
       readOnlyHint: true,
