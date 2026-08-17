@@ -2140,6 +2140,16 @@ API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
       description: `云托管环境套餐类型（action=initEnv 时使用）：Trial=试用，Standard=标准，Professional=专业，Enterprise=企业。默认 Trial 可填写的值: "Trial", "Standard", "Professional", "Enterprise"`,
     },
     {
+      name: "vpcId",
+      type: "string",
+      description: `VPC 网络 ID（action=initEnv 时可选）。腾讯内部账号开通云托管时必填（平台拒绝系统创建网络），格式如 vpc-xxxxxxxx。与 subnetIds 一起透传给 CreateCloudRunEnv 的 VpcId/SubNetIds。普通账号可不传（由系统创建网络）`,
+    },
+    {
+      name: "subnetIds",
+      type: "array of string",
+      description: `子网 ID 列表（action=initEnv 时可选）。腾讯内部账号开通云托管时必填，如 ["subnet-xxxxxxxx"]。与 vpcId 一起透传给 CreateCloudRunEnv 的 SubNetIds`,
+    },
+    {
       name: "targetPath",
       type: "string",
       description: `本地代码路径，必须是绝对路径。在deploy操作中指定要部署的代码目录，在download操作中指定下载目标目录，在init操作中指定云托管服务的上级目录（会在该目录下创建以serverName命名的子目录）。updateConfig 不需要此参数。建议约定：项目根目录下的cloudrun/目录，例如：/Users/username/projects/my-project/cloudrun。使用 imageUrl 部署已有镜像时此参数可省略。注意：本地有源码目录不等于必须走源码构建；若用户指定镜像请优先传 imageUrl，不要仅因存在 targetPath 就回退到源码构建`,

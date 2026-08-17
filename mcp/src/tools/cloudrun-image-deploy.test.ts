@@ -47,12 +47,14 @@ type ManagerMock = {
 
 function makeManager(options: {
   envStatus?: "normal" | "creating" | "unopened";
+  envBaseInfoExtras?: Record<string, unknown>;
   detailImpl?: (params: { serverName: string }) => Promise<any>;
   deployImpl?: (params: any) => Promise<any>;
   buildId?: number;
 } = {}): ManagerMock {
   const {
     envStatus = "normal",
+    envBaseInfoExtras = {},
     detailImpl = async () => {
       throw new Error("ResourceNotFound.ServerNotFound");
     },
@@ -67,7 +69,12 @@ function makeManager(options: {
             return { EnvBaseInfo: {}, IsExist: false };
           }
           return {
-            EnvBaseInfo: { EnvId: "env-test", Status: envStatus, PackageType: "Trial" },
+            EnvBaseInfo: {
+              EnvId: "env-test",
+              Status: envStatus,
+              PackageType: "Trial",
+              ...envBaseInfoExtras,
+            },
             IsExist: true,
           };
         }
@@ -168,6 +175,30 @@ describe("manageCloudRun deploy imageUrl branch", () => {
     expect(schema.targetPath.description).toMatch(/优先传 imageUrl|不等于必须走源码构建/);
     expect(schema.action.description).toMatch(/轻量等待|getDeployLog/);
     expect(tools.manageCloudRun.meta.description).toMatch(/轻量等待任务注册|buildId/);
+  });
+
+  it("auto-fills vpcInfo from env DescribeEnvBaseInfo when VpcConf is omitted", async () => {
+    const manager = makeManager({
+      envBaseInfoExtras: {
+        VpcId: "vpc-26vsxozo",
+        SubNetIds: ["subnet-hyiwt4ut"],
+      },
+    });
+    mockGetCloudBaseManager.mockReturnValue(manager);
+    const { tools } = await createCloudRunTools();
+
+    await tools.manageCloudRun.handler({
+      action: "deploy",
+      serverName: "hermes-agent",
+      imageUrl: "ccr.ccs.tencentyun.com/ns/hermes:v1",
+    });
+
+    const deployCall = manager.cloudrun.deploy.mock.calls[0][0];
+    expect(deployCall.vpcInfo).toEqual({
+      VpcId: "vpc-26vsxozo",
+      CreateType: 2,
+      SubnetIds: ["subnet-hyiwt4ut"],
+    });
   });
 
   it("fails with guidance when imageUrl deploy targets an unopened CloudRun env", async () => {
