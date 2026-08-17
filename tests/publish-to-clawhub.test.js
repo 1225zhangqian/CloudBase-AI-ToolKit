@@ -263,6 +263,110 @@ describe('publish-to-clawhub version-exists idempotency', () => {
       }
     }
   });
+
+  // Actions run 30893435418 (main@a9444bef): ATO fingerprinted already-published, but the
+  // job-killing error was all-in-one upload-ticket under stdio inherit (no retry). Peers
+  // printed "OK. … is already published" with exit 0 and were not the failure cause.
+  test('run 30893435418: peers already-published + all-in-one upload-ticket retries to success', () => {
+    const previousToken = process.env.CLAWDHUB_TOKEN;
+    process.env.CLAWDHUB_TOKEN = 'test-token';
+
+    try {
+      const manifestPath = createManifest([
+        { targetKey: 'miniprogram-development', registrySlug: 'miniprogram-development' },
+        { targetKey: 'cloudbase-wechat-integration', registrySlug: 'cloudbase-wechat-integration' },
+        { targetKey: 'all-in-one', registrySlug: 'cloudbase' },
+        { targetKey: 'ui-design', registrySlug: 'ui-design-guide' },
+        { targetKey: 'web-development', registrySlug: 'web-development' },
+        { targetKey: 'spec-workflow', registrySlug: 'spec-workflow-guide' },
+      ]);
+      const alreadyPublished = {
+        'miniprogram-development': '1.28.21',
+        'cloudbase-wechat-integration': '1.2.21',
+        'ui-design-guide': '1.18.21',
+        'web-development': '1.27.24',
+        'spec-workflow-guide': '1.18.21',
+      };
+      let allInOneCalls = 0;
+
+      const results = publishToClawhub({
+        manifestPath,
+        changelog: 'Actions run 30893435418 regression',
+        runPublish: (_command, args) => {
+          const slug = args[args.indexOf('--slug') + 1];
+          if (slug === 'cloudbase') {
+            allInOneCalls += 1;
+            if (allInOneCalls === 1) {
+              // Mimic CI: inherit left only "Command failed"; stderr held upload-ticket.
+              const error = new Error(
+                'Command failed: clawhub skill publish /home/runner/work/CloudBase-AI-Toolkit/CloudBase-AI-Toolkit/.clawhub-publish-output/all-in-one/skills/cloudbase --slug cloudbase',
+              );
+              error.stderr = [
+                'Uncaught Error: Uploaded file does not match its skill upload ticket',
+                '    at handler (../../convex/skillPublishUploads.ts:109:14)',
+                'Error: Uncaught Error: Uploaded file does not match its skill upload ticket',
+                '',
+              ].join('\n');
+              throw error;
+            }
+            return { status: 'ok', output: 'OK. cloudbase@1.92.48 published\n' };
+          }
+          const version = alreadyPublished[slug];
+          return {
+            status: 'ok',
+            output: `OK. ${slug}@${version} is already published\n`,
+          };
+        },
+        sleepMs: () => {},
+      });
+
+      expect(allInOneCalls).toBe(2);
+      expect(results).toEqual([
+        {
+          targetKey: 'miniprogram-development',
+          registrySlug: 'miniprogram-development',
+          status: 'already-published',
+          attempts: 1,
+        },
+        {
+          targetKey: 'cloudbase-wechat-integration',
+          registrySlug: 'cloudbase-wechat-integration',
+          status: 'already-published',
+          attempts: 1,
+        },
+        {
+          targetKey: 'all-in-one',
+          registrySlug: 'cloudbase',
+          status: 'published',
+          attempts: 2,
+        },
+        {
+          targetKey: 'ui-design',
+          registrySlug: 'ui-design-guide',
+          status: 'already-published',
+          attempts: 1,
+        },
+        {
+          targetKey: 'web-development',
+          registrySlug: 'web-development',
+          status: 'already-published',
+          attempts: 1,
+        },
+        {
+          targetKey: 'spec-workflow',
+          registrySlug: 'spec-workflow-guide',
+          status: 'already-published',
+          attempts: 1,
+        },
+      ]);
+    } finally {
+      if (previousToken === undefined) {
+        delete process.env.CLAWDHUB_TOKEN;
+      } else {
+        process.env.CLAWDHUB_TOKEN = previousToken;
+      }
+    }
+  });
 });
 
 describe('publish-to-clawhub upload-ticket retry', () => {
