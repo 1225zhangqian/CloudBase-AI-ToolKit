@@ -189,9 +189,11 @@ CloudBase（腾讯云开发）开发阶段登录与环境绑定。登录后即�
 ---
 
 ### `queryEnv`
-查询 CloudBase 环境相关信息，支持查询环境列表、指定环境详情、安全域名与资源用量。（曾用名：envQuery、listEnvs、getEnvInfo、getEnvAuthDomains）当 action=list 时，会按 DescribeEnvs 语义做列表/筛选，标准返回字段为 EnvId、Alias、Status、EnvType、Region、PackageId、PackageName、IsDefault，并支持通过 fields 白名单裁剪这些字段；aliasExact=true 时会按别名精确筛选，避免把前缀相近的环境误当作候选；即使传入 envId，action=list 也只返回摘要，不会返回完整资源明细或 expiry。如需查询某个已知 EnvId 对应环境的详细信息（包括资源字段和计费信息），必须使用 action=info 并传入目标环境的 envId 参数。action=info 会在可用时补充 BillingInfo（如 ExpireTime、PayMode、IsAutoRenew 等计费字段）。
+查询 CloudBase 环境相关信息，支持查询环境列表、指定环境详情、安全域名、资源用量与监控指标。（曾用名：envQuery、listEnvs、getEnvInfo、getEnvAuthDomains）当 action=list 时，会按 DescribeEnvs 语义做列表/筛选，标准返回字段为 EnvId、Alias、Status、EnvType、Region、PackageId、PackageName、IsDefault，并支持通过 fields 白名单裁剪这些字段；aliasExact=true 时会按别名精确筛选，避免把前缀相近的环境误当作候选；即使传入 envId，action=list 也只返回摘要，不会返回完整资源明细或 expiry。如需查询某个已知 EnvId 对应环境的详细信息（包括资源字段和计费信息），必须使用 action=info 并传入目标环境的 envId 参数。action=info 会在可用时补充 BillingInfo（如 ExpireTime、PayMode、IsAutoRenew 等计费字段）。
 
 📊 action=usage 对齐 tcb env usage/info：透传 Manager SDK describeEnvAccountCircle + describeCreditsUsageDetail，返回计费周期与各模块资源点用量（FLEXDB/SCF/COS 等）。envId 必填；type 可选过滤模块；未传 startDate/endDate 时自动使用当前计费周期。
+
+📈 action=metrics 对齐 TCB DescribeCurveData（manager.monitor.describeCurveData，不是云监控 GetMonitorData）：查询环境/网关 QPS、云函数调用与错误、数据库 CPU/内存/磁盘、云托管 CPU/QPS 等时序。envId 与 metricName 必填；startTime/endTime 格式 YYYY-MM-DD HH:mm:ss，须成对传入，不传则默认最近 24 小时；period 仅 300/3600/86400。GatewayTraceEnvQPS 未传 resourceID 时自动填环境级 all|:|all|:|all|:|all；云托管 Tke* 指标必须传服务名 resourceID。禁止用 callCloudApi 猜测监控 Action。
 
 🔍 action=info 还会派生三个用于后端选型的字段：
 - `EnvInfo.RuntimeMode`：'postgresql' 或 'nosql'，表示新业务建议默认使用的后端（PG 已开通时为 postgresql，否则为 nosql）。
@@ -210,7 +212,7 @@ AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业
       name: "action",
       type: "string",
       required: true,
-      description: `查询类型：list=环境列表/摘要筛选（按 DescribeEnvs 语义筛选，支持通过 envId 筛选，返回 EnvId、Alias、Status、EnvType、Region、PackageId、PackageName、IsDefault，不支持 expiry），info=指定环境的详细信息（必须传入 envId，返回资源字段和计费信息），domains=安全域名列表，usage=环境资源用量/指标（必须传入 envId，对齐 tcb env usage/info） 可填写的值: "list", "info", "domains", "usage"`,
+      description: `查询类型：list=环境列表/摘要筛选（按 DescribeEnvs 语义筛选，支持通过 envId 筛选，返回 EnvId、Alias、Status、EnvType、Region、PackageId、PackageName、IsDefault，不支持 expiry），info=指定环境的详细信息（必须传入 envId，返回资源字段和计费信息），domains=安全域名列表，usage=环境资源用量（必须传入 envId，对齐 tcb env usage/info），metrics=环境监控时序（必须传入 envId 与 metricName，对齐 TCB DescribeCurveData） 可填写的值: "list", "info", "domains", "usage", "metrics"`,
     },
     {
       name: "alias",
@@ -225,7 +227,7 @@ AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业
     {
       name: "envId",
       type: "string",
-      description: `环境 ID。action=list 时可选（仅按 DescribeEnvs 语义做筛选，仍返回摘要）；action=info / action=usage 时必填。usage 对齐 DescribeEnvAccountCircle / DescribeCreditsUsageDetail，缺少 EnvId 会导致云 API 参数错误。`,
+      description: `环境 ID。action=list 时可选（仅按 DescribeEnvs 语义做筛选，仍返回摘要）；action=info / action=usage / action=metrics 时必填。`,
     },
     {
       name: "limit",
@@ -261,6 +263,36 @@ AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业
       name: "needUsageDetails",
       type: "boolean",
       description: `是否返回每日用量明细。仅 action=usage 时有效；默认 true。`,
+    },
+    {
+      name: "metricName",
+      type: "string",
+      description: `监控指标名。仅 action=metrics 时有效且必填。GatewayTraceEnvQPS/EnvQPSAll=环境与网关 QPS；FunctionInvocation/FunctionError/FunctionTimeout/FunctionThrottle=云函数调用、错误、超时、限流；DbRead/DbWrite/DbSizepkg=文档库读写与容量；MysqlCpuUsageRate/MysqlMemoryUse/MysqlStorageUsage=SQL 库 CPU/内存/磁盘；TkeCpuUsedService/TkeQPSService/TkeHttpErrorService=云托管 CPU/QPS/错误。 可填写的值: "GatewayTraceEnvQPS", "EnvQPSAll", "FunctionInvocation", "FunctionError", "FunctionTimeout", "FunctionThrottle", "FunctionDuration", "FunctionConcurrentExecutions", "DbRead", "DbWrite", "DbSizepkg", "MysqlCpuUsageRate", "MysqlMemoryUse", "MysqlStorageUsage", "MysqlQps", "MysqlSlowQueries", "MysqlDbConnections", "TkeCpuUsedService", "TkeMemUsedService", "TkeQPSService", "TkeHttpErrorService", "TkeInvokeNumService"`,
+    },
+    {
+      name: "startTime",
+      type: "string",
+      description: `监控开始时间（YYYY-MM-DD HH:mm:ss）。仅 action=metrics 时有效；与 endTime 成对传入。不传则默认最近 24 小时。结束时间须晚于开始时间至少五分钟。`,
+    },
+    {
+      name: "endTime",
+      type: "string",
+      description: `监控结束时间（YYYY-MM-DD HH:mm:ss）。仅 action=metrics 时有效；与 startTime 成对传入。不传则默认最近 24 小时。`,
+    },
+    {
+      name: "period",
+      type: "number",
+      description: `统计周期（秒）。仅 action=metrics 时有效；仅支持 300、3600、86400。不传则由后端按时间范围自动选择。时间范围 ≤1 天不可用 86400；>3 天不可用 300。 可填写的值: 300, 3600, 86400`,
+    },
+    {
+      name: "resourceID",
+      type: "string",
+      description: `资源 ID。仅 action=metrics 时有效。云函数传函数名，文档库传集合名，云托管必须传服务名；GatewayTraceEnvQPS 不传则使用环境级 all|:|all|:|all|:|all。`,
+    },
+    {
+      name: "subresourceID",
+      type: "string",
+      description: `子资源 ID。仅 action=metrics 时有效；查询云托管某版本监控时传入版本名。`,
     }
   ]}
 />
@@ -268,9 +300,11 @@ AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业
 ---
 
 ### `envQuery`
-查询 CloudBase 环境相关信息，支持查询环境列表、指定环境详情、安全域名与资源用量。（曾用名：envQuery、listEnvs、getEnvInfo、getEnvAuthDomains）当 action=list 时，会按 DescribeEnvs 语义做列表/筛选，标准返回字段为 EnvId、Alias、Status、EnvType、Region、PackageId、PackageName、IsDefault，并支持通过 fields 白名单裁剪这些字段；aliasExact=true 时会按别名精确筛选，避免把前缀相近的环境误当作候选；即使传入 envId，action=list 也只返回摘要，不会返回完整资源明细或 expiry。如需查询某个已知 EnvId 对应环境的详细信息（包括资源字段和计费信息），必须使用 action=info 并传入目标环境的 envId 参数。action=info 会在可用时补充 BillingInfo（如 ExpireTime、PayMode、IsAutoRenew 等计费字段）。
+查询 CloudBase 环境相关信息，支持查询环境列表、指定环境详情、安全域名、资源用量与监控指标。（曾用名：envQuery、listEnvs、getEnvInfo、getEnvAuthDomains）当 action=list 时，会按 DescribeEnvs 语义做列表/筛选，标准返回字段为 EnvId、Alias、Status、EnvType、Region、PackageId、PackageName、IsDefault，并支持通过 fields 白名单裁剪这些字段；aliasExact=true 时会按别名精确筛选，避免把前缀相近的环境误当作候选；即使传入 envId，action=list 也只返回摘要，不会返回完整资源明细或 expiry。如需查询某个已知 EnvId 对应环境的详细信息（包括资源字段和计费信息），必须使用 action=info 并传入目标环境的 envId 参数。action=info 会在可用时补充 BillingInfo（如 ExpireTime、PayMode、IsAutoRenew 等计费字段）。
 
 📊 action=usage 对齐 tcb env usage/info：透传 Manager SDK describeEnvAccountCircle + describeCreditsUsageDetail，返回计费周期与各模块资源点用量（FLEXDB/SCF/COS 等）。envId 必填；type 可选过滤模块；未传 startDate/endDate 时自动使用当前计费周期。
+
+📈 action=metrics 对齐 TCB DescribeCurveData（manager.monitor.describeCurveData，不是云监控 GetMonitorData）：查询环境/网关 QPS、云函数调用与错误、数据库 CPU/内存/磁盘、云托管 CPU/QPS 等时序。envId 与 metricName 必填；startTime/endTime 格式 YYYY-MM-DD HH:mm:ss，须成对传入，不传则默认最近 24 小时；period 仅 300/3600/86400。GatewayTraceEnvQPS 未传 resourceID 时自动填环境级 all|:|all|:|all|:|all；云托管 Tke* 指标必须传服务名 resourceID。禁止用 callCloudApi 猜测监控 Action。
 
 🔍 action=info 还会派生三个用于后端选型的字段：
 - `EnvInfo.RuntimeMode`：'postgresql' 或 'nosql'，表示新业务建议默认使用的后端（PG 已开通时为 postgresql，否则为 nosql）。
@@ -289,7 +323,7 @@ AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业
       name: "action",
       type: "string",
       required: true,
-      description: `查询类型：list=环境列表/摘要筛选（按 DescribeEnvs 语义筛选，支持通过 envId 筛选，返回 EnvId、Alias、Status、EnvType、Region、PackageId、PackageName、IsDefault，不支持 expiry），info=指定环境的详细信息（必须传入 envId，返回资源字段和计费信息），domains=安全域名列表，usage=环境资源用量/指标（必须传入 envId，对齐 tcb env usage/info） 可填写的值: "list", "info", "domains", "usage"`,
+      description: `查询类型：list=环境列表/摘要筛选（按 DescribeEnvs 语义筛选，支持通过 envId 筛选，返回 EnvId、Alias、Status、EnvType、Region、PackageId、PackageName、IsDefault，不支持 expiry），info=指定环境的详细信息（必须传入 envId，返回资源字段和计费信息），domains=安全域名列表，usage=环境资源用量（必须传入 envId，对齐 tcb env usage/info），metrics=环境监控时序（必须传入 envId 与 metricName，对齐 TCB DescribeCurveData） 可填写的值: "list", "info", "domains", "usage", "metrics"`,
     },
     {
       name: "alias",
@@ -304,7 +338,7 @@ AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业
     {
       name: "envId",
       type: "string",
-      description: `环境 ID。action=list 时可选（仅按 DescribeEnvs 语义做筛选，仍返回摘要）；action=info / action=usage 时必填。usage 对齐 DescribeEnvAccountCircle / DescribeCreditsUsageDetail，缺少 EnvId 会导致云 API 参数错误。`,
+      description: `环境 ID。action=list 时可选（仅按 DescribeEnvs 语义做筛选，仍返回摘要）；action=info / action=usage / action=metrics 时必填。`,
     },
     {
       name: "limit",
@@ -340,6 +374,36 @@ AI 在写业务/权限/存储代码前必须先看这三项：PG 模式下新业
       name: "needUsageDetails",
       type: "boolean",
       description: `是否返回每日用量明细。仅 action=usage 时有效；默认 true。`,
+    },
+    {
+      name: "metricName",
+      type: "string",
+      description: `监控指标名。仅 action=metrics 时有效且必填。GatewayTraceEnvQPS/EnvQPSAll=环境与网关 QPS；FunctionInvocation/FunctionError/FunctionTimeout/FunctionThrottle=云函数调用、错误、超时、限流；DbRead/DbWrite/DbSizepkg=文档库读写与容量；MysqlCpuUsageRate/MysqlMemoryUse/MysqlStorageUsage=SQL 库 CPU/内存/磁盘；TkeCpuUsedService/TkeQPSService/TkeHttpErrorService=云托管 CPU/QPS/错误。 可填写的值: "GatewayTraceEnvQPS", "EnvQPSAll", "FunctionInvocation", "FunctionError", "FunctionTimeout", "FunctionThrottle", "FunctionDuration", "FunctionConcurrentExecutions", "DbRead", "DbWrite", "DbSizepkg", "MysqlCpuUsageRate", "MysqlMemoryUse", "MysqlStorageUsage", "MysqlQps", "MysqlSlowQueries", "MysqlDbConnections", "TkeCpuUsedService", "TkeMemUsedService", "TkeQPSService", "TkeHttpErrorService", "TkeInvokeNumService"`,
+    },
+    {
+      name: "startTime",
+      type: "string",
+      description: `监控开始时间（YYYY-MM-DD HH:mm:ss）。仅 action=metrics 时有效；与 endTime 成对传入。不传则默认最近 24 小时。结束时间须晚于开始时间至少五分钟。`,
+    },
+    {
+      name: "endTime",
+      type: "string",
+      description: `监控结束时间（YYYY-MM-DD HH:mm:ss）。仅 action=metrics 时有效；与 startTime 成对传入。不传则默认最近 24 小时。`,
+    },
+    {
+      name: "period",
+      type: "number",
+      description: `统计周期（秒）。仅 action=metrics 时有效；仅支持 300、3600、86400。不传则由后端按时间范围自动选择。时间范围 ≤1 天不可用 86400；>3 天不可用 300。 可填写的值: 300, 3600, 86400`,
+    },
+    {
+      name: "resourceID",
+      type: "string",
+      description: `资源 ID。仅 action=metrics 时有效。云函数传函数名，文档库传集合名，云托管必须传服务名；GatewayTraceEnvQPS 不传则使用环境级 all|:|all|:|all|:|all。`,
+    },
+    {
+      name: "subresourceID",
+      type: "string",
+      description: `子资源 ID。仅 action=metrics 时有效；查询云托管某版本监控时传入版本名。`,
     }
   ]}
 />
