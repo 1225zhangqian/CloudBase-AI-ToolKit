@@ -4,8 +4,11 @@ import path from 'path';
 import { afterEach, describe, expect, test } from 'vitest';
 import {
   ALL_IN_ONE_UPLOAD_TICKET_MAX_ATTEMPTS,
+  DEFAULT_UPLOAD_TICKET_MAX_ATTEMPTS,
   buildPublishCommand,
+  clawhubUploadTicketMaxAttempts,
   formatClawhubUploadTicketFailure,
+  isClawhubAlreadyPublishedOutput,
   isClawhubUploadTicketError,
   isClawhubVersionExistsError,
   normalizeClawhubChangelog,
@@ -108,6 +111,7 @@ describe('publish-to-clawhub command construction', () => {
     const error = new Error('Command failed: clawhub skill publish ...');
     error.stdout = 'OK. cloudbase@1.92.48 is already published\n';
     expect(isClawhubVersionExistsError(error)).toBe(true);
+    expect(isClawhubAlreadyPublishedOutput('OK. cloudbase@1.92.48 is already published\n')).toBe(true);
   });
 
   test('detects upload-ticket mismatch errors as retryable', () => {
@@ -123,9 +127,15 @@ describe('publish-to-clawhub command construction', () => {
     expect(isClawhubUploadTicketError(new Error('Version 1.92.48 already exists'))).toBe(false);
   });
 
-  test('only all-in-one supports upload-ticket retry', () => {
+  test('all targets support upload-ticket retry; all-in-one gets more attempts', () => {
     expect(supportsClawhubUploadTicketRetry({ targetKey: 'all-in-one' })).toBe(true);
-    expect(supportsClawhubUploadTicketRetry({ targetKey: 'web-development' })).toBe(false);
+    expect(supportsClawhubUploadTicketRetry({ targetKey: 'web-development' })).toBe(true);
+    expect(clawhubUploadTicketMaxAttempts({ targetKey: 'all-in-one' })).toBe(
+      ALL_IN_ONE_UPLOAD_TICKET_MAX_ATTEMPTS,
+    );
+    expect(clawhubUploadTicketMaxAttempts({ targetKey: 'web-development' })).toBe(
+      DEFAULT_UPLOAD_TICKET_MAX_ATTEMPTS,
+    );
   });
 
   test('formats upload-ticket exhaustion with attempt count and issue hint', () => {
@@ -201,9 +211,43 @@ describe('publish-to-clawhub version-exists idempotency', () => {
       }
     }
   });
+
+  test('classifies exit-0 already-published stdout as already-published', () => {
+    const previousToken = process.env.CLAWDHUB_TOKEN;
+    process.env.CLAWDHUB_TOKEN = 'test-token';
+
+    try {
+      const manifestPath = createManifest([
+        { targetKey: 'web-development', registrySlug: 'web-development' },
+      ]);
+
+      const results = publishToClawhub({
+        manifestPath,
+        runPublish: () => ({
+          status: 'ok',
+          output: 'OK. web-development@1.27.30 is already published\n',
+        }),
+      });
+
+      expect(results).toEqual([
+        {
+          targetKey: 'web-development',
+          registrySlug: 'web-development',
+          status: 'already-published',
+          attempts: 1,
+        },
+      ]);
+    } finally {
+      if (previousToken === undefined) {
+        delete process.env.CLAWDHUB_TOKEN;
+      } else {
+        process.env.CLAWDHUB_TOKEN = previousToken;
+      }
+    }
+  });
 });
 
-describe('publish-to-clawhub all-in-one upload-ticket retry', () => {
+describe('publish-to-clawhub upload-ticket retry', () => {
   test('retries all-in-one on upload-ticket mismatch then succeeds', () => {
     const previousToken = process.env.CLAWDHUB_TOKEN;
     process.env.CLAWDHUB_TOKEN = 'test-token';
@@ -285,7 +329,7 @@ describe('publish-to-clawhub all-in-one upload-ticket retry', () => {
     }
   });
 
-  test('does not retry upload-ticket errors for non all-in-one targets', () => {
+  test('retries upload-ticket errors for non all-in-one targets with default attempts', () => {
     const previousToken = process.env.CLAWDHUB_TOKEN;
     process.env.CLAWDHUB_TOKEN = 'test-token';
 
@@ -298,18 +342,16 @@ describe('publish-to-clawhub all-in-one upload-ticket retry', () => {
       expect(() =>
         publishToClawhub({
           manifestPath,
-          changelog: 'no retry',
+          changelog: 'retry small skill',
           runPublish: () => {
             calls += 1;
-            throw new Error('Skill upload ticket does not match this publish');
+            throw new Error('Uploaded file does not match its skill upload ticket');
           },
-          sleepMs: () => {
-            throw new Error('sleep should not be called');
-          },
+          sleepMs: () => {},
         }),
       ).toThrow(/Failed to publish 1 target/);
 
-      expect(calls).toBe(1);
+      expect(calls).toBe(DEFAULT_UPLOAD_TICKET_MAX_ATTEMPTS);
     } finally {
       if (previousToken === undefined) {
         delete process.env.CLAWDHUB_TOKEN;
