@@ -171,6 +171,9 @@ describe("plugin marketplace priority + CLI", () => {
     const npmPkg = server.packages.find((item) => item.registryType === "npm");
     expect(npmPkg.identifier).toBe("@cloudbase/cloudbase-mcp");
     expect(npmPkg.transport.type).toBe("stdio");
+    // Local stdio install uses interactive login; do not declare env vars that
+    // make clients treat credentials/envId as install prerequisites.
+    expect(npmPkg.environmentVariables).toBeUndefined();
     expect(server.repository.subfolder).toBe("mcp");
   });
 

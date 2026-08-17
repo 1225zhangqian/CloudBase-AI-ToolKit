@@ -27,36 +27,7 @@
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
-      },
-      "environmentVariables": [
-        {
-          "name": "CLOUDBASE_ENV_ID",
-          "description": "CloudBase environment ID. Optional when using interactive login.",
-          "isRequired": false,
-          "format": "string"
-        },
-        {
-          "name": "TENCENTCLOUD_SECRETID",
-          "description": "Tencent Cloud SecretId for non-interactive auth.",
-          "isRequired": false,
-          "format": "string",
-          "isSecret": true
-        },
-        {
-          "name": "TENCENTCLOUD_SECRETKEY",
-          "description": "Tencent Cloud SecretKey for non-interactive auth.",
-          "isRequired": false,
-          "format": "string",
-          "isSecret": true
-        },
-        {
-          "name": "TCB_SITE",
-          "description": "Login site. Domestic-site Singapore must use domestic.",
-          "isRequired": false,
-          "format": "string",
-          "choices": ["domestic", "intl"]
-        }
-      ]
+      }
     }
   ],
   "remotes": [

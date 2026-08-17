@@ -14,6 +14,7 @@ Track manual publisher / listing applications. Update when status changes.
 | Publisher | GitHub org `TencentCloudBase` (admin `binggg`, public membership) |
 | Published at | 2026-08-17T08:25:05Z |
 | Follow-up | Next `npm publish` (tag) runs `publish-mcp-registry` in `.github/workflows/npm-publish.yaml` and attaches `packages[]` |
+| Local package contract | `packages[]` (stdio / npx) declares **no** `environmentVariables` — interactive login works with zero env; remotes still require hosted credentials |
 
 ### How to check progress (Official MCP Registry)
 
