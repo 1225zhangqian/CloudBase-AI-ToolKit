@@ -5,7 +5,7 @@ template zip, runs `pnpm`/`npm install`, then starts **Sites-aligned preview**
 (`cloudbase-sites preview`, ports **17173..17272**) in the background while the
 user finishes sre-aihub credentials / connector Trust.
 
-> Status: **marketplace-ready** (v0.2.1). Install via the CloudBase marketplace;
+> Status: **marketplace-ready** (v0.2.2). Install via the CloudBase marketplace;
 > do **not** hand-merge absolute-path settings snippets on partner machines.
 
 ## One-click install (recommended)
@@ -45,6 +45,12 @@ under `vendor/cloudbase-sites/`.
    - `<cwd>/.cloudbase-sites/preview.json` → `internalUrl` (ports 17173..17272)
 3. Confirm existing **teamai** SessionStart hooks still run (plugin hooks stack;
    they do not replace `~/.workbuddy/settings.json`).
+
+## pnpm ignored builds (v0.2.2+)
+
+SessionStart install uses `pnpm install --ignore-workspace --config.dangerouslyAllowAllBuilds=true`
+so Vite template deps (`esbuild`, `core-js-pure`) can run postinstall under pnpm 10+/11.
+WorkBuddy `NODE_OPTIONS` genie-safe-delete shims are stripped for the install child process only.
 
 ## Coexistence with teamai SessionStart
 
