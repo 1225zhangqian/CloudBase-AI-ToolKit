@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { isUsableNoSqlDatabaseEntry, registerEnvTools } from "./env.js";
+import {
+  ENV_USAGE_MODULE_VALUES,
+  extractAccountCircleDate,
+  isUsableNoSqlDatabaseEntry,
+  registerEnvTools,
+  resolveEnvUsageDateRange,
+  resolveEnvUsageModules,
+} from "./env.js";
 import type { ExtendedMcpServer } from "../server.js";
 
 const {
@@ -1629,6 +1636,153 @@ describe("env tools - envQuery", () => {
       },
     });
     expect(payload.message).toContain("直到目标域名不再出现");
+  });
+
+  it("queryEnv schema should expose usage action and module enum", async () => {
+    const { tools } = createMockServer();
+    expect(tools.queryEnv.meta.inputSchema.action.options).toEqual([
+      "list",
+      "info",
+      "domains",
+      "usage",
+    ]);
+    expect(tools.queryEnv.meta.inputSchema.type.unwrap().element.options).toEqual([
+      ...ENV_USAGE_MODULE_VALUES,
+    ]);
+    expect(tools.envQuery.meta.inputSchema.action.options).toContain("usage");
+  });
+
+  it("envQuery(usage) should require envId", async () => {
+    const { tools } = createMockServer();
+    const result = await tools.queryEnv.handler({ action: "usage" });
+    expect(result.content[0].text).toContain("envId 为必填参数");
+    expect(result.content[0].text).toContain("queryEnv");
+  });
+
+  it("envQuery(usage) should call account circle + credits usage APIs", async () => {
+    const describeEnvAccountCircle = vi.fn().mockResolvedValue({
+      StartTime: "2026-08-01 00:00:00",
+      EndTime: "2026-08-31 23:59:59",
+      HistoryTime: [],
+      RequestId: "req-circle",
+    });
+    const describeCreditsUsageDetail = vi.fn().mockResolvedValue({
+      Usages: [
+        {
+          EnvId: "ai-native-d1ggefhgb8c27e3e8",
+          Module: "SCF",
+          CreditsValue: 12,
+          MetricUsageDetail: [{ MetricName: "Invocations", Value: 3 }],
+        },
+      ],
+      RequestId: "req-usage",
+    });
+    mockGetCloudBaseManager.mockResolvedValue({
+      env: {
+        describeEnvAccountCircle,
+        describeCreditsUsageDetail,
+      },
+    });
+
+    const { tools } = createMockServer();
+    const payload = JSON.parse(
+      (
+        await tools.queryEnv.handler({
+          action: "usage",
+          envId: "ai-native-d1ggefhgb8c27e3e8",
+          type: ["SCF", "COS"],
+        })
+      ).content[0].text,
+    );
+
+    expect(describeEnvAccountCircle).toHaveBeenCalledWith({
+      EnvId: "ai-native-d1ggefhgb8c27e3e8",
+    });
+    expect(describeCreditsUsageDetail).toHaveBeenCalledWith({
+      EnvId: "ai-native-d1ggefhgb8c27e3e8",
+      Modules: ["SCF", "COS"],
+      StartDate: "2026-08-01",
+      EndDate: "2026-08-31",
+      NeedUsageDetails: true,
+    });
+    expect(payload).toMatchObject({
+      EnvId: "ai-native-d1ggefhgb8c27e3e8",
+      Modules: ["SCF", "COS"],
+      StartDate: "2026-08-01",
+      EndDate: "2026-08-31",
+      DateSource: "accountCircle",
+      NeedUsageDetails: true,
+      Usages: [
+        {
+          Module: "SCF",
+          CreditsValue: 12,
+        },
+      ],
+    });
+  });
+
+  it("envQuery(usage) should honor explicit date range", async () => {
+    const describeEnvAccountCircle = vi.fn().mockResolvedValue({
+      StartTime: "2026-08-01 00:00:00",
+      EndTime: "2026-08-31 23:59:59",
+    });
+    const describeCreditsUsageDetail = vi.fn().mockResolvedValue({
+      Usages: [],
+      RequestId: "req-usage-2",
+    });
+    mockGetCloudBaseManager.mockResolvedValue({
+      env: {
+        describeEnvAccountCircle,
+        describeCreditsUsageDetail,
+      },
+    });
+
+    const { tools } = createMockServer();
+    const payload = JSON.parse(
+      (
+        await tools.queryEnv.handler({
+          action: "usage",
+          envId: "env-test",
+          startDate: "2026-07-01",
+          endDate: "2026-07-15",
+          needUsageDetails: false,
+        })
+      ).content[0].text,
+    );
+
+    expect(describeCreditsUsageDetail).toHaveBeenCalledWith({
+      EnvId: "env-test",
+      Modules: [...ENV_USAGE_MODULE_VALUES],
+      StartDate: "2026-07-01",
+      EndDate: "2026-07-15",
+      NeedUsageDetails: false,
+    });
+    expect(payload.DateSource).toBe("params");
+    expect(payload.Modules).toEqual([...ENV_USAGE_MODULE_VALUES]);
+  });
+});
+
+describe("env usage helpers", () => {
+  it("resolveEnvUsageModules should default to all CLI modules and reject unknowns", () => {
+    expect(resolveEnvUsageModules(undefined)).toEqual([...ENV_USAGE_MODULE_VALUES]);
+    expect(resolveEnvUsageModules(["FLEXDB", "SCF"])).toEqual(["FLEXDB", "SCF"]);
+    expect(() => resolveEnvUsageModules(["NOT_A_MODULE"])).toThrow(/无效的用量模块/);
+  });
+
+  it("resolveEnvUsageDateRange should derive dates from account circle", () => {
+    expect(extractAccountCircleDate("2026-08-01 00:00:00")).toBe("2026-08-01");
+    expect(
+      resolveEnvUsageDateRange({
+        accountCircle: {
+          StartTime: "2026-08-01 00:00:00",
+          EndTime: "2026-08-31 23:59:59",
+        },
+      }),
+    ).toEqual({
+      startDate: "2026-08-01",
+      endDate: "2026-08-31",
+      dateSource: "accountCircle",
+    });
   });
 });
 
