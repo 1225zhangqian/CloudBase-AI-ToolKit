@@ -58,8 +58,8 @@ const ManageCloudRunInputSchema = {
   // InitEnv operation parameters
   envId: z.string().optional().describe('环境 ID（action=initEnv 时使用；不传则使用当前配置的环境）。格式如 env-xxxxxx'),
   packageType: z.enum(CLOUDRUN_PACKAGE_TYPES).optional().default('Trial').describe('云托管环境套餐类型（action=initEnv 时使用）：Trial=试用，Standard=标准，Professional=专业，Enterprise=企业。默认 Trial'),
-  vpcId: z.string().optional().describe('VPC 网络 ID（action=initEnv 时可选）。腾讯内部账号开通云托管时必填（平台拒绝系统创建网络），格式如 vpc-xxxxxxxx。与 subnetIds 一起透传给 CreateCloudRunEnv 的 VpcId/SubNetIds。普通账号可不传（由系统创建网络）'),
-  subnetIds: z.array(z.string()).optional().describe('子网 ID 列表（action=initEnv 时可选）。腾讯内部账号开通云托管时必填，如 ["subnet-xxxxxxxx"]。与 vpcId 一起透传给 CreateCloudRunEnv 的 SubNetIds'),
+  vpcId: z.string().optional().describe('VPC 网络 ID（action=initEnv 时可选）。当平台拒绝系统创建网络时必填，格式如 vpc-xxxxxxxx。与 subnetIds 一起透传给 CreateCloudRunEnv 的 VpcId/SubNetIds。多数场景可不传（由系统创建网络）'),
+  subnetIds: z.array(z.string()).optional().describe('子网 ID 列表（action=initEnv 时可选）。当需指定自有 VPC 时必填，如 ["subnet-xxxxxxxx"]。与 vpcId 一起透传给 CreateCloudRunEnv 的 SubNetIds'),
 
   // Deploy operation parameters
   targetPath: z.string().optional().describe('本地代码路径，必须是绝对路径。在deploy操作中指定要部署的代码目录，在download操作中指定下载目标目录，在init操作中指定云托管服务的上级目录（会在该目录下创建以serverName命名的子目录）。updateConfig 不需要此参数。建议约定：项目根目录下的cloudrun/目录，例如：/Users/username/projects/my-project/cloudrun。使用 imageUrl 部署已有镜像时此参数可省略。注意：本地有源码目录不等于必须走源码构建；若用户指定镜像请优先传 imageUrl，不要仅因存在 targetPath 就回退到源码构建'),
@@ -261,11 +261,11 @@ export function buildManageCloudRunErrorMessage(action: ManageCloudRunInput["act
     suggestions.push("如果你确认要覆盖当前流程，可在合适时机使用 `force=true` 再次发起。");
   }
 
-  if (/云托管资源未开通|无法使用系统创建网络|VpcInfo|内部帐号|内部账号/i.test(baseMessage)) {
+  if (/云托管资源未开通|无法使用系统创建网络|VpcInfo/i.test(baseMessage)) {
     suggestions.push(
       "CreateCloudRunServer 需要有效 VPC：请传 serverConfig.VpcConf（VpcId+SubnetId），" +
         "或在 initEnv 时传入 vpcId/subnetIds（环境开通后 deploy 会自动从 EnvBaseInfo 回填）。" +
-        "腾讯内部账号必须指定上海地域 VPC，不能依赖系统创建网络。",
+        "若平台拒绝系统创建网络，必须指定上海地域 VPC。",
     );
   }
 
@@ -508,7 +508,7 @@ export type CloudRunVpcInfo = {
 
 /**
  * Extract VPC binding from DescribeEnvBaseInfo.EnvBaseInfo when the env was
- * opened with an explicit VPC (common for Tencent internal accounts).
+ * opened with an explicit VPC.
  */
 export function extractEnvBaseInfoVpc(
   baseInfo: Record<string, unknown> | null | undefined,
@@ -558,7 +558,7 @@ export function resolveCloudRunDeployVpcInfo(options: {
 
 /**
  * Build CreateCloudRunEnv Param, always including EnvType=tcbr.
- * Optional vpcId/subnetIds are required for Tencent internal accounts.
+ * Optional vpcId/subnetIds are used when the platform requires an explicit VPC.
  */
 export function buildCreateCloudRunEnvParam(options: {
   envId: string;
@@ -1283,7 +1283,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
             }
 
             // 未开通 → 发起异步开通（CreateCloudRunEnv 异步，不阻塞等待）。
-            // Always pass EnvType=tcbr; optional vpcId/subnetIds for internal accounts.
+            // Always pass EnvType=tcbr; optional vpcId/subnetIds when an explicit VPC is required.
             let createResult: any;
             try {
               createResult = await manager
@@ -1733,7 +1733,7 @@ for await (let x of res.textStream) {
                   envBaseInfoForVpc = envStatusForVpc.baseInfo;
                 }
               } catch {
-                // Best-effort: deploy may still succeed without vpcInfo for non-internal accounts.
+                // Best-effort: deploy may still succeed without vpcInfo when the platform creates the network.
               }
             }
             const resolvedVpcInfo = resolveCloudRunDeployVpcInfo({

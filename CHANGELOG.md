@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file. Follow the 
 
 ### Bug Fixes
 
-* **cloudrun**: fix `manageCloudRun(initEnv)` missing `EnvType=tcbr`, add optional `vpcId`/`subnetIds` for Tencent internal accounts, normalize uppercase `NORMAL`/`CREATING` in `envStatus`, auto-fill deploy `vpcInfo` from env VPC, and guide CAM/API Key failures to device-code or SecretKey auth
+* **cloudrun**: fix `manageCloudRun(initEnv)` missing `EnvType=tcbr`, add optional `vpcId`/`subnetIds` when an explicit VPC is required, normalize uppercase `NORMAL`/`CREATING` in `envStatus`, auto-fill deploy `vpcInfo` from env VPC, and guide CAM/API Key failures to device-code or SecretKey auth
 
 ## [1.7.0](https://github.com/TencentCloudBase/CloudBase-AI-ToolKit/compare/v1.6.0...v1.7.0) (2025-06-10)
 

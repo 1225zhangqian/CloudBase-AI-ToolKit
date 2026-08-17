@@ -2206,12 +2206,12 @@ API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
     {
       name: "vpcId",
       type: "string",
-      description: `VPC 网络 ID（action=initEnv 时可选）。腾讯内部账号开通云托管时必填（平台拒绝系统创建网络），格式如 vpc-xxxxxxxx。与 subnetIds 一起透传给 CreateCloudRunEnv 的 VpcId/SubNetIds。普通账号可不传（由系统创建网络）`,
+      description: `VPC 网络 ID（action=initEnv 时可选）。当平台拒绝系统创建网络时必填，格式如 vpc-xxxxxxxx。与 subnetIds 一起透传给 CreateCloudRunEnv 的 VpcId/SubNetIds。多数场景可不传（由系统创建网络）`,
     },
     {
       name: "subnetIds",
       type: "array of string",
-      description: `子网 ID 列表（action=initEnv 时可选）。腾讯内部账号开通云托管时必填，如 ["subnet-xxxxxxxx"]。与 vpcId 一起透传给 CreateCloudRunEnv 的 SubNetIds`,
+      description: `子网 ID 列表（action=initEnv 时可选）。当需指定自有 VPC 时必填，如 ["subnet-xxxxxxxx"]。与 vpcId 一起透传给 CreateCloudRunEnv 的 SubNetIds`,
     },
     {
       name: "targetPath",
