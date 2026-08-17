@@ -145,6 +145,32 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 - Confirmed `cloudbase` **absent** from https://github.com/github/awesome-copilot/blob/main/plugins/external.json → still **not listed**.
 - Nothing to do on our side; the ball is with maintainer `aaronpowell`. Next poll point: watch for `/approve` on #2645, then verify the auto-opened listing PR merges and `cloudbase` appears in `external.json`.
 
+## Composio awesome-claude-plugins (Claude discovery)
+
+| Field | Value |
+|-------|-------|
+| Status | **PR open** — awaiting maintainer merge |
+| PR | https://github.com/composio-community/awesome-claude-plugins/pull/424 |
+| Upstream | https://github.com/composio-community/awesome-claude-plugins (alias ComposioHQ/…) |
+| Fork / branch | `binggg/awesome-claude-plugins` `add-cloudbase-plugin` @ `5757135` |
+| Listing | README `### Integrations` → CloudBase → CloudBase-AI-Toolkit + [Setup](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/claude) |
+| Submitted at | 2026-08-17 |
+| CI / review | `mergeable: true`, `mergeable_state: clean`; no required checks / no maintainer comments yet |
+| Out of scope | Does **not** replace Claude Community form or awesome-claude-code Issue; DSH covered by other task |
+
+### How to check progress (Composio awesome-claude-plugins)
+
+1. Watch PR #424: https://github.com/composio-community/awesome-claude-plugins/pull/424
+2. After merge, confirm CloudBase row under Integrations in upstream `README.md`
+3. Flip `markets.yaml` `composio-awesome-claude-plugins.community_directory` → `listed` and clear blockers
+4. Re-run `npm run analyze:plugin-marketplaces`
+
+### 2026-08-17 — PR #424 opened
+
+- Verified contribution pattern from merged PRs #304 / #306: README-only external link (no vendored plugin folder; `marketplace.json` is in-repo only).
+- Added restrained Integrations bullet linking `TencentCloudBase/CloudBase-AI-Toolkit` and official Claude setup docs.
+- PR mergeable/clean at open; no bot feedback yet.
+
 ## Trae community MCP list
 
 | Field | Value |
