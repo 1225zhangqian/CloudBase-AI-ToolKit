@@ -1243,7 +1243,14 @@
           "健康检查",
           "health check",
           "资源诊断",
-          "cloudbase 诊断"
+          "cloudbase 诊断",
+          "峰值 qps",
+          "cpu 告警",
+          "告警是否正常",
+          "429",
+          "限频",
+          "调用量为 0",
+          "access_token_invalid"
         ],
         "allOf": [
           [
@@ -1261,7 +1268,9 @@
         ],
         "anyOf": [
           "inspect",
-          "diagnose"
+          "diagnose",
+          "troubleshooting",
+          "告警解读"
         ],
         "minScore": 6,
         "noneOf": [
@@ -1273,17 +1282,34 @@
       "retrieval": {
         "aliases": [
           "health check",
-          "健康检查"
+          "健康检查",
+          "ops",
+          "巡检",
+          "告警解读"
         ],
         "intents": [
           "诊断错误",
           "健康检查",
-          "资源巡检"
+          "资源巡检",
+          "interpret CPU alert",
+          "check peak QPS"
         ],
-        "entities": [],
+        "entities": [
+          "AIOps",
+          "Health Check",
+          "Logs",
+          "Metrics",
+          "429",
+          "QPS"
+        ],
         "examples": [
           "cloudbase 巡检",
-          "资源健康检查"
+          "资源健康检查",
+          "CPU 告警是否正常",
+          "峰值 QPS 多少",
+          "接口返回 429 限频了",
+          "云函数调用量为 0",
+          "报错 ACCESS_TOKEN_INVALID"
         ]
       }
     },

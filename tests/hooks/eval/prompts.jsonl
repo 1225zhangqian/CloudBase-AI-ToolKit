@@ -24,6 +24,11 @@
 {"prompt": "我的页面加载了但按钮不生效", "expectedSkills": ["ops-inspector"], "category": "ops", "note": "正例：故障排查 flow-verification"}
 {"prompt": "应用卡死了，怎么诊断", "expectedSkills": ["ops-inspector"], "category": "ops", "note": "正例：故障排查 stuck"}
 {"prompt": "白屏了，帮我排查", "expectedSkills": ["ops-inspector"], "category": "ops", "note": "正例：故障排查 browser"}
+{"prompt": "昨晚峰值 QPS 多少", "expectedSkills": ["ops-inspector"], "category": "ops", "note": "正例：ops-inspector v3 告警解读 — 峰值 QPS"}
+{"prompt": "CPU 告警是否正常", "expectedSkills": ["ops-inspector"], "category": "ops", "note": "正例：ops-inspector v3 告警解读 — CPU 告警"}
+{"prompt": "接口返回 429 被限频了怎么办", "expectedSkills": ["ops-inspector"], "category": "ops", "note": "正例：ops-inspector v3 故障剧本 — 429/限频"}
+{"prompt": "调用量为 0，帮我查一下监控", "expectedSkills": ["ops-inspector"], "category": "ops", "note": "正例：ops-inspector v3 故障剧本 — 调用量为 0"}
+{"prompt": "报错 ACCESS_TOKEN_INVALID 怎么排查", "expectedSkills": ["ops-inspector"], "category": "ops", "note": "正例：ops-inspector v3 故障剧本 — ACCESS_TOKEN_INVALID"}
 {"prompt": "代码审查一下我的项目", "expectedSkills": ["cloudbase-code-review"], "category": "review", "note": "正例：代码审查"}
 {"prompt": "做一个 AI agent 对话机器人", "expectedSkills": ["cloudbase-agent"], "category": "agent", "note": "正例：Agent 开发"}
 {"prompt": "用 MySQL 存储业务数据", "expectedSkills": ["postgresql-development"], "category": "database", "note": "正例：MySQL 已废弃，用户提到 MySQL 应引导迁移到 PG"}
