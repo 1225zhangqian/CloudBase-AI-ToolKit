@@ -65,3 +65,5 @@
 {"prompt": "小程序搜索优化怎么做，怎么提升关键词排名", "expectedSkills": ["miniprogram-development"], "category": "miniprogram", "note": "正例：小程序搜索优化 / 关键词排名"}
 {"prompt": "微信搜索爬虫 mpcrawler 访问我的页面要如何处理", "expectedSkills": ["miniprogram-development"], "category": "miniprogram", "note": "正例：小程序搜索爬虫"}
 {"prompt": "小程序运营推广：怎么让更多用户搜索到我的小程序", "expectedSkills": ["miniprogram-development"], "category": "miniprogram", "note": "正例：小程序运营推广 / 搜索曝光"}
+{"prompt": "帮我搭一个最小前后端留言板 demo", "expectedSkills": ["minimal-web-baas-demo"], "category": "baas-demo", "note": "正例：最小前后端 + 留言板 → minimal-web-baas-demo"}
+{"prompt": "做一个 Todo 风格的最小可用 fullstack demo", "expectedSkills": ["minimal-web-baas-demo"], "category": "baas-demo", "note": "正例：最小可用 fullstack / Todo demo → minimal-web-baas-demo；不应误伤显式云函数全栈题"}
