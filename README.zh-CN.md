@@ -24,6 +24,12 @@
 
 ## 最近更新
 
+**v2.28.x**（2026-08）
+
+- 可靠性：云托管部署记录（`FAILED`/`CREATING`）、应用版本 `failed`、网关默认域名 `success` 状态比较统一大小写归一化，避免平台返回大写时漏判
+- 云托管：`manageCloudRun(initEnv)` EnvType/VPC 自动填充、envStatus 大小写归一、CAM 鉴权引导（承接 2.27.x 热修）
+- 环境：`queryEnv` 支持 `DescribeCurveData` metrics
+
 **v2.27.x**（2026-08）
 
 - 工具：移除 `downloadRemoteFile`（报错率高），远程资源改用 shell `curl` / `Invoke-WebRequest` 下载（#908、#909）

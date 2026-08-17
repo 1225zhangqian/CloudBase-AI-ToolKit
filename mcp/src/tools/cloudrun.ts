@@ -938,9 +938,16 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
 
               if (!latestDeploy) {
                 message = `Retrieved details for service '${serverName}'. No deploy records found yet.`;
-              } else if (typeof latestDeploy.Status === 'string' && latestDeploy.Status.includes('failed')) {
+              } else if (
+                typeof latestDeploy.Status === "string" &&
+                // Platform may return FAILED/CREATING (uppercase); normalize before matching.
+                latestDeploy.Status.toLowerCase().includes("failed")
+              ) {
                 message = `Service '${serverName}' latest deploy failed. Please use queryCloudRun(action="getDeployLog") for details.`;
-              } else if (typeof latestDeploy.Status === 'string' && latestDeploy.Status.includes('creating')) {
+              } else if (
+                typeof latestDeploy.Status === "string" &&
+                latestDeploy.Status.toLowerCase().includes("creating")
+              ) {
                 message = `Service '${serverName}' latest deploy is still running. Please check again later or query the deploy log for progress.`;
               } else {
                 message = `Retrieved details for service '${serverName}'. Latest service status: ${result.BaseInfo?.Status || 'unknown'}, latest deploy status: ${latestDeploy.Status || 'unknown'}.`;
