@@ -378,4 +378,56 @@ describe('publish-to-clawhub upload-ticket retry', () => {
       }
     }
   });
+
+  test('retries every target when all hit Uploaded file does not match its skill upload ticket', () => {
+    // Regression for Actions run 30894334622: clawhub@latest systemic upload-ticket
+    // failure hit all six publish targets (not only all-in-one).
+    const previousToken = process.env.CLAWDHUB_TOKEN;
+    process.env.CLAWDHUB_TOKEN = 'test-token';
+
+    try {
+      const targets = [
+        { targetKey: 'miniprogram-development', registrySlug: 'miniprogram-development' },
+        { targetKey: 'cloudbase-wechat-integration', registrySlug: 'cloudbase-wechat-integration' },
+        { targetKey: 'all-in-one', registrySlug: 'cloudbase' },
+        { targetKey: 'ui-design', registrySlug: 'ui-design-guide' },
+        { targetKey: 'web-development', registrySlug: 'web-development' },
+        { targetKey: 'spec-workflow', registrySlug: 'spec-workflow-guide' },
+      ];
+      const manifestPath = createManifest(targets);
+      const callsBySlug = Object.fromEntries(targets.map((t) => [t.registrySlug, 0]));
+
+      expect(() =>
+        publishToClawhub({
+          manifestPath,
+          changelog: 'multi-target upload-ticket regression',
+          runPublish: (_command, args) => {
+            const slug = args[args.indexOf('--slug') + 1];
+            callsBySlug[slug] += 1;
+            const error = new Error(
+              'Command failed: clawhub skill publish ...',
+            );
+            error.stderr =
+              'Uncaught Error: Uploaded file does not match its skill upload ticket\n';
+            throw error;
+          },
+          sleepMs: () => {},
+        }),
+      ).toThrow(/Failed to publish 6 target/);
+
+      expect(callsBySlug.cloudbase).toBe(ALL_IN_ONE_UPLOAD_TICKET_MAX_ATTEMPTS);
+      for (const target of targets) {
+        if (target.targetKey === 'all-in-one') {
+          continue;
+        }
+        expect(callsBySlug[target.registrySlug]).toBe(DEFAULT_UPLOAD_TICKET_MAX_ATTEMPTS);
+      }
+    } finally {
+      if (previousToken === undefined) {
+        delete process.env.CLAWDHUB_TOKEN;
+      } else {
+        process.env.CLAWDHUB_TOKEN = previousToken;
+      }
+    }
+  });
 });

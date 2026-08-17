@@ -83,6 +83,8 @@ jobs:
         # Exact version pin for supply-chain reproducibility (do not use bare @latest).
         # 0.23.3 upload-ticket regression was fixed server-side in openclaw/clawhub#3395
         # and verified with a real publish after production backend deploy (2026-08-05).
+        # Historical CI (Actions run 30894334622) failed all six targets with
+        # "Uploaded file does not match its skill upload ticket" under clawhub@latest.
         # Client-side: publish-to-clawhub.mjs treats version-exists / already-published as
         # idempotent success, and retries upload-ticket mismatches for all targets
         # (all-in-one gets more attempts; openclaw/clawhub#3394 / #3397).
