@@ -34,6 +34,7 @@
 
 **v2.26.x**（2026-08）
 
+- 云托管：`manageCloudRun(action=deploy)` 轻量等待 BuildId 注册并返回 `buildId` + `next_step`，便于立刻用 `getDeployLog` 轮询（避免立即出现 build not found）
 - 网关：支持启用/禁用 HTTP 路由（`enableRoute` / `disableRoute`）；托管与环境查询在返回访问地址前会识别默认域名路由已禁用的情况（#901、#902、#903）
 - 认证：支持 `CLOUDBASE_APIKEY` 作为 API Key 环境变量回退（#900）
 - Skills：首次会话 MCP 工具尚未加载时，提供 MCP→CLI 工具回退指引（#889）

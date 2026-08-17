@@ -41,7 +41,7 @@ type ManagerMock = {
   cloudrun: {
     deploy: ReturnType<typeof vi.fn>;
     detail: ReturnType<typeof vi.fn>;
-    getDeployRecords?: ReturnType<typeof vi.fn>;
+    getDeployRecords: ReturnType<typeof vi.fn>;
   };
 };
 
@@ -49,6 +49,7 @@ function makeManager(options: {
   envStatus?: "normal" | "creating" | "unopened";
   detailImpl?: (params: { serverName: string }) => Promise<any>;
   deployImpl?: (params: any) => Promise<any>;
+  buildId?: number;
 } = {}): ManagerMock {
   const {
     envStatus = "normal",
@@ -56,6 +57,7 @@ function makeManager(options: {
       throw new Error("ResourceNotFound.ServerNotFound");
     },
     deployImpl = async () => ({}),
+    buildId = 9001,
   } = options;
   return {
     commonService: vi.fn().mockReturnValue({
@@ -69,12 +71,18 @@ function makeManager(options: {
             IsExist: true,
           };
         }
+        if (req.Action === "DescribeServerManageTask") {
+          return { Task: { Id: 42, Status: "running" } };
+        }
         return {};
       },
     }),
     cloudrun: {
       deploy: vi.fn(deployImpl),
       detail: vi.fn(detailImpl),
+      getDeployRecords: vi.fn(async () => ({
+        DeployRecords: [{ BuildId: buildId, Status: "building" }],
+      })),
     },
   };
 }
@@ -88,7 +96,11 @@ describe("manageCloudRun deploy imageUrl branch", () => {
   });
   afterEach(() => {
     if (tmpSourceDir) {
-      fs.rmSync(tmpSourceDir, { recursive: true, force: true });
+      try {
+        fs.rmSync(tmpSourceDir, { recursive: true, force: true });
+      } catch {
+        // Ignore cleanup failures in restricted CI/sandbox delete hooks.
+      }
     }
   });
 
@@ -116,6 +128,23 @@ describe("manageCloudRun deploy imageUrl branch", () => {
     expect(parsed.data.serverType).toBe("container");
     expect(parsed.data.deployPath).toBeUndefined();
     expect(parsed.data.cloudbasercGenerated).toBe(false);
+    expect(parsed.data.status).toBe("deploying");
+    expect(parsed.data.buildId).toBe(9001);
+    expect(parsed.data.taskId).toBe(42);
+    expect(parsed.data.registration).toMatchObject({
+      registered: true,
+      timedOut: false,
+    });
+    expect(parsed.data.next_step).toMatchObject({
+      tool: "queryCloudRun",
+      action: "getDeployLog",
+      suggested_args: {
+        action: "getDeployLog",
+        detailServerName: "hermes-agent",
+        buildId: 9001,
+      },
+    });
+    expect(manager.cloudrun.getDeployRecords).toHaveBeenCalled();
 
     const deployCall = manager.cloudrun.deploy.mock.calls[0][0];
     expect(deployCall.imageUrl).toBe("ccr.ccs.tencentyun.com/ns/hermes:v1");
@@ -130,6 +159,15 @@ describe("manageCloudRun deploy imageUrl branch", () => {
     });
     // 镜像部署未传 targetPath 时应保持 undefined，交给 SDK 走 DeployType=image 分支。
     expect(deployCall.targetPath).toBeUndefined();
+  });
+
+  it("documents imageUrl-first semantics in schema descriptions", async () => {
+    const { tools } = await createCloudRunTools();
+    const schema = tools.manageCloudRun.meta.inputSchema;
+    expect(schema.imageUrl.description).toMatch(/必须传 imageUrl|不要回退到源码构建/);
+    expect(schema.targetPath.description).toMatch(/优先传 imageUrl|不等于必须走源码构建/);
+    expect(schema.action.description).toMatch(/轻量等待|getDeployLog/);
+    expect(tools.manageCloudRun.meta.description).toMatch(/轻量等待任务注册|buildId/);
   });
 
   it("fails with guidance when imageUrl deploy targets an unopened CloudRun env", async () => {
