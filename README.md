@@ -34,6 +34,7 @@ The CloudBase integration layer for AI coding tools: Plugin installs the stack, 
 
 **v2.26.x** (2026-08)
 
+- CloudRun: `manageCloudRun(action=deploy)` lightly waits for BuildId registration and returns `buildId` + `next_step` for `getDeployLog` polling (avoids immediate "build not found")
 - Gateway: enable/disable HTTP routes (`enableRoute` / `disableRoute`); hosting/env surfaces detect disabled default-domain routes before returning access URLs (#901, #902, #903)
 - Auth: accept `CLOUDBASE_APIKEY` as an API Key environment-variable fallback (#900)
 - Skills: MCP-to-CLI tooling fallback for first sessions when MCP tools are not loaded yet (#889)
