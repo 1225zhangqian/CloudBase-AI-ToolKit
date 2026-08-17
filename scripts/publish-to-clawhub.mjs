@@ -8,9 +8,15 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const AUTO_CHANGELOG_LIMIT = 5;
 
-/** all-in-one uploads are large and historically hit intermittent upload-ticket races. */
+/**
+ * Upload-ticket mismatches are intermittent ClawHub races (openclaw/clawhub#3394 / #3397).
+ * all-in-one packages are large and hit them most often; smaller skills can still race.
+ */
 export const ALL_IN_ONE_UPLOAD_TICKET_MAX_ATTEMPTS = 3;
+export const DEFAULT_UPLOAD_TICKET_MAX_ATTEMPTS = 2;
 export const ALL_IN_ONE_UPLOAD_TICKET_RETRY_DELAY_MS = 2000;
+/** @deprecated Use ALL_IN_ONE_UPLOAD_TICKET_RETRY_DELAY_MS; kept for test imports. */
+export const UPLOAD_TICKET_RETRY_DELAY_MS = ALL_IN_ONE_UPLOAD_TICKET_RETRY_DELAY_MS;
 
 function clawhubErrorText(error) {
   const message = String(error?.message || error || "");
@@ -183,8 +189,15 @@ export function isClawhubVersionExistsError(error) {
   const combined = clawhubErrorText(error);
   return (
     /Version\s+\S+\s+already exists/i.test(combined) ||
-    /is already published/i.test(combined)
+    /is already published/i.test(combined) ||
+    /version\s+already\s+exists/i.test(combined) ||
+    /版本(?:号)?已存在/.test(combined)
   );
+}
+
+/** True when clawhub stdout/stderr indicates the slug@version is already on the registry. */
+export function isClawhubAlreadyPublishedOutput(output) {
+  return isClawhubVersionExistsError({ message: String(output || "") });
 }
 
 /**
@@ -200,8 +213,18 @@ export function isClawhubUploadTicketError(error) {
   );
 }
 
-export function supportsClawhubUploadTicketRetry(target) {
-  return target?.targetKey === "all-in-one";
+/**
+ * All targets may retry upload-ticket races. all-in-one gets more attempts because
+ * large packages historically fail more often after long uploads.
+ */
+export function supportsClawhubUploadTicketRetry(_target) {
+  return true;
+}
+
+export function clawhubUploadTicketMaxAttempts(target) {
+  return target?.targetKey === "all-in-one"
+    ? ALL_IN_ONE_UPLOAD_TICKET_MAX_ATTEMPTS
+    : DEFAULT_UPLOAD_TICKET_MAX_ATTEMPTS;
 }
 
 export function formatClawhubUploadTicketFailure(target, error, attempts) {
@@ -294,21 +317,39 @@ export function publishToClawhub({
       continue;
     }
 
-    const maxAttempts = supportsClawhubUploadTicketRetry(target)
-      ? ALL_IN_ONE_UPLOAD_TICKET_MAX_ATTEMPTS
-      : 1;
+    const maxAttempts = clawhubUploadTicketMaxAttempts(target);
     let settled = false;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       try {
-        runPublish(publishCommand.command, publishCommand.args, process.env);
+        const publishResult = runPublish(
+          publishCommand.command,
+          publishCommand.args,
+          process.env,
+        );
+        const outputText =
+          typeof publishResult === "string"
+            ? publishResult
+            : String(publishResult?.output || "");
 
-        results.push({
-          targetKey: target.targetKey,
-          registrySlug: target.registrySlug,
-          status: "published",
-          attempts: attempt,
-        });
+        if (isClawhubAlreadyPublishedOutput(outputText)) {
+          console.log(
+            `版本已存在，视为已发布 / Already published (exit success): ${target.registrySlug}`,
+          );
+          results.push({
+            targetKey: target.targetKey,
+            registrySlug: target.registrySlug,
+            status: "already-published",
+            attempts: attempt,
+          });
+        } else {
+          results.push({
+            targetKey: target.targetKey,
+            registrySlug: target.registrySlug,
+            status: "published",
+            attempts: attempt,
+          });
+        }
         settled = true;
         break;
       } catch (error) {
@@ -333,7 +374,7 @@ export function publishToClawhub({
           console.warn(
             `upload-ticket 不匹配，准备重试 / Upload-ticket mismatch, retrying ${target.targetKey} (${target.registrySlug}) attempt ${attempt}/${maxAttempts}: ${String(error.message || error).trim()}`,
           );
-          sleepMs(ALL_IN_ONE_UPLOAD_TICKET_RETRY_DELAY_MS);
+          sleepMs(UPLOAD_TICKET_RETRY_DELAY_MS);
           continue;
         }
 

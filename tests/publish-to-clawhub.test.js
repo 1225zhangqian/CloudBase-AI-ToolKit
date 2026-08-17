@@ -4,8 +4,11 @@ import path from 'path';
 import { afterEach, describe, expect, test } from 'vitest';
 import {
   ALL_IN_ONE_UPLOAD_TICKET_MAX_ATTEMPTS,
+  DEFAULT_UPLOAD_TICKET_MAX_ATTEMPTS,
   buildPublishCommand,
+  clawhubUploadTicketMaxAttempts,
   formatClawhubUploadTicketFailure,
+  isClawhubAlreadyPublishedOutput,
   isClawhubUploadTicketError,
   isClawhubVersionExistsError,
   normalizeClawhubChangelog,
@@ -104,10 +107,29 @@ describe('publish-to-clawhub command construction', () => {
     expect(isClawhubVersionExistsError(error)).toBe(true);
   });
 
+  // Fingerprint version-already-exists from Actions run 30897797886 (main@95a75f82):
+  // CLI printed the Version line, but failure aggregation only kept "Command failed: ...".
+  test('detects version-already-exists from Actions run 30897797886 log shape', () => {
+    const error = new Error(
+      'Command failed: clawhub skill publish /home/runner/work/CloudBase-AI-Toolkit/CloudBase-AI-Toolkit/.clawhub-publish-output/web-development/skills/web-development --slug web-development --changelog Recent commits --tags latest',
+    );
+    error.stderr = [
+      'Version 1.27.25 already exists. Increment the version number and try again.',
+      '    at handler (../../convex/skills.ts:13078:8)',
+      '    at async handler (../../node_modules/convex-helpers/server/customFunctions.js:268:27) (reset in 42s)',
+      'Error: Version 1.27.25 already exists. Increment the version number and try again.',
+      '    at handler (../../convex/skills.ts:13078:8)',
+      '    at async handler (../../node_modules/convex-helpers/server/customFunctions.js:268:27) (reset in 42s)',
+      '',
+    ].join('\n');
+    expect(isClawhubVersionExistsError(error)).toBe(true);
+  });
+
   test('detects OK already-published messages as idempotent', () => {
     const error = new Error('Command failed: clawhub skill publish ...');
     error.stdout = 'OK. cloudbase@1.92.48 is already published\n';
     expect(isClawhubVersionExistsError(error)).toBe(true);
+    expect(isClawhubAlreadyPublishedOutput('OK. cloudbase@1.92.48 is already published\n')).toBe(true);
   });
 
   test('detects upload-ticket mismatch errors as retryable', () => {
@@ -123,9 +145,15 @@ describe('publish-to-clawhub command construction', () => {
     expect(isClawhubUploadTicketError(new Error('Version 1.92.48 already exists'))).toBe(false);
   });
 
-  test('only all-in-one supports upload-ticket retry', () => {
+  test('all targets support upload-ticket retry; all-in-one gets more attempts', () => {
     expect(supportsClawhubUploadTicketRetry({ targetKey: 'all-in-one' })).toBe(true);
-    expect(supportsClawhubUploadTicketRetry({ targetKey: 'web-development' })).toBe(false);
+    expect(supportsClawhubUploadTicketRetry({ targetKey: 'web-development' })).toBe(true);
+    expect(clawhubUploadTicketMaxAttempts({ targetKey: 'all-in-one' })).toBe(
+      ALL_IN_ONE_UPLOAD_TICKET_MAX_ATTEMPTS,
+    );
+    expect(clawhubUploadTicketMaxAttempts({ targetKey: 'web-development' })).toBe(
+      DEFAULT_UPLOAD_TICKET_MAX_ATTEMPTS,
+    );
   });
 
   test('formats upload-ticket exhaustion with attempt count and issue hint', () => {
@@ -201,9 +229,147 @@ describe('publish-to-clawhub version-exists idempotency', () => {
       }
     }
   });
+
+  test('classifies exit-0 already-published stdout as already-published', () => {
+    const previousToken = process.env.CLAWDHUB_TOKEN;
+    process.env.CLAWDHUB_TOKEN = 'test-token';
+
+    try {
+      const manifestPath = createManifest([
+        { targetKey: 'web-development', registrySlug: 'web-development' },
+      ]);
+
+      const results = publishToClawhub({
+        manifestPath,
+        runPublish: () => ({
+          status: 'ok',
+          output: 'OK. web-development@1.27.30 is already published\n',
+        }),
+      });
+
+      expect(results).toEqual([
+        {
+          targetKey: 'web-development',
+          registrySlug: 'web-development',
+          status: 'already-published',
+          attempts: 1,
+        },
+      ]);
+    } finally {
+      if (previousToken === undefined) {
+        delete process.env.CLAWDHUB_TOKEN;
+      } else {
+        process.env.CLAWDHUB_TOKEN = previousToken;
+      }
+    }
+  });
+
+  // Actions run 30893435418 (main@a9444bef): ATO fingerprinted already-published, but the
+  // job-killing error was all-in-one upload-ticket under stdio inherit (no retry). Peers
+  // printed "OK. … is already published" with exit 0 and were not the failure cause.
+  test('run 30893435418: peers already-published + all-in-one upload-ticket retries to success', () => {
+    const previousToken = process.env.CLAWDHUB_TOKEN;
+    process.env.CLAWDHUB_TOKEN = 'test-token';
+
+    try {
+      const manifestPath = createManifest([
+        { targetKey: 'miniprogram-development', registrySlug: 'miniprogram-development' },
+        { targetKey: 'cloudbase-wechat-integration', registrySlug: 'cloudbase-wechat-integration' },
+        { targetKey: 'all-in-one', registrySlug: 'cloudbase' },
+        { targetKey: 'ui-design', registrySlug: 'ui-design-guide' },
+        { targetKey: 'web-development', registrySlug: 'web-development' },
+        { targetKey: 'spec-workflow', registrySlug: 'spec-workflow-guide' },
+      ]);
+      const alreadyPublished = {
+        'miniprogram-development': '1.28.21',
+        'cloudbase-wechat-integration': '1.2.21',
+        'ui-design-guide': '1.18.21',
+        'web-development': '1.27.24',
+        'spec-workflow-guide': '1.18.21',
+      };
+      let allInOneCalls = 0;
+
+      const results = publishToClawhub({
+        manifestPath,
+        changelog: 'Actions run 30893435418 regression',
+        runPublish: (_command, args) => {
+          const slug = args[args.indexOf('--slug') + 1];
+          if (slug === 'cloudbase') {
+            allInOneCalls += 1;
+            if (allInOneCalls === 1) {
+              // Mimic CI: inherit left only "Command failed"; stderr held upload-ticket.
+              const error = new Error(
+                'Command failed: clawhub skill publish /home/runner/work/CloudBase-AI-Toolkit/CloudBase-AI-Toolkit/.clawhub-publish-output/all-in-one/skills/cloudbase --slug cloudbase',
+              );
+              error.stderr = [
+                'Uncaught Error: Uploaded file does not match its skill upload ticket',
+                '    at handler (../../convex/skillPublishUploads.ts:109:14)',
+                'Error: Uncaught Error: Uploaded file does not match its skill upload ticket',
+                '',
+              ].join('\n');
+              throw error;
+            }
+            return { status: 'ok', output: 'OK. cloudbase@1.92.48 published\n' };
+          }
+          const version = alreadyPublished[slug];
+          return {
+            status: 'ok',
+            output: `OK. ${slug}@${version} is already published\n`,
+          };
+        },
+        sleepMs: () => {},
+      });
+
+      expect(allInOneCalls).toBe(2);
+      expect(results).toEqual([
+        {
+          targetKey: 'miniprogram-development',
+          registrySlug: 'miniprogram-development',
+          status: 'already-published',
+          attempts: 1,
+        },
+        {
+          targetKey: 'cloudbase-wechat-integration',
+          registrySlug: 'cloudbase-wechat-integration',
+          status: 'already-published',
+          attempts: 1,
+        },
+        {
+          targetKey: 'all-in-one',
+          registrySlug: 'cloudbase',
+          status: 'published',
+          attempts: 2,
+        },
+        {
+          targetKey: 'ui-design',
+          registrySlug: 'ui-design-guide',
+          status: 'already-published',
+          attempts: 1,
+        },
+        {
+          targetKey: 'web-development',
+          registrySlug: 'web-development',
+          status: 'already-published',
+          attempts: 1,
+        },
+        {
+          targetKey: 'spec-workflow',
+          registrySlug: 'spec-workflow-guide',
+          status: 'already-published',
+          attempts: 1,
+        },
+      ]);
+    } finally {
+      if (previousToken === undefined) {
+        delete process.env.CLAWDHUB_TOKEN;
+      } else {
+        process.env.CLAWDHUB_TOKEN = previousToken;
+      }
+    }
+  });
 });
 
-describe('publish-to-clawhub all-in-one upload-ticket retry', () => {
+describe('publish-to-clawhub upload-ticket retry', () => {
   test('retries all-in-one on upload-ticket mismatch then succeeds', () => {
     const previousToken = process.env.CLAWDHUB_TOKEN;
     process.env.CLAWDHUB_TOKEN = 'test-token';
@@ -285,7 +451,7 @@ describe('publish-to-clawhub all-in-one upload-ticket retry', () => {
     }
   });
 
-  test('does not retry upload-ticket errors for non all-in-one targets', () => {
+  test('retries upload-ticket errors for non all-in-one targets with default attempts', () => {
     const previousToken = process.env.CLAWDHUB_TOKEN;
     process.env.CLAWDHUB_TOKEN = 'test-token';
 
@@ -298,18 +464,68 @@ describe('publish-to-clawhub all-in-one upload-ticket retry', () => {
       expect(() =>
         publishToClawhub({
           manifestPath,
-          changelog: 'no retry',
+          changelog: 'retry small skill',
           runPublish: () => {
             calls += 1;
-            throw new Error('Skill upload ticket does not match this publish');
+            throw new Error('Uploaded file does not match its skill upload ticket');
           },
-          sleepMs: () => {
-            throw new Error('sleep should not be called');
-          },
+          sleepMs: () => {},
         }),
       ).toThrow(/Failed to publish 1 target/);
 
-      expect(calls).toBe(1);
+      expect(calls).toBe(DEFAULT_UPLOAD_TICKET_MAX_ATTEMPTS);
+    } finally {
+      if (previousToken === undefined) {
+        delete process.env.CLAWDHUB_TOKEN;
+      } else {
+        process.env.CLAWDHUB_TOKEN = previousToken;
+      }
+    }
+  });
+
+  test('retries every target when all hit Uploaded file does not match its skill upload ticket', () => {
+    // Regression for Actions run 30894334622: clawhub@latest systemic upload-ticket
+    // failure hit all six publish targets (not only all-in-one).
+    const previousToken = process.env.CLAWDHUB_TOKEN;
+    process.env.CLAWDHUB_TOKEN = 'test-token';
+
+    try {
+      const targets = [
+        { targetKey: 'miniprogram-development', registrySlug: 'miniprogram-development' },
+        { targetKey: 'cloudbase-wechat-integration', registrySlug: 'cloudbase-wechat-integration' },
+        { targetKey: 'all-in-one', registrySlug: 'cloudbase' },
+        { targetKey: 'ui-design', registrySlug: 'ui-design-guide' },
+        { targetKey: 'web-development', registrySlug: 'web-development' },
+        { targetKey: 'spec-workflow', registrySlug: 'spec-workflow-guide' },
+      ];
+      const manifestPath = createManifest(targets);
+      const callsBySlug = Object.fromEntries(targets.map((t) => [t.registrySlug, 0]));
+
+      expect(() =>
+        publishToClawhub({
+          manifestPath,
+          changelog: 'multi-target upload-ticket regression',
+          runPublish: (_command, args) => {
+            const slug = args[args.indexOf('--slug') + 1];
+            callsBySlug[slug] += 1;
+            const error = new Error(
+              'Command failed: clawhub skill publish ...',
+            );
+            error.stderr =
+              'Uncaught Error: Uploaded file does not match its skill upload ticket\n';
+            throw error;
+          },
+          sleepMs: () => {},
+        }),
+      ).toThrow(/Failed to publish 6 target/);
+
+      expect(callsBySlug.cloudbase).toBe(ALL_IN_ONE_UPLOAD_TICKET_MAX_ATTEMPTS);
+      for (const target of targets) {
+        if (target.targetKey === 'all-in-one') {
+          continue;
+        }
+        expect(callsBySlug[target.registrySlug]).toBe(DEFAULT_UPLOAD_TICKET_MAX_ATTEMPTS);
+      }
     } finally {
       if (previousToken === undefined) {
         delete process.env.CLAWDHUB_TOKEN;

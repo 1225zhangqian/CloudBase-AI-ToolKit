@@ -172,7 +172,7 @@ function pickHighestVersion(versions) {
  * - If local SKILL.md version is strictly newer than everything on SkillHub → publish local
  * - Otherwise → skip (do not invent betas for unchanged skills; SkillHub rejects lower/non-monotonic versions)
  */
-function resolvePublishVersion(currentVersion, skillHubVersionStrings) {
+export function resolvePublishVersion(currentVersion, skillHubVersionStrings) {
   const highest = pickHighestVersion(skillHubVersionStrings);
   if (!highest) {
     return {
@@ -193,6 +193,51 @@ function resolvePublishVersion(currentVersion, skillHubVersionStrings) {
     version: currentVersion,
     reason: `local ${currentVersion || "(none)"} <= SkillHub highest ${highest}`,
   };
+}
+
+/**
+ * Classify SkillHub upload failures so "already published" is idempotent success,
+ * while true monotonicity errors still bump-and-retry.
+ *
+ * SkillHub API errors are shaped as:
+ *   `SkillHub API error (STATUS): message`
+ */
+export function classifySkillhubUploadError(error) {
+  const text = String(error?.message || error || "");
+  const statusMatch = text.match(/SkillHub API error \((\d+)\)/i);
+  const status = statusMatch ? Number(statusMatch[1]) : null;
+  const body = statusMatch ? text.slice(statusMatch.index + statusMatch[0].length) : text;
+
+  // Exact version already on registry (concurrent publish / re-run) → success.
+  if (
+    /already exists|already published|duplicate version|版本(?:号)?已存在|版本已发布/.test(body) ||
+    (status === 409 && /exist|已存在|duplicate|冲突/.test(body))
+  ) {
+    return "already-published";
+  }
+
+  // Bare 409 with empty/opaque body: treat as already-published (idempotent).
+  if (status === 409) {
+    return "already-published";
+  }
+
+  // Must publish a strictly higher version.
+  if (
+    /must be higher|必须高于|version (?:is )?too low|版本号必须|not higher|低于/.test(body) ||
+    (status === 400 && /version|版本/.test(body))
+  ) {
+    return "version-conflict-retry";
+  }
+
+  return "fatal";
+}
+
+export function isSkillhubAlreadyPublishedError(error) {
+  return classifySkillhubUploadError(error) === "already-published";
+}
+
+export function isSkillhubVersionConflictError(error) {
+  return classifySkillhubUploadError(error) === "version-conflict-retry";
 }
 
 function bumpSemver(versionStr, bumpType) {
@@ -352,6 +397,8 @@ export async function publishToSkillhub({
   changelog = "",
   bump = "minor",
   apiBase = DEFAULT_API_BASE,
+  uploadVersion = uploadVersionToSkillhub,
+  fetchImpl = (...args) => fetch(...args),
 }) {
   const manifest = readManifest(manifestPath);
   const gitRoot = resolveGitRoot(manifestPath);
@@ -420,7 +467,7 @@ export async function publishToSkillhub({
       continue;
     }
 
-    // 拉取 SkillHub 上该技能的所有版本号，确定要发布的版本
+    // Query SkillHub versions to decide publish vs skip.
     let version = currentVersion;
     let retryCount = 0;
     const maxRetries = 10;
@@ -429,7 +476,7 @@ export async function publishToSkillhub({
 
     try {
       const versionsUrl = `${apiBase}/api/v1/orgs/${orgId}/skills/${slug}/versions`;
-      const versionsResponse = await fetch(versionsUrl, {
+      const versionsResponse = await fetchImpl(versionsUrl, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (versionsResponse.ok) {
@@ -460,7 +507,7 @@ export async function publishToSkillhub({
       }
     } catch (fetchError) {
       console.warn(`  ⚠ 版本历史查询失败 / Failed to query version history: ${fetchError instanceof Error ? fetchError.message : fetchError}`);
-      // 拉取版本历史失败，直接尝试 SKILL.md 版本
+      // Fall through and attempt SKILL.md version.
     }
 
     if (!shouldPublish) {
@@ -469,7 +516,7 @@ export async function publishToSkillhub({
 
     while (retryCount <= maxRetries) {
       try {
-        const result = await uploadVersionToSkillhub({
+        const result = await uploadVersion({
           apiBase,
           orgId,
           token,
@@ -497,7 +544,27 @@ export async function publishToSkillhub({
         });
         break;
       } catch (error) {
-        if (error.message.includes("409") || error.message.includes("400")) {
+        const classification = classifySkillhubUploadError(error);
+
+        if (classification === "already-published") {
+          console.log(
+            `  ✓ 版本已存在，视为已发布 / Version already exists, treating as published: ${slug}@${version}`,
+          );
+          results.push({
+            targetKey: target.targetKey,
+            slug,
+            version,
+            displayName,
+            summary,
+            iconUrl,
+            fileCount: files.length,
+            status: "already-published",
+            reason: String(error.message || error),
+          });
+          break;
+        }
+
+        if (classification === "version-conflict-retry") {
           retryCount++;
           if (retryCount > maxRetries) {
             console.warn(`  ⚠ 重试耗尽 / Max retries reached for ${target.targetKey} (${slug})`);
@@ -508,21 +575,22 @@ export async function publishToSkillhub({
             });
             break;
           }
-          // 冲突：把失败候选并入历史，再取严格更高的下一号（同 patch 的下一 beta，或下一 patch-beta.1）
+          // Conflict: fold the failed candidate into history, then take the next strictly higher version.
           skillHubVersionStrings = [...skillHubVersionStrings, version];
           const next = nextVersionAfter(pickHighestVersion(skillHubVersionStrings) || version);
           version = next || `${currentVersion}-beta.${retryCount}`;
           console.log(
-            `  ↻ 版本冲突 / Version conflict (${error.message.includes("409") ? "409" : "400"}), retrying with ${version} (attempt ${retryCount}/${maxRetries}): ${error.message}`,
+            `  ↻ 版本冲突 / Version conflict, retrying with ${version} (attempt ${retryCount}/${maxRetries}): ${error.message}`,
           );
-        } else {
-          failures.push({
-            targetKey: target.targetKey,
-            slug,
-            message: error.message,
-          });
-          break;
+          continue;
         }
+
+        failures.push({
+          targetKey: target.targetKey,
+          slug,
+          message: error.message,
+        });
+        break;
       }
     }
   }
@@ -563,6 +631,8 @@ function main() {
       for (const result of results) {
         if (result.status === "published") {
           console.log(`✓ ${result.targetKey} (${result.slug}): v${result.version} -> versionId=${result.versionId}`);
+        } else if (result.status === "already-published") {
+          console.log(`✓ ${result.targetKey} (${result.slug}): v${result.version} already-published (idempotent)`);
         } else if (result.status === "skipped") {
           console.log(`- ${result.targetKey} (${result.slug}): ${result.reason}`);
         } else {
