@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "comment": "Template for a new plugin skill matching entry. Copy the object under skills into plugin/cloudbase/skill-metadata.json. The key MUST equal the directory name plugin/cloudbase/skills/<dir>. Then run npm run build:skill-manifest.",
+  "skills": {
+    "your-skill-dir-name": {
+      "priority": 5,
+      "promptSignals": {
+        "phrases": ["example phrase unique to this skill"],
+        "allOf": [],
+        "anyOf": [],
+        "noneOf": [],
+        "minScore": 6
+      },
+      "retrieval": {
+        "aliases": ["example alias"],
+        "intents": ["example user intent"],
+        "entities": ["ExampleEntity"],
+        "examples": ["example user prompt that should trigger this skill"]
+      }
+    }
+  }
+}
