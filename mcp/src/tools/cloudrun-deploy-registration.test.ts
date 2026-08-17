@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  buildCloudRunDeployNextStep,
   isValidCloudRunBuildId,
+  isValidCloudRunRunId,
   waitForCloudRunDeployRegistration,
 } from "./cloudrun.js";
 
@@ -13,6 +15,61 @@ describe("isValidCloudRunBuildId", () => {
     expect(isValidCloudRunBuildId(undefined)).toBe(false);
     expect(isValidCloudRunBuildId("12")).toBe(false);
     expect(isValidCloudRunBuildId(Number.NaN)).toBe(false);
+  });
+});
+
+describe("isValidCloudRunRunId", () => {
+  it("accepts non-empty strings only", () => {
+    expect(isValidCloudRunRunId("run-1")).toBe(true);
+    expect(isValidCloudRunRunId("  run-2  ")).toBe(true);
+    expect(isValidCloudRunRunId("")).toBe(false);
+    expect(isValidCloudRunRunId("   ")).toBe(false);
+    expect(isValidCloudRunRunId(undefined)).toBe(false);
+    expect(isValidCloudRunRunId(12)).toBe(false);
+  });
+});
+
+describe("buildCloudRunDeployNextStep", () => {
+  it("routes image deploy to getProcessLog when RunId is ready", () => {
+    expect(
+      buildCloudRunDeployNextStep({
+        deployType: "image",
+        serverName: "svc",
+        runId: "run-abc",
+        registered: true,
+      }),
+    ).toMatchObject({
+      action: "getProcessLog",
+      suggested_args: {
+        action: "getProcessLog",
+        detailServerName: "svc",
+        runId: "run-abc",
+      },
+    });
+  });
+
+  it("routes image deploy without RunId to getDeployRecords", () => {
+    expect(
+      buildCloudRunDeployNextStep({
+        deployType: "image",
+        serverName: "svc",
+        registered: true,
+      }),
+    ).toMatchObject({
+      action: "getDeployRecords",
+    });
+  });
+
+  it("routes source deploy to getDeployLog and mentions getProcessLog", () => {
+    const step = buildCloudRunDeployNextStep({
+      deployType: "source",
+      serverName: "svc",
+      buildId: 88,
+      registered: true,
+    });
+    expect(step.action).toBe("getDeployLog");
+    expect(step.suggested_args.buildId).toBe(88);
+    expect(step.note).toMatch(/getProcessLog/);
   });
 });
 
@@ -53,6 +110,36 @@ describe("waitForCloudRunDeployRegistration", () => {
         TaskId: 0,
       },
     });
+  });
+
+  it("image mode returns on RunId even when BuildId is 0", async () => {
+    const call = vi.fn().mockResolvedValue({
+      Task: { Id: 11, Status: "running" },
+    });
+    const getDeployRecords = vi.fn().mockResolvedValue({
+      DeployRecords: [{ BuildId: 0, RunId: "run-img-9", Status: "creating" }],
+    });
+    const sleepFn = vi.fn().mockResolvedValue(undefined);
+
+    const result = await waitForCloudRunDeployRegistration({
+      manager: { commonService: () => ({ call }) },
+      cloudrunService: { getDeployRecords },
+      envId: "env-test",
+      serverName: "svc-img",
+      mode: "image",
+      maxWaitMs: 30_000,
+      intervalMs: 3_000,
+      sleepFn,
+    });
+
+    expect(result).toMatchObject({
+      registered: true,
+      timedOut: false,
+      taskId: 11,
+      runId: "run-img-9",
+    });
+    expect(result.buildId).toBeUndefined();
+    expect(sleepFn).not.toHaveBeenCalled();
   });
 
   it("keeps polling until BuildId > 0 even if Task.Id appears first", async () => {

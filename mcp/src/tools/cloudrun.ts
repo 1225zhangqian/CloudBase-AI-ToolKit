@@ -48,7 +48,7 @@ const queryCloudRunInputSchema = {
 
 // Input schema for manageCloudRun tool
 const ManageCloudRunInputSchema = {
-  action: z.enum(['init', 'download', 'run', 'deploy', 'delete', 'createAgent', 'updateConfig', 'initEnv', 'traffic']).describe('云托管服务管理操作类型：init=从模板初始化新的云托管项目代码（在targetPath目录下创建以serverName命名的子目录，支持多种语言和框架模板），download=从云端下载现有服务的代码到本地进行开发，run=在本地运行函数型云托管服务（用于开发和调试，仅支持函数型服务），deploy=触发部署并轻量等待任务注册（返回 buildId；不会 hang 等构建完成；构建进度请用 queryCloudRun(action=getDeployLog, buildId=...) 轮询）。支持函数型/容器型；传 imageUrl 时改为已有镜像部署（DeployType=image，targetPath 可省略）；已存在服务会 Read-Merge-Write 保留远程 VpcConf/EnvParams/OpenAccessTypes），updateConfig=仅更新服务配置不重新上传代码（对齐控制台服务设置，走 SubmitServerConfigChangeDiff；不需要 targetPath），delete=删除指定的云托管服务（不可恢复，需要确认），createAgent=创建函数型Agent（基于函数型云托管开发AI智能体），initEnv=开通当前环境的云托管（异步创建云托管环境，幂等：已开通直接返回；适合新环境首次部署前使用），traffic=流量管理与灰度发布（set=调整稳定版/灰度版流量比例，promote=将灰度版本升级为全量，rollback=回滚到上一个稳定版本；对应 tcb cloudrun traffic 命令）'),
+  action: z.enum(['init', 'download', 'run', 'deploy', 'delete', 'createAgent', 'updateConfig', 'initEnv', 'traffic']).describe('云托管服务管理操作类型：init=从模板初始化新的云托管项目代码（在targetPath目录下创建以serverName命名的子目录，支持多种语言和框架模板），download=从云端下载现有服务的代码到本地进行开发，run=在本地运行函数型云托管服务（用于开发和调试，仅支持函数型服务），deploy=触发部署并轻量等待任务注册（不会 hang 等完整构建）。源码构建（targetPath）返回 buildId，用 getDeployLog 轮询后再 getProcessLog；已有镜像部署（imageUrl，DeployType=image，BuildId 常为 0）跳过 getDeployLog，用 detail/getDeployRecords 取 RunId 后 getProcessLog。传 imageUrl 时 targetPath 可省略；已存在服务会 Read-Merge-Write 保留远程 VpcConf/EnvParams/OpenAccessTypes），updateConfig=仅更新服务配置不重新上传代码（对齐控制台服务设置，走 SubmitServerConfigChangeDiff；不需要 targetPath），delete=删除指定的云托管服务（不可恢复，需要确认），createAgent=创建函数型Agent（基于函数型云托管开发AI智能体），initEnv=开通当前环境的云托管（异步创建云托管环境，幂等：已开通直接返回；适合新环境首次部署前使用），traffic=流量管理与灰度发布（set=调整稳定版/灰度版流量比例，promote=将灰度版本升级为全量，rollback=回滚到上一个稳定版本；对应 tcb cloudrun traffic 命令）'),
   serverName: z.string().describe('云托管服务名称，用于标识和管理服务。命名规则：支持大小写字母、数字、连字符和下划线，必须以字母开头，长度3-45个字符。在init操作中会作为在targetPath下创建的子目录名，在其他操作中作为目标服务名。initEnv 操作不需要此参数'),
 
   // Traffic management operation parameters (action=traffic)
@@ -280,21 +280,33 @@ export function buildManageCloudRunErrorMessage(action: ManageCloudRunInput["act
 
 /**
  * Lightweight wait after manageCloudRun deploy: poll until the platform has
- * registered the manage task / assigned a BuildId so getDeployLog works.
- * Does NOT wait for the full build (that can take 5–30 minutes).
+ * registered the manage task / assigned identifiers for follow-up log queries.
+ * - source builds: prefer BuildId > 0 (getDeployLog)
+ * - image deploys: prefer RunId (getProcessLog; BuildId is often 0)
+ * Does NOT wait for the full build/deploy (that can take 5–30 minutes).
  * Aligns with tcb CLI's DescribeServerManageTask polling entrypoint, but with
  * a short timeout suitable for MCP tool calls.
  */
 export const CLOUDRUN_DEPLOY_REGISTRATION_MAX_WAIT_MS = 45_000;
 export const CLOUDRUN_DEPLOY_REGISTRATION_INTERVAL_MS = 3_000;
 
+export type CloudRunDeployRegistrationMode = "source" | "image";
+
 export type CloudRunDeployRegistration = {
   registered: boolean;
   timedOut: boolean;
   taskId?: number;
   buildId?: number;
+  runId?: string;
   taskStatus?: string;
   waitMs: number;
+};
+
+export type CloudRunDeployNextStep = {
+  tool: "queryCloudRun";
+  action: "getDeployLog" | "getProcessLog" | "getDeployRecords";
+  suggested_args: Record<string, string | number>;
+  note?: string;
 };
 
 function sleepMs(ms: number): Promise<void> {
@@ -303,6 +315,10 @@ function sleepMs(ms: number): Promise<void> {
 
 export function isValidCloudRunBuildId(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+export function isValidCloudRunRunId(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 function extractServerManageTaskInfo(resp: unknown): {
@@ -330,9 +346,11 @@ function extractServerManageTaskInfo(resp: unknown): {
 }
 
 /**
- * Poll DescribeServerManageTask + getDeployRecords until BuildId > 0
- * (preferred) or a manage task Id appears. Returns early on BuildId;
- * if only taskId is seen, keeps polling for BuildId until maxWaitMs.
+ * Poll DescribeServerManageTask + getDeployRecords until the preferred
+ * identifier appears:
+ * - source (default): BuildId > 0 for getDeployLog
+ * - image: RunId for getProcessLog (BuildId is often 0)
+ * If only taskId is seen, keeps polling for the preferred id until maxWaitMs.
  */
 export async function waitForCloudRunDeployRegistration(options: {
   manager: {
@@ -346,10 +364,12 @@ export async function waitForCloudRunDeployRegistration(options: {
   };
   envId: string;
   serverName: string;
+  mode?: CloudRunDeployRegistrationMode;
   maxWaitMs?: number;
   intervalMs?: number;
   sleepFn?: (ms: number) => Promise<void>;
 }): Promise<CloudRunDeployRegistration> {
+  const mode = options.mode ?? "source";
   const maxWaitMs = options.maxWaitMs ?? CLOUDRUN_DEPLOY_REGISTRATION_MAX_WAIT_MS;
   const intervalMs = options.intervalMs ?? CLOUDRUN_DEPLOY_REGISTRATION_INTERVAL_MS;
   const sleepFn = options.sleepFn ?? sleepMs;
@@ -358,6 +378,7 @@ export async function waitForCloudRunDeployRegistration(options: {
   let lastTaskId: number | undefined;
   let lastTaskStatus: string | undefined;
   let lastBuildId: number | undefined;
+  let lastRunId: string | undefined;
 
   // Immediate first probe, then interval retries until timeout.
   for (;;) {
@@ -389,22 +410,31 @@ export async function waitForCloudRunDeployRegistration(options: {
       try {
         const recordsResult = (await options.cloudrunService.getDeployRecords({
           serverName: options.serverName,
-        })) as { DeployRecords?: Array<{ BuildId?: number }> };
+        })) as { DeployRecords?: Array<{ BuildId?: number; RunId?: string }> };
         const latest = recordsResult?.DeployRecords?.[0];
         if (isValidCloudRunBuildId(latest?.BuildId)) {
           lastBuildId = latest.BuildId;
+        }
+        if (isValidCloudRunRunId(latest?.RunId)) {
+          lastRunId = latest.RunId.trim();
         }
       } catch {
         // Deploy record may lag behind task registration; retry.
       }
     }
 
-    if (isValidCloudRunBuildId(lastBuildId)) {
+    const preferredReady =
+      mode === "image"
+        ? isValidCloudRunRunId(lastRunId)
+        : isValidCloudRunBuildId(lastBuildId);
+
+    if (preferredReady) {
       return {
         registered: true,
         timedOut: false,
         taskId: lastTaskId,
-        buildId: lastBuildId,
+        ...(isValidCloudRunBuildId(lastBuildId) ? { buildId: lastBuildId } : {}),
+        ...(isValidCloudRunRunId(lastRunId) ? { runId: lastRunId } : {}),
         taskStatus: lastTaskStatus,
         waitMs: Date.now() - startAt,
       };
@@ -418,16 +448,116 @@ export async function waitForCloudRunDeployRegistration(options: {
 
   const registered =
     isValidCloudRunBuildId(lastBuildId) ||
+    isValidCloudRunRunId(lastRunId) ||
     (typeof lastTaskId === "number" && lastTaskId > 0);
 
   return {
     registered,
     timedOut: true,
     taskId: lastTaskId,
-    buildId: lastBuildId,
+    ...(isValidCloudRunBuildId(lastBuildId) ? { buildId: lastBuildId } : {}),
+    ...(isValidCloudRunRunId(lastRunId) ? { runId: lastRunId } : {}),
     taskStatus: lastTaskStatus,
     waitMs: Date.now() - startAt,
   };
+}
+
+/**
+ * Build manageCloudRun(deploy) next_step by DeployType:
+ * - source: getDeployLog (+ follow-up getProcessLog)
+ * - image: skip getDeployLog; getProcessLog via RunId (or getDeployRecords first)
+ */
+export function buildCloudRunDeployNextStep(options: {
+  deployType: CloudRunDeployRegistrationMode;
+  serverName: string;
+  buildId?: number;
+  runId?: string;
+  registered: boolean;
+}): CloudRunDeployNextStep {
+  const { deployType, serverName, registered } = options;
+
+  if (deployType === "image") {
+    if (isValidCloudRunRunId(options.runId)) {
+      return {
+        tool: "queryCloudRun",
+        action: "getProcessLog",
+        suggested_args: {
+          action: "getProcessLog",
+          detailServerName: serverName,
+          runId: options.runId.trim(),
+        },
+        note: "Image deploy has no CODING build process; skip getDeployLog. Poll getProcessLog for deploy-step and container runtime logs.",
+      };
+    }
+    return {
+      tool: "queryCloudRun",
+      action: "getDeployRecords",
+      suggested_args: {
+        action: "getDeployRecords",
+        detailServerName: serverName,
+      },
+      note: registered
+        ? "Image deploy: read latestDeploy.RunId, then queryCloudRun(action=\"getProcessLog\", runId=...). Skip getDeployLog."
+        : "Image deploy registration still queueing; retry getDeployRecords for RunId, then getProcessLog. Skip getDeployLog.",
+    };
+  }
+
+  if (isValidCloudRunBuildId(options.buildId)) {
+    return {
+      tool: "queryCloudRun",
+      action: "getDeployLog",
+      suggested_args: {
+        action: "getDeployLog",
+        detailServerName: serverName,
+        buildId: options.buildId,
+      },
+      note: "Source build: poll getDeployLog for build progress, then getProcessLog (RunId from detail/getDeployRecords) for runtime/deploy-step logs.",
+    };
+  }
+
+  return {
+    tool: "queryCloudRun",
+    action: "getDeployLog",
+    suggested_args: {
+      action: "getDeployLog",
+      detailServerName: serverName,
+    },
+    note: registered
+      ? "BuildId not yet available; omit buildId to use the latest deploy record. After build, use getProcessLog for runtime logs."
+      : "Registration timed out; wait a moment then retry getDeployLog, or open consoleUrl. After build, use getProcessLog for runtime logs.",
+  };
+}
+
+export function buildCloudRunDeployProgressHint(options: {
+  deployType: CloudRunDeployRegistrationMode;
+  serverName: string;
+  buildId?: number;
+  runId?: string;
+  registered: boolean;
+  timedOut: boolean;
+  waitMs: number;
+  consoleUrl: string;
+  taskId?: number;
+}): string {
+  const { deployType, serverName, consoleUrl } = options;
+
+  if (deployType === "image") {
+    if (isValidCloudRunRunId(options.runId)) {
+      return ` Image deploy: use queryCloudRun(action="getProcessLog", detailServerName="${serverName}", runId="${options.runId.trim()}") for runtime/deploy-step logs (skip getDeployLog).`;
+    }
+    if (options.registered) {
+      return ` Image deploy registered${typeof options.taskId === "number" ? ` (taskId=${options.taskId})` : ""}; RunId not yet available — use queryCloudRun(action="getDeployRecords", detailServerName="${serverName}") then getProcessLog (skip getDeployLog), or check ${consoleUrl}.`;
+    }
+    return ` Image deploy registration timed out after ${Math.round(options.waitMs / 1000)}s — retry getDeployRecords for RunId then getProcessLog (skip getDeployLog), or check ${consoleUrl}.`;
+  }
+
+  if (isValidCloudRunBuildId(options.buildId)) {
+    return ` Use queryCloudRun(action="getDeployLog", detailServerName="${serverName}", buildId=${options.buildId}) to poll build progress, then getProcessLog for runtime logs.`;
+  }
+  if (options.registered) {
+    return ` Task registered (taskId=${options.taskId ?? "unknown"}); BuildId not yet available — retry queryCloudRun(action="getDeployLog", detailServerName="${serverName}") shortly, then getProcessLog, or check ${consoleUrl}.`;
+  }
+  return ` Build registration timed out after ${Math.round(options.waitMs / 1000)}s — deployment may still be queueing. Check ${consoleUrl} or retry queryCloudRun(action="getDeployLog", detailServerName="${serverName}") later.`;
 }
 
 const CLOUDRUN_DB_ENV_KEY_PATTERN =
@@ -1287,7 +1417,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
     "manageCloudRun",
     {
       title: "管理 CloudRun 服务",
-      description: "管理云托管服务，按开发顺序支持：开通云托管环境（initEnv）、初始化项目（可从模板开始，模板列表可通过 queryCloudRun 查询）、下载服务代码、本地运行（仅函数型服务）、部署代码、仅更新配置（updateConfig，无需重新上传代码）、删除服务。deploy 支持两种方式：1) 源码构建（传入 targetPath，本地代码打包上传，默认路径）；2) 已有镜像部署（传入 imageUrl，如 ccr.ccs.tencentyun.com/ns/img:v1，走 DeployType=image 容器型部署，targetPath 可省略）。deploy 语义为「触发部署 + 轻量等待任务注册」（最多约 45s，对齐 tcb CLI 的 DescribeServerManageTask 轮询起点），返回 buildId；不会 hang 等待完整构建（5–30min）。拿到 buildId 后请用 queryCloudRun(action=\"getDeployLog\", buildId=...) 轮询构建进度。若用户明确指定镜像或无需重新构建，必须传 imageUrl，不要仅因本地有源码目录就回退到源码构建。deploy 对已存在服务会先读取远程配置再合并（保留 VpcConf/EnvParams/OpenAccessTypes）。updateConfig 对齐控制台服务设置页。删除操作需要确认，建议设置force=true。新环境首次部署前若提示未开通云托管，先调用 initEnv 开通（异步、幂等）。",
+      description: "管理云托管服务，按开发顺序支持：开通云托管环境（initEnv）、初始化项目（可从模板开始，模板列表可通过 queryCloudRun 查询）、下载服务代码、本地运行（仅函数型服务）、部署代码、仅更新配置（updateConfig，无需重新上传代码）、删除服务。deploy 支持两种方式：1) 源码构建（传入 targetPath，本地代码打包上传，默认路径）；2) 已有镜像部署（传入 imageUrl，如 ccr.ccs.tencentyun.com/ns/img:v1，走 DeployType=image 容器型部署，targetPath 可省略）。deploy 语义为「触发部署 + 轻量等待任务注册」（最多约 45s）。源码构建返回 buildId，用 getDeployLog 轮询构建进度后再 getProcessLog；镜像部署（imageUrl）BuildId 常为 0，跳过 getDeployLog，返回 runId/next_step 引导 getProcessLog（或先 getDeployRecords 取 RunId）。若用户明确指定镜像或无需重新构建，必须传 imageUrl，不要仅因本地有源码目录就回退到源码构建。deploy 对已存在服务会先读取远程配置再合并（保留 VpcConf/EnvParams/OpenAccessTypes）。updateConfig 对齐控制台服务设置页。删除操作需要确认，建议设置force=true。新环境首次部署前若提示未开通云托管，先调用 initEnv 开通（异步、幂等）。",
       inputSchema: ManageCloudRunInputSchema,
       annotations: {
         readOnlyHint: false,
@@ -1849,13 +1979,17 @@ for await (let x of res.textStream) {
             // Generate cloudbaserc.json configuration file (source-build only; image deploy has no local project dir)
             const currentEnvId = await getEnvId(cloudBaseOptions);
 
-            // Lightweight wait for task/BuildId registration (not full build completion).
-            // Prevents immediate getDeployLog "build not found" after deploy returns.
+            // Lightweight wait for task / BuildId (source) or RunId (image) registration.
+            // Does not wait for full build/deploy completion.
+            const deployType: CloudRunDeployRegistrationMode = input.imageUrl
+              ? "image"
+              : "source";
             const registration = await waitForCloudRunDeployRegistration({
               manager,
               cloudrunService,
               envId: currentEnvId,
               serverName: input.serverName,
+              mode: deployType,
             });
 
             let cloudbasercGenerated = false;
@@ -1939,33 +2073,25 @@ for await (let x of res.textStream) {
               ? ` Warning: ${dbNetworkRisk.message} Set serverConfig.VpcConf before relying on DB connectivity.`
               : "";
 
-            const buildIdHint = isValidCloudRunBuildId(registration.buildId)
-              ? ` Use queryCloudRun(action="getDeployLog", detailServerName="${input.serverName}", buildId=${registration.buildId}) to poll build progress.`
-              : registration.registered
-                ? ` Task registered (taskId=${registration.taskId ?? "unknown"}); BuildId not yet available — retry queryCloudRun(action="getDeployLog", detailServerName="${input.serverName}") shortly, or check ${consoleUrl}.`
-                : ` Build registration timed out after ${Math.round(registration.waitMs / 1000)}s — deployment may still be queueing. Check ${consoleUrl} or retry queryCloudRun(action="getDeployLog", detailServerName="${input.serverName}") later.`;
+            const progressHint = buildCloudRunDeployProgressHint({
+              deployType,
+              serverName: input.serverName,
+              buildId: registration.buildId,
+              runId: registration.runId,
+              registered: registration.registered,
+              timedOut: registration.timedOut,
+              waitMs: registration.waitMs,
+              consoleUrl,
+              taskId: registration.taskId,
+            });
 
-            const nextStep = isValidCloudRunBuildId(registration.buildId)
-              ? {
-                  tool: "queryCloudRun",
-                  action: "getDeployLog",
-                  suggested_args: {
-                    action: "getDeployLog",
-                    detailServerName: input.serverName,
-                    buildId: registration.buildId,
-                  },
-                }
-              : {
-                  tool: "queryCloudRun",
-                  action: "getDeployLog",
-                  suggested_args: {
-                    action: "getDeployLog",
-                    detailServerName: input.serverName,
-                  },
-                  note: registration.registered
-                    ? "BuildId not yet available; omit buildId to use the latest deploy record, or check consoleUrl."
-                    : "Registration timed out; wait a moment then retry getDeployLog, or open consoleUrl.",
-                };
+            const nextStep = buildCloudRunDeployNextStep({
+              deployType,
+              serverName: input.serverName,
+              buildId: registration.buildId,
+              runId: registration.runId,
+              registered: registration.registered,
+            });
 
             return {
               content: [
@@ -1976,7 +2102,7 @@ for await (let x of res.textStream) {
                     data: {
                       serviceName: input.serverName,
                       status: 'deploying',
-                      deployType: input.imageUrl ? 'image' : 'source',
+                      deployType,
                       ...(targetPath ? { deployPath: targetPath } : {}),
                       ...(input.imageUrl ? { imageUrl: input.imageUrl } : {}),
                       serverType: serverType,
@@ -1984,6 +2110,9 @@ for await (let x of res.textStream) {
                       consoleUrl,
                       ...(isValidCloudRunBuildId(registration.buildId)
                         ? { buildId: registration.buildId }
+                        : {}),
+                      ...(isValidCloudRunRunId(registration.runId)
+                        ? { runId: registration.runId }
                         : {}),
                       ...(typeof registration.taskId === "number"
                         ? { taskId: registration.taskId }
@@ -2020,7 +2149,7 @@ for await (let x of res.textStream) {
                       // Keep raw SDK result for debugging without implying build finished.
                       ...(result != null ? { deployAccepted: true } : {}),
                     },
-                    message: `Triggered deployment for ${serverType} service '${input.serverName}' ${input.imageUrl ? `from image ${input.imageUrl}` : `from ${targetPath}`}. Deployment is registering/building (status=deploying); this call does not wait for full build completion.${buildIdHint}${warningSuffix}`
+                    message: `Triggered deployment for ${serverType} service '${input.serverName}' ${input.imageUrl ? `from image ${input.imageUrl}` : `from ${targetPath}`}. Deployment is registering/${deployType === "image" ? "starting" : "building"} (status=deploying); this call does not wait for full completion.${progressHint}${warningSuffix}`
                   }, null, 2)
                 }
               ]
