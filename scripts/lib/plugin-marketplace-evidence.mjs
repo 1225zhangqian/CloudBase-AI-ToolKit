@@ -204,6 +204,73 @@ const EVIDENCE_CHECKS = {
     };
   },
 
+  mcp_registry_server_json: (rootDir) => {
+    const serverRel = "mcp/server.json";
+    const pkgRel = "mcp/package.json";
+    const serverPath = abs(rootDir, serverRel);
+    const pkgPath = abs(rootDir, pkgRel);
+    if (!fs.existsSync(serverPath)) {
+      return {
+        id: "mcp_registry_server_json",
+        status: "missing",
+        detail: `Missing ${serverRel}`,
+        paths: [serverRel, pkgRel],
+      };
+    }
+    if (!fs.existsSync(pkgPath)) {
+      return {
+        id: "mcp_registry_server_json",
+        status: "missing",
+        detail: `Missing ${pkgRel}`,
+        paths: [serverRel, pkgRel],
+      };
+    }
+    try {
+      const server = readJson(serverPath);
+      const pkg = readJson(pkgPath);
+      if (server.name !== "io.github.TencentCloudBase/cloudbase-mcp") {
+        return {
+          id: "mcp_registry_server_json",
+          status: "invalid",
+          detail: `${serverRel} name must be io.github.TencentCloudBase/cloudbase-mcp`,
+          paths: [serverRel, pkgRel],
+        };
+      }
+      if (pkg.mcpName !== server.name) {
+        return {
+          id: "mcp_registry_server_json",
+          status: "invalid",
+          detail: `${pkgRel} mcpName must match ${serverRel} name`,
+          paths: [serverRel, pkgRel],
+        };
+      }
+      const npmPkg = Array.isArray(server.packages)
+        ? server.packages.find((item) => item && item.registryType === "npm")
+        : null;
+      if (!npmPkg || npmPkg.identifier !== "@cloudbase/cloudbase-mcp") {
+        return {
+          id: "mcp_registry_server_json",
+          status: "invalid",
+          detail: `${serverRel} must declare npm identifier @cloudbase/cloudbase-mcp`,
+          paths: [serverRel, pkgRel],
+        };
+      }
+      return {
+        id: "mcp_registry_server_json",
+        status: "present",
+        detail: `${serverRel} matches npm mcpName ${pkg.mcpName}`,
+        paths: [serverRel, pkgRel],
+      };
+    } catch (err) {
+      return {
+        id: "mcp_registry_server_json",
+        status: "invalid",
+        detail: `Failed to parse MCP registry metadata: ${err.message}`,
+        paths: [serverRel, pkgRel],
+      };
+    }
+  },
+
   trae_mcp_deeplink_docs: (rootDir) => {
     const candidates = ["doc/ide-setup/trae.mdx", "doc/ai-agent-plugins.mdx"];
     const hits = [];

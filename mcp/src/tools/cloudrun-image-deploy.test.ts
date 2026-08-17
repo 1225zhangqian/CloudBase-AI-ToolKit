@@ -51,6 +51,7 @@ function makeManager(options: {
   detailImpl?: (params: { serverName: string }) => Promise<any>;
   deployImpl?: (params: any) => Promise<any>;
   buildId?: number;
+  runId?: string;
 } = {}): ManagerMock {
   const {
     envStatus = "normal",
@@ -60,6 +61,7 @@ function makeManager(options: {
     },
     deployImpl = async () => ({}),
     buildId = 9001,
+    runId = "run-image-1",
   } = options;
   return {
     commonService: vi.fn().mockReturnValue({
@@ -88,7 +90,13 @@ function makeManager(options: {
       deploy: vi.fn(deployImpl),
       detail: vi.fn(detailImpl),
       getDeployRecords: vi.fn(async () => ({
-        DeployRecords: [{ BuildId: buildId, Status: "building" }],
+        DeployRecords: [
+          {
+            BuildId: buildId,
+            RunId: runId,
+            Status: buildId > 0 ? "building" : "creating",
+          },
+        ],
       })),
     },
   };
@@ -112,7 +120,8 @@ describe("manageCloudRun deploy imageUrl branch", () => {
   });
 
   it("forwards imageUrl to SDK deploy params (DeployType=image) and allows omitting targetPath", async () => {
-    const manager = makeManager();
+    // Image deploys typically have BuildId=0; registration waits for RunId instead.
+    const manager = makeManager({ buildId: 0, runId: "run-hermes-1" });
     mockGetCloudBaseManager.mockReturnValue(manager);
     const { tools } = await createCloudRunTools();
 
@@ -136,7 +145,8 @@ describe("manageCloudRun deploy imageUrl branch", () => {
     expect(parsed.data.deployPath).toBeUndefined();
     expect(parsed.data.cloudbasercGenerated).toBe(false);
     expect(parsed.data.status).toBe("deploying");
-    expect(parsed.data.buildId).toBe(9001);
+    expect(parsed.data.buildId).toBeUndefined();
+    expect(parsed.data.runId).toBe("run-hermes-1");
     expect(parsed.data.taskId).toBe(42);
     expect(parsed.data.registration).toMatchObject({
       registered: true,
@@ -144,13 +154,16 @@ describe("manageCloudRun deploy imageUrl branch", () => {
     });
     expect(parsed.data.next_step).toMatchObject({
       tool: "queryCloudRun",
-      action: "getDeployLog",
+      action: "getProcessLog",
       suggested_args: {
-        action: "getDeployLog",
+        action: "getProcessLog",
         detailServerName: "hermes-agent",
-        buildId: 9001,
+        runId: "run-hermes-1",
       },
     });
+    expect(parsed.data.next_step.note).toMatch(/skip getDeployLog/i);
+    expect(parsed.message).toMatch(/getProcessLog/);
+    expect(parsed.message).not.toMatch(/getDeployLog.*build progress/);
     expect(manager.cloudrun.getDeployRecords).toHaveBeenCalled();
 
     const deployCall = manager.cloudrun.deploy.mock.calls[0][0];
@@ -173,8 +186,8 @@ describe("manageCloudRun deploy imageUrl branch", () => {
     const schema = tools.manageCloudRun.meta.inputSchema;
     expect(schema.imageUrl.description).toMatch(/必须传 imageUrl|不要回退到源码构建/);
     expect(schema.targetPath.description).toMatch(/优先传 imageUrl|不等于必须走源码构建/);
-    expect(schema.action.description).toMatch(/轻量等待|getDeployLog/);
-    expect(tools.manageCloudRun.meta.description).toMatch(/轻量等待任务注册|buildId/);
+    expect(schema.action.description).toMatch(/getProcessLog|跳过 getDeployLog/);
+    expect(tools.manageCloudRun.meta.description).toMatch(/getProcessLog|跳过 getDeployLog/);
   });
 
   it("auto-fills vpcInfo from env DescribeEnvBaseInfo when VpcConf is omitted", async () => {
@@ -217,7 +230,7 @@ describe("manageCloudRun deploy imageUrl branch", () => {
   });
 
   it("keeps source-build behavior when imageUrl is absent (targetPath required)", async () => {
-    const manager = makeManager();
+    const manager = makeManager({ buildId: 9001, runId: "run-src-1" });
     mockGetCloudBaseManager.mockReturnValue(manager);
     const { tools } = await createCloudRunTools();
 
@@ -233,6 +246,17 @@ describe("manageCloudRun deploy imageUrl branch", () => {
     expect(parsed.success).toBe(true);
     expect(parsed.data.deployType).toBe("source");
     expect(parsed.data.imageUrl).toBeUndefined();
+    expect(parsed.data.buildId).toBe(9001);
+    expect(parsed.data.next_step).toMatchObject({
+      tool: "queryCloudRun",
+      action: "getDeployLog",
+      suggested_args: {
+        action: "getDeployLog",
+        detailServerName: "my-svc",
+        buildId: 9001,
+      },
+    });
+    expect(parsed.data.next_step.note).toMatch(/getProcessLog/);
 
     const deployCall = manager.cloudrun.deploy.mock.calls[0][0];
     expect(deployCall.imageUrl).toBeUndefined();

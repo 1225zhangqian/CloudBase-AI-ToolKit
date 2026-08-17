@@ -830,23 +830,28 @@ markets:
       self_marketplace: not_applicable
       native_connector_or_builtin: not_applicable
       open_plugin_spec: not_applicable
-      mcp_or_skill_registry: unknown
-      docs_only: unknown
+      mcp_or_skill_registry: listed
+      docs_only: listed
     submit_url_or_process: |
       Publish via mcp-publisher CLI to registry.modelcontextprotocol.io; aggregators may ingest afterward.
+      Status 2026-08-17: listed as io.github.TencentCloudBase/cloudbase-mcp v2.27.0 (hosted remotes).
+      npm packages[] will attach on the next npm release after mcpName ships in @cloudbase/cloudbase-mcp.
     eligibility: mcp_publisher_cli
-    blockers:
-      - Confirm whether @cloudbase/cloudbase-mcp is already published to official registry
+    blockers: []
     evidence_links:
-      - https://registry.modelcontextprotocol.io
-    local_evidence: []
-    submit_checklist:
-      - server.json / publisher metadata
-      - mcp-publisher publish
-    recommended_install_path: null
-    priority_hint: null
-    last_reviewed_at: "2026-07-27"
+      - https://registry.modelcontextprotocol.io/v0/servers?search=cloudbase
+      - https://github.com/TencentCloudBase/CloudBase-AI-Toolkit
+    local_evidence:
+      - mcp_registry_server_json
+    submit_checklist: []
+    recommended_install_path: mcp/server.json
+    priority_hint: listed
+    last_reviewed_at: "2026-08-17"
     owner: cloudbase-ai-toolkit
+    notes: |
+      2026-08-17: Published io.github.TencentCloudBase/cloudbase-mcp@2.27.0 via GitHub org admin auth.
+      Live listing is remotes-only (tcb-api hosted MCP) because npm 2.27.0 lacks mcpName.
+      Repo mcp/package.json now has mcpName; npm-publish.yaml publishes to the registry after the next tag.
 
   - id: smithery
     product: Smithery
