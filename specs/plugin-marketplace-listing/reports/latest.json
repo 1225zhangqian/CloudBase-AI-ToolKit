@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-08-13T07:49:31.668Z",
+  "generated_at": "2026-08-17T08:28:07.160Z",
   "matrix_version": 1,
   "reviewed_stale_days": 90,
   "total_markets": 42,
   "summary": {
     "ready_to_submit": 5,
     "needs_packaging_or_manifest": 2,
-    "needs_partner_outreach": 12,
-    "listed": 7,
+    "needs_partner_outreach": 11,
+    "listed": 8,
     "not_applicable": 15,
     "unknown": 1
   },
@@ -920,50 +920,6 @@
         "manual_submit_only": true
       },
       {
-        "id": "mcp-official-registry",
-        "product": "Official MCP Registry",
-        "region": "global",
-        "channel_type": "mcp_registry_or_aggregator",
-        "listing_statuses": {
-          "official_curated": "not_applicable",
-          "community_directory": "not_applicable",
-          "self_marketplace": "not_applicable",
-          "native_connector_or_builtin": "not_applicable",
-          "open_plugin_spec": "not_applicable",
-          "mcp_or_skill_registry": "unknown",
-          "docs_only": "unknown"
-        },
-        "eligibility": "mcp_publisher_cli",
-        "blockers": [
-          "Confirm whether @cloudbase/cloudbase-mcp is already published to official registry"
-        ],
-        "evidence_links": [
-          "https://registry.modelcontextprotocol.io"
-        ],
-        "submit_url_or_process": "Publish via mcp-publisher CLI to registry.modelcontextprotocol.io; aggregators may ingest afterward.\n",
-        "recommended_install_path": null,
-        "last_reviewed_at": "2026-07-27",
-        "owner": "cloudbase-ai-toolkit",
-        "local_evidence": [],
-        "submit_checklist": [
-          "server.json / publisher metadata",
-          "mcp-publisher publish"
-        ],
-        "materials": [
-          {
-            "item": "server.json / publisher metadata",
-            "status": "manual_or_external"
-          },
-          {
-            "item": "mcp-publisher publish",
-            "status": "manual_or_external"
-          }
-        ],
-        "priority": "needs_partner_outreach",
-        "stale": false,
-        "manual_submit_only": true
-      },
-      {
         "id": "smithery",
         "product": "Smithery",
         "region": "global",
@@ -1417,6 +1373,59 @@
         ],
         "submit_checklist": [],
         "materials": [],
+        "priority": "listed",
+        "stale": false,
+        "manual_submit_only": true
+      },
+      {
+        "id": "mcp-official-registry",
+        "product": "Official MCP Registry",
+        "region": "global",
+        "channel_type": "mcp_registry_or_aggregator",
+        "listing_statuses": {
+          "official_curated": "not_applicable",
+          "community_directory": "not_applicable",
+          "self_marketplace": "not_applicable",
+          "native_connector_or_builtin": "not_applicable",
+          "open_plugin_spec": "not_applicable",
+          "mcp_or_skill_registry": "listed",
+          "docs_only": "listed"
+        },
+        "eligibility": "mcp_publisher_cli",
+        "blockers": [],
+        "evidence_links": [
+          "https://registry.modelcontextprotocol.io/v0/servers?search=cloudbase",
+          "https://github.com/TencentCloudBase/CloudBase-AI-Toolkit"
+        ],
+        "submit_url_or_process": "Publish via mcp-publisher CLI to registry.modelcontextprotocol.io; aggregators may ingest afterward.\nStatus 2026-08-17: listed as io.github.TencentCloudBase/cloudbase-mcp v2.27.0 (hosted remotes).\nnpm packages[] will attach on the next npm release after mcpName ships in @cloudbase/cloudbase-mcp.\n",
+        "recommended_install_path": "mcp/server.json",
+        "last_reviewed_at": "2026-08-17",
+        "owner": "cloudbase-ai-toolkit",
+        "local_evidence": [
+          {
+            "id": "mcp_registry_server_json",
+            "status": "present",
+            "detail": "mcp/server.json matches npm mcpName io.github.TencentCloudBase/cloudbase-mcp",
+            "paths": [
+              "mcp/server.json",
+              "mcp/package.json"
+            ]
+          }
+        ],
+        "submit_checklist": [
+          "server.json / publisher metadata",
+          "mcp-publisher publish"
+        ],
+        "materials": [
+          {
+            "item": "server.json / publisher metadata",
+            "status": "repo_ready_or_external"
+          },
+          {
+            "item": "mcp-publisher publish",
+            "status": "repo_ready_or_external"
+          }
+        ],
         "priority": "listed",
         "stale": false,
         "manual_submit_only": true
@@ -3246,21 +3255,30 @@
         "self_marketplace": "not_applicable",
         "native_connector_or_builtin": "not_applicable",
         "open_plugin_spec": "not_applicable",
-        "mcp_or_skill_registry": "unknown",
-        "docs_only": "unknown"
+        "mcp_or_skill_registry": "listed",
+        "docs_only": "listed"
       },
       "eligibility": "mcp_publisher_cli",
-      "blockers": [
-        "Confirm whether @cloudbase/cloudbase-mcp is already published to official registry"
-      ],
+      "blockers": [],
       "evidence_links": [
-        "https://registry.modelcontextprotocol.io"
+        "https://registry.modelcontextprotocol.io/v0/servers?search=cloudbase",
+        "https://github.com/TencentCloudBase/CloudBase-AI-Toolkit"
       ],
-      "submit_url_or_process": "Publish via mcp-publisher CLI to registry.modelcontextprotocol.io; aggregators may ingest afterward.\n",
-      "recommended_install_path": null,
-      "last_reviewed_at": "2026-07-27",
+      "submit_url_or_process": "Publish via mcp-publisher CLI to registry.modelcontextprotocol.io; aggregators may ingest afterward.\nStatus 2026-08-17: listed as io.github.TencentCloudBase/cloudbase-mcp v2.27.0 (hosted remotes).\nnpm packages[] will attach on the next npm release after mcpName ships in @cloudbase/cloudbase-mcp.\n",
+      "recommended_install_path": "mcp/server.json",
+      "last_reviewed_at": "2026-08-17",
       "owner": "cloudbase-ai-toolkit",
-      "local_evidence": [],
+      "local_evidence": [
+        {
+          "id": "mcp_registry_server_json",
+          "status": "present",
+          "detail": "mcp/server.json matches npm mcpName io.github.TencentCloudBase/cloudbase-mcp",
+          "paths": [
+            "mcp/server.json",
+            "mcp/package.json"
+          ]
+        }
+      ],
       "submit_checklist": [
         "server.json / publisher metadata",
         "mcp-publisher publish"
@@ -3268,14 +3286,14 @@
       "materials": [
         {
           "item": "server.json / publisher metadata",
-          "status": "manual_or_external"
+          "status": "repo_ready_or_external"
         },
         {
           "item": "mcp-publisher publish",
-          "status": "manual_or_external"
+          "status": "repo_ready_or_external"
         }
       ],
-      "priority": "needs_partner_outreach",
+      "priority": "listed",
       "stale": false,
       "manual_submit_only": true
     },

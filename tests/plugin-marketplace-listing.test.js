@@ -157,6 +157,26 @@ describe("plugin marketplace priority + CLI", () => {
     expect(fs.readFileSync(written.mdPath, "utf8")).toContain("ready_to_submit");
   });
 
+  test("official MCP registry server.json matches npm mcpName and package id", () => {
+    const server = JSON.parse(
+      fs.readFileSync(path.join(ROOT_DIR, "mcp/server.json"), "utf8"),
+    );
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(ROOT_DIR, "mcp/package.json"), "utf8"),
+    );
+    expect(server.name).toBe("io.github.TencentCloudBase/cloudbase-mcp");
+    expect(pkg.mcpName).toBe(server.name);
+    expect(pkg.name).toBe("@cloudbase/cloudbase-mcp");
+    expect(server.description.length).toBeLessThanOrEqual(100);
+    const npmPkg = server.packages.find((item) => item.registryType === "npm");
+    expect(npmPkg.identifier).toBe("@cloudbase/cloudbase-mcp");
+    expect(npmPkg.transport.type).toBe("stdio");
+    // Local stdio install uses interactive login; do not declare env vars that
+    // make clients treat credentials/envId as install prerequisites.
+    expect(npmPkg.environmentVariables).toBeUndefined();
+    expect(server.repository.subfolder).toBe("mcp");
+  });
+
   test("CLI offline mode exits 0", () => {
     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "pm-cli-"));
     const result = spawnSync(
