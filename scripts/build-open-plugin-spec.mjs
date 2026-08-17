@@ -55,14 +55,6 @@ const PLUGINS = [
     marketplaceDescription:
       "Create, preview, save, deploy, inspect, and roll back Vite web apps hosted on Tencent CloudBase.",
   },
-  // Marketplace listing only (no MCP server / skills pack to regenerate).
-  {
-    name: "workbuddy-template-prewarm",
-    dir: path.join(ROOT_DIR, "plugin", "workbuddy-template-prewarm"),
-    marketplaceDescription:
-      "SessionStart prewarm + Sites-aligned preview during WorkBuddy credential wait. Stacks with teamai hooks.",
-    marketplaceOnly: true,
-  },
 ];
 
 function readJson(p) {
