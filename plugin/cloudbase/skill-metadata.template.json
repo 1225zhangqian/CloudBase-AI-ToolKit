@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "comment": "Template for a new plugin skill matching entry. Copy the object under skills into plugin/cloudbase/skill-metadata.json. The key MUST equal the directory name plugin/cloudbase/skills/<dir>. Then run npm run build:skill-manifest.",
+  "comment": "REQUIRED when landing a new plugin skill (e.g. cloudbase-perf-review). Copy the object under skills into plugin/cloudbase/skill-metadata.json. The key MUST equal the directory name plugin/cloudbase/skills/<dir>. Then run npm run build:skill-manifest (CLI fails if the entry is missing). Do not rely on SKILL.md frontmatter — sync overwrites it.",
   "skills": {
     "your-skill-dir-name": {
       "priority": 5,

@@ -147,11 +147,31 @@ function isCliEntry() {
   }
 }
 
+export function formatMissingMetadataError(missingDirs, metadataPath = defaultMetadataPath) {
+  const listed = missingDirs.map((name) => `  - ${name}`).join("\n");
+  return (
+    `✗ ${missingDirs.length} skill(s) missing promptSignals in skill-metadata.json (${metadataPath}):\n` +
+      `${listed}\n` +
+      `When landing a new plugin skill, copy plugin/cloudbase/skill-metadata.template.json ` +
+      `into skill-metadata.json using the skills/<dir> name as the key, then re-run ` +
+      `npm run build:skill-manifest.`
+  );
+}
+
+/**
+ * Build skill-manifest.json.
+ *
+ * @param {object} [options]
+ * @param {boolean} [options.requireMetadata] When true (CLI default), fail if any
+ *   non-deprecated skill lacks a skill-metadata.json entry with promptSignals.phrases.
+ *   Pass false for unit tests that intentionally exercise frontmatter/previous fallbacks.
+ */
 export function buildManifest(options = {}) {
   const skillsDir = options.skillsDir || defaultSkillsDir;
   const outputPath = options.outputPath || defaultOutputPath;
   const metadataPath = options.metadataPath || defaultMetadataPath;
   const quiet = options.quiet === true;
+  const requireMetadata = options.requireMetadata === true;
 
   if (!existsSync(skillsDir)) {
     console.error(`Skills directory not found: ${skillsDir}`);
@@ -171,6 +191,7 @@ export function buildManifest(options = {}) {
       ? options.previousSkills
       : loadPreviousSkills(outputPath);
   const skills = {};
+  const missingMetadataDirs = [];
   let skippedDeprecated = 0;
   let entry;
   try {
@@ -199,6 +220,10 @@ export function buildManifest(options = {}) {
     const metaEntry = findNamedEntry(metadataTable, dir.name, skillName);
     const previous = findPreviousSkill(previousSkills, dir.name, skillName);
 
+    if (!hasPromptPhrases(metaEntry?.promptSignals)) {
+      missingMetadataDirs.push(dir.name);
+    }
+
     const promptSignals = pickPromptSignals(metaEntry, frontmatter, previous);
     const retrieval = pickRetrieval(metaEntry, frontmatter, previous);
     const priority = pickPriority(metaEntry, metadata, previous);
@@ -216,6 +241,17 @@ export function buildManifest(options = {}) {
       pathRegexSources: pathPatterns.map(globToRegexSource),
       bashPatterns: bashPatterns,
     };
+  }
+
+  if (requireMetadata && missingMetadataDirs.length > 0) {
+    const message = formatMissingMetadataError(missingMetadataDirs.sort(), metadataPath);
+    if (!quiet) {
+      console.error(message);
+    }
+    const err = new Error(message);
+    err.code = "MISSING_SKILL_METADATA";
+    err.missingDirs = missingMetadataDirs;
+    throw err;
   }
 
   const manifest = {
@@ -253,5 +289,12 @@ export function buildManifest(options = {}) {
 }
 
 if (isCliEntry()) {
-  buildManifest();
+  try {
+    buildManifest({ requireMetadata: true });
+  } catch (error) {
+    if (error?.code === "MISSING_SKILL_METADATA") {
+      process.exit(1);
+    }
+    throw error;
+  }
 }

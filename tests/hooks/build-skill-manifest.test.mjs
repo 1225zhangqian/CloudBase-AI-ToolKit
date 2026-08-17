@@ -17,6 +17,7 @@ import { tmpdir } from "os";
 import { fileURLToPath } from "url";
 import {
   buildManifest,
+  formatMissingMetadataError,
   loadSkillMetadata,
   SKILL_METADATA_PATH,
 } from "../../scripts/build-skill-manifest.mjs";
@@ -179,6 +180,61 @@ describe("skill-metadata.json", () => {
     expect(Array.isArray(sample.retrieval.aliases)).toBe(true);
     expect(typeof sample.priority).toBe("number");
   });
+
+  it("fails closed when a newly landed skill has no skill-metadata entry", () => {
+    const tmp = makeTempDir();
+    const skillsDir = join(tmp, "skills");
+    const metadataPath = join(tmp, "skill-metadata.json");
+    const outputPath = join(tmp, "generated", "skill-manifest.json");
+
+    writeSkill(skillsDir, "existing-skill", [
+      "name: existing-skill",
+      "description: already registered",
+    ].join("\n"));
+    writeSkill(skillsDir, "cloudbase-perf-review", [
+      "name: cloudbase-perf-review",
+      "description: new skill without metadata yet",
+    ].join("\n"));
+    writeMetadata(metadataPath, {
+      "existing-skill": {
+        priority: 5,
+        promptSignals: { phrases: ["existing"], minScore: 6 },
+        retrieval: { aliases: ["existing"], intents: [], entities: [], examples: [] },
+      },
+    });
+
+    expect(() =>
+      buildManifest({
+        skillsDir,
+        metadataPath,
+        outputPath,
+        previousSkills: {},
+        requireMetadata: true,
+        quiet: true,
+      }),
+    ).toThrow(/cloudbase-perf-review/);
+
+    let caught;
+    try {
+      buildManifest({
+        skillsDir,
+        metadataPath,
+        outputPath,
+        previousSkills: {},
+        requireMetadata: true,
+        quiet: true,
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeDefined();
+    expect(caught.code).toBe("MISSING_SKILL_METADATA");
+    expect(caught.missingDirs).toEqual(["cloudbase-perf-review"]);
+    expect(caught.message).toBe(
+      formatMissingMetadataError(["cloudbase-perf-review"], metadataPath),
+    );
+    expect(existsSync(outputPath)).toBe(false);
+  });
 });
 
 describe("build-skill-manifest.mjs script", () => {
@@ -196,6 +252,7 @@ describe("build-skill-manifest.mjs script", () => {
     const manifest = buildManifest({
       outputPath,
       previousSkills: {},
+      requireMetadata: true,
       quiet: true,
     });
 
