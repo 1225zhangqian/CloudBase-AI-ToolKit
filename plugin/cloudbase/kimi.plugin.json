@@ -1,0 +1,56 @@
+{
+  "$schema": "https://kimi.com/schemas/kimi.plugin.schema.json",
+  "name": "cloudbase",
+  "version": "0.2.0",
+  "description": "Tencent CloudBase — AI models, authentication, NoSQL/PostgreSQL databases, cloud functions, cloud storage, CloudRun backend services, and WeChat Mini Program integration. Powered by cloudbase-mcp.",
+  "keywords": [
+    "cloudbase",
+    "tencent-cloud",
+    "baas",
+    "kimi-code",
+    "database",
+    "cloud-function",
+    "storage",
+    "cloudrun",
+    "auth",
+    "hosting"
+  ],
+  "author": "Tencent CloudBase",
+  "homepage": "https://github.com/TencentCloudBase/CloudBase-AI-Toolkit",
+  "license": "MIT",
+  "interface": {
+    "displayName": "Tencent CloudBase",
+    "shortDescription": "CloudBase databases, functions, storage, CloudRun, Auth, and hosting from Kimi",
+    "longDescription": "Installs CloudBase as a native Kimi Code plugin, reusing the same skills, hooks, and MCP server as the Claude Code / CodeBuddy / Cursor plugins.\n\nWhat you can do after install:\n- Databases: query and manage PostgreSQL, MySQL, and NoSQL / data models\n- Cloud functions: list, deploy, invoke, and inspect logs\n- Cloud storage: upload, list, and manage objects\n- CloudRun: inspect and manage container / function-mode services\n- Auth: environment login and app auth providers\n- Hosting: deploy and preview static Web apps\n\nCredentials: run `tcb login` (Tencent Cloud device code) or `tcb login --cloudbase-api-key <key> -e <envId>`.\n\nAfter `/plugins install`, start a new session. Then try:\n- 登录云开发\n- 列出当前环境的云函数\n- 查一下 PostgreSQL 里有哪些表\n- 列出云存储根目录和 CloudRun 服务\n- 部署静态托管",
+    "developerName": "Tencent CloudBase",
+    "websiteURL": "https://cloudbase.net",
+    "iconUrl": "https://raw.githubusercontent.com/TencentCloudBase/CloudBase-AI-Toolkit/main/plugin/cloudbase/assets/logo.png"
+  },
+  "skills": "./skills/",
+  "sessionStart": {
+    "skill": "cloudbase"
+  },
+  "skillInstructions": "CloudBase credentials come from `tcb login` (or a CloudBase API Key). Prefer this plugin's MCP tools. If MCP is missing in this session, run `tcb` now and configure MCP for the next session. Fetch domain skills on demand via the routing skill (searchKnowledgeBase mode=skill).",
+  "mcpServers": {
+    "cloudbase": {
+      "command": "npx",
+      "args": ["-y", "@cloudbase/cloudbase-mcp@latest"],
+      "env": {
+        "INTEGRATION_IDE": "Kimi Code"
+      }
+    }
+  },
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matcher": "Edit|Write|WriteFile|MultiEdit|apply_patch|Bash|Shell",
+      "command": "node ./hooks/pretooluse-skill-inject.mjs",
+      "timeout": 10
+    },
+    {
+      "event": "UserPromptSubmit",
+      "command": "node ./hooks/user-prompt-submit-skill-inject.mjs",
+      "timeout": 10
+    }
+  ]
+}
