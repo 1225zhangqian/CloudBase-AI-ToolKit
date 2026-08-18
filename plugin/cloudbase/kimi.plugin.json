@@ -30,7 +30,7 @@
   "sessionStart": {
     "skill": "cloudbase"
   },
-  "skillInstructions": "`tcb login` uses Tencent Cloud device-code flow — no long-lived API keys are accepted. Prefer this plugin's MCP tools; if MCP is missing in this session, run `tcb now` to configure it for the next session. Domain knowledge is fetched on demand via the routing skill (searchKnowledgeBase mode=skill).",
+  "skillInstructions": "Log in via the plugin's MCP `auth` tool (device-code flow) — no long-lived API keys are accepted. Prefer this plugin's MCP tools for all CloudBase operations. Domain knowledge is fetched on demand via the routing skill (searchKnowledgeBase mode=skill).",
   "mcpServers": {
     "cloudbase": {
       "command": "npx",
