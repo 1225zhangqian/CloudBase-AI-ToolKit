@@ -20,8 +20,8 @@
   "license": "MIT",
   "interface": {
     "displayName": "Tencent CloudBase",
-    "shortDescription": "Manage Tencent CloudBase apps, databases, functions, storage, CloudRun, Auth, and hosting from Kimi",
-    "longDescription": "Manage and deploy your Tencent CloudBase (腾讯云开发) projects directly from Kimi Code — no need to switch tools for database queries, function deployment, storage management, or static hosting.\n\nWhat you can do after install:\n- Databases: query and manage PostgreSQL, MySQL, and NoSQL / data models\n- Cloud functions: list, deploy, invoke, and inspect logs\n- Cloud storage: upload, list, and manage objects\n- CloudRun: inspect and manage container / function-mode services\n- Auth: environment login and app auth providers\n- Hosting: deploy and preview static Web apps\n\nTypical scenarios:\n- 开发调试：从 Kimi 直接查数据库、看日志、调函数\n- 部署运维：云函数 / CloudRun 上线与状态巡检\n- 全栈搭建：后端 + 数据库 + 静态托管一站完成\n\nPermissions & privacy:\n- Credentials come from `tcb login` (Tencent Cloud device code) or `tcb login --cloudbase-api-key <key> -e <envId>` — no long-lived keys are stored by the plugin.\n- Destructive operations (create / modify / delete / deploy) always ask for your confirmation first.\n- The plugin only accesses CloudBase environments you explicitly log into.\n\nAfter `/plugins install`, start a new session. Then try:\n- 登录云开发\n- 列出当前环境的云函数\n- 查一下 PostgreSQL 里有哪些表\n- 列出云存储根目录和 CloudRun 服务\n- 部署静态托管",
+    "shortDescription": "Build, deploy, and manage CloudBase apps",
+    "longDescription": "CloudBase 官方 Kimi 插件。提供 cloudbase-mcp 工具调用与 routing skill，让你从 Kimi 直接开发、部署、运维 CloudBase 应用。\n\nTry with prompts like:\n- CloudBase 帮我搭一个带用户登录、数据库和管理后台的 Web 应用并部署\n- CloudBase 列出环境里所有 CloudRun 服务和最近 1 小时云函数报错\n- CloudBase 用 CloudBase PG 建一张用户表并启用 RLS 安全规则",
     "developerName": "Tencent CloudBase",
     "websiteURL": "https://cloudbase.net",
     "iconUrl": "https://raw.githubusercontent.com/TencentCloudBase/CloudBase-AI-Toolkit/main/plugin/cloudbase/assets/logo.png"
@@ -30,7 +30,7 @@
   "sessionStart": {
     "skill": "cloudbase"
   },
-  "skillInstructions": "CloudBase credentials come from `tcb login` (or a CloudBase API Key). Prefer this plugin's MCP tools. If MCP is missing in this session, run `tcb` now and configure MCP for the next session. Fetch domain skills on demand via the routing skill (searchKnowledgeBase mode=skill).",
+  "skillInstructions": "`tcb login` uses Tencent Cloud device-code flow — no long-lived API keys are accepted. Prefer this plugin's MCP tools; if MCP is missing in this session, run `tcb now` to configure it for the next session. Domain knowledge is fetched on demand via the routing skill (searchKnowledgeBase mode=skill).",
   "mcpServers": {
     "cloudbase": {
       "command": "npx",
