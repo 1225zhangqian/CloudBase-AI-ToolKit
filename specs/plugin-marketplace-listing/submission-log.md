@@ -149,13 +149,15 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 
 | Field | Value |
 |-------|-------|
-| Status | **PR open** — awaiting maintainer merge |
+| Status | **PR open** — awaiting maintainer merge (poll 2026-08-18: still not listed) |
 | PR | https://github.com/composio-community/awesome-claude-plugins/pull/424 |
 | Upstream | https://github.com/composio-community/awesome-claude-plugins (alias ComposioHQ/…) |
 | Fork / branch | `binggg/awesome-claude-plugins` `add-cloudbase-plugin` @ `5757135` |
 | Listing | README `### Integrations` → CloudBase → CloudBase-AI-Toolkit + [Setup](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/claude) |
 | Submitted at | 2026-08-17 |
-| CI / review | `mergeable: true`, `mergeable_state: clean`; no required checks / no maintainer comments yet |
+| Last polled | 2026-08-18 |
+| CI / review | `state: OPEN`, `mergeable: MERGEABLE`, `mergeStateStatus: CLEAN`; no required checks; no reviews/comments |
+| Upstream README | `master` Integrations still **no CloudBase** (only connect-apps + kaggle-skill) |
 | Out of scope | Does **not** replace Claude Community form or awesome-claude-code Issue; DSH covered by other task |
 
 ### How to check progress (Composio awesome-claude-plugins)
@@ -170,6 +172,14 @@ When live: set `markets.yaml` `listing_statuses.official_curated: listed`, check
 - Verified contribution pattern from merged PRs #304 / #306: README-only external link (no vendored plugin folder; `marketplace.json` is in-repo only).
 - Added restrained Integrations bullet linking `TencentCloudBase/CloudBase-AI-Toolkit` and official Claude setup docs.
 - PR mergeable/clean at open; no bot feedback yet.
+
+### 2026-08-18 — Poll #424: still OPEN, not listed
+
+- `gh pr view`: OPEN, MERGEABLE, CLEAN; `mergedAt` null; `statusCheckRollup` empty; reviews/comments empty.
+- Confirmed upstream `master` README `### Integrations` does not include CloudBase.
+- No CI/maintainer feedback to act on. Did not ping (PR age ~1 day; peer listings #304/#306 waited ~5 weeks).
+- `markets.yaml` stays `community_directory: submittable`; blocker kept; `last_reviewed_at` bumped to 2026-08-18.
+- Did **not** flip listed. Does not replace Claude Community form / DSH.
 
 ## Trae community MCP list
 

@@ -1,6 +1,6 @@
 # CloudBase Plugin Marketplace Analysis
 
-Generated: 2026-08-17T15:02:51.341Z
+Generated: 2026-08-18T00:16:06.837Z
 
 > This report does not auto-submit to any marketplace. All submissions are manual.
 
@@ -256,7 +256,7 @@ Evidence:
 - Region: global
 - Channel: `community_plugin_directory`
 - Eligibility: `public_github_pr_required`
-- Last reviewed: 2026-08-17
+- Last reviewed: 2026-08-18
 - Manual submit only: yes
 
 Statuses:
@@ -290,8 +290,9 @@ Process:
 ```
 Open a README PR to composio-community/awesome-claude-plugins (Integrations section).
 External plugins are listed as GitHub links (same pattern as kaggle-skill / taisly).
-Status 2026-08-17: PR opened https://github.com/composio-community/awesome-claude-plugins/pull/424
-(fork binggg/awesome-claude-plugins branch add-cloudbase-plugin). Awaiting merge.
+Status 2026-08-18: PR https://github.com/composio-community/awesome-claude-plugins/pull/424
+still OPEN (MERGEABLE/CLEAN). No CI, no maintainer comments. Upstream README
+Integrations does not yet list CloudBase — do not flip to listed until merge.
 ```
 
 Evidence:

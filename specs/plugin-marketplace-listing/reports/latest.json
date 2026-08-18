@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-17T15:02:51.341Z",
+  "generated_at": "2026-08-18T00:16:06.837Z",
   "matrix_version": 1,
   "reviewed_stale_days": 90,
   "total_markets": 43,
@@ -402,9 +402,9 @@
           "https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/claude",
           "https://github.com/TencentCloudBase/CloudBase-AI-Toolkit"
         ],
-        "submit_url_or_process": "Open a README PR to composio-community/awesome-claude-plugins (Integrations section).\nExternal plugins are listed as GitHub links (same pattern as kaggle-skill / taisly).\nStatus 2026-08-17: PR opened https://github.com/composio-community/awesome-claude-plugins/pull/424\n(fork binggg/awesome-claude-plugins branch add-cloudbase-plugin). Awaiting merge.\n",
+        "submit_url_or_process": "Open a README PR to composio-community/awesome-claude-plugins (Integrations section).\nExternal plugins are listed as GitHub links (same pattern as kaggle-skill / taisly).\nStatus 2026-08-18: PR https://github.com/composio-community/awesome-claude-plugins/pull/424\nstill OPEN (MERGEABLE/CLEAN). No CI, no maintainer comments. Upstream README\nIntegrations does not yet list CloudBase — do not flip to listed until merge.\n",
         "recommended_install_path": "doc/ide-setup/claude-code.mdx",
-        "last_reviewed_at": "2026-08-17",
+        "last_reviewed_at": "2026-08-18",
         "owner": "cloudbase-ai-toolkit",
         "local_evidence": [
           {
@@ -2139,9 +2139,9 @@
         "https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/claude",
         "https://github.com/TencentCloudBase/CloudBase-AI-Toolkit"
       ],
-      "submit_url_or_process": "Open a README PR to composio-community/awesome-claude-plugins (Integrations section).\nExternal plugins are listed as GitHub links (same pattern as kaggle-skill / taisly).\nStatus 2026-08-17: PR opened https://github.com/composio-community/awesome-claude-plugins/pull/424\n(fork binggg/awesome-claude-plugins branch add-cloudbase-plugin). Awaiting merge.\n",
+      "submit_url_or_process": "Open a README PR to composio-community/awesome-claude-plugins (Integrations section).\nExternal plugins are listed as GitHub links (same pattern as kaggle-skill / taisly).\nStatus 2026-08-18: PR https://github.com/composio-community/awesome-claude-plugins/pull/424\nstill OPEN (MERGEABLE/CLEAN). No CI, no maintainer comments. Upstream README\nIntegrations does not yet list CloudBase — do not flip to listed until merge.\n",
       "recommended_install_path": "doc/ide-setup/claude-code.mdx",
-      "last_reviewed_at": "2026-08-17",
+      "last_reviewed_at": "2026-08-18",
       "owner": "cloudbase-ai-toolkit",
       "local_evidence": [
         {
