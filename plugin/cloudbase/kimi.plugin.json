@@ -40,17 +40,5 @@
       }
     }
   },
-  "hooks": [
-    {
-      "event": "PreToolUse",
-      "matcher": "Edit|Write|WriteFile|MultiEdit|apply_patch|Bash|Shell",
-      "command": "node ./hooks/pretooluse-skill-inject.mjs",
-      "timeout": 10
-    },
-    {
-      "event": "UserPromptSubmit",
-      "command": "node ./hooks/user-prompt-submit-skill-inject.mjs",
-      "timeout": 10
-    }
-  ]
+  "hooks": []
 }
