@@ -1503,7 +1503,10 @@
           "前端项目",
           "集成 cloudbase",
           "web 应用",
-          "前端集成"
+          "前端集成",
+          "前端 react",
+          "react 前端",
+          "全栈应用"
         ],
         "allOf": [
           [
@@ -1541,7 +1544,9 @@
           "前端开发",
           "前端集成",
           "搭建 web 应用",
-          "前端集成 cloudbase"
+          "前端集成 cloudbase",
+          "构建全栈应用",
+          "react 前端"
         ],
         "entities": [
           "React",
@@ -1553,7 +1558,8 @@
         "examples": [
           "react 开发",
           "vue 项目",
-          "vite 前端"
+          "vite 前端",
+          "前端 React 全栈应用"
         ]
       }
     }

@@ -51,7 +51,7 @@
 {"prompt": "部署一下", "expectedSkills": [], "category": "boundary", "note": "边界：过于简短，无上下文"}
 {"prompt": "帮我看看", "expectedSkills": [], "category": "negative", "note": "负例：过于简短"}
 {"prompt": "怎么用", "expectedSkills": [], "category": "negative", "note": "负例：过于简短"}
-{"prompt": "构建一个全栈应用，前端 React 后端云函数数据库 NoSQL 都要", "expectedSkills": ["web-development", "cloud-functions", "no-sql-web-sdk"], "category": "fullstack", "note": "正例：多 skill 场景"}
+{"prompt": "构建一个全栈应用，前端 React 后端云函数数据库 NoSQL 都要", "expectedSkills": ["web-development", "cloud-functions", "no-sql-web-sdk"], "category": "fullstack", "note": "正例：显式 React 前端 + 云函数 + NoSQL，应注入 web-development；与 minimal-web-baas-demo（最小前后端 / 最小可用 fullstack）区分"}
 {"prompt": "我要在小程序里集成 AI 对话和云存储", "expectedSkills": ["ai-model-wechat", "cloud-storage-web", "miniprogram-development"], "category": "fullstack", "note": "正例：多 skill 场景"}
 {"prompt": "Node.js 后端调用 Hunyuan 大模型生成图片", "expectedSkills": ["ai-model-nodejs"], "category": "ai-model", "note": "正例：Node.js AI 图片生成"}
 {"prompt": "浏览器端调用 DeepSeek 流式输出", "expectedSkills": ["ai-model-web"], "category": "ai-model", "note": "正例：Web AI 流式"}

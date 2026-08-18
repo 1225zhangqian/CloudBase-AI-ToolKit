@@ -264,6 +264,8 @@ describe("build-skill-manifest.mjs script", () => {
       ).toBeGreaterThan(0);
     }
     expect(manifest.skills["minimal-web-baas-demo"].promptSignals.phrases).toContain("最小前后端");
+    expect(manifest.skills["web-development"].promptSignals.phrases).toContain("前端 react");
+    expect(manifest.skills["web-development"].promptSignals.phrases).toContain("全栈应用");
     expect(manifest.skills["ui-design"].metadata.priority).toBe(9);
   });
 
