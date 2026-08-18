@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file. Follow the 
 
 ## Unreleased
 
+## [2.28.1](https://github.com/TencentCloudBase/CloudBase-AI-Toolkit/compare/v2.28.0...v2.28.1) (2026-08-18)
+
+### Bug Fixes
+
+* **cloudrun**: set `CreateCloudRunEnv` `EnvType` to `baas` so Cloud Run environment creation matches the current platform contract
+* **functions**: wait with a bounded timeout when SCF reports `Updating`, and type `waitUntilFunctionActive` status as string so deploy/update does not fail mid-transition
+
 ## [2.28.0](https://github.com/TencentCloudBase/CloudBase-AI-Toolkit/compare/v2.27.0...v2.28.0) (2026-08-18)
 
 ### Features
