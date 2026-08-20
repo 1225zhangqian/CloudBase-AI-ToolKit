@@ -2,13 +2,19 @@
 /**
  * Pack plugin/cloudbase as a Kimi Code / Kimi Work plugin zip.
  *
- * Zip root contains `kimi.plugin.json` (Open Plugin Spec style manifest),
- * skills, MCP config, agents, commands, hooks — the same layout Qoder packs.
+ * Whitelist-only: archive contains ONLY what the Kimi plugin needs —
+ *   - kimi.plugin.json  (Open Plugin Spec style manifest)
+ *   - skills/           (CloudBase knowledge base: routing skill + sibling skills)
+ *   - assets/           (icons referenced by skills, e.g. ui-design)
+ * Everything else (agents/, hooks/, commands/, .claude-plugin/,
+ * gemini-extension.json, etc.) is IDE-specific and excluded.
+ *
+ * Output name is version-free: dist/cloudbase-kimi.zip (release tag carries
+ * the version, so a stable asset name keeps zip-url stable across releases).
  *
  * Usage:
  *   node scripts/pack-kimi-plugin.mjs
  *   node scripts/pack-kimi-plugin.mjs --out /tmp/cloudbase-kimi.zip
- *   node scripts/pack-kimi-plugin.mjs --version 0.2.0   # override manifest version
  *
  * Release flow (CI): .github/workflows/release-plugin-zips.yml packs this zip
  * on `release: published` and uploads it to the release assets.
@@ -24,17 +30,18 @@ const ROOT = path.resolve(__dirname, "..");
 const PLUGIN_DIR = path.join(ROOT, "plugin", "cloudbase");
 const MANIFEST_PATH = path.join(PLUGIN_DIR, "kimi.plugin.json");
 
+// Whitelist of archive entries (relative to PLUGIN_DIR) — only Kimi needs.
+const INCLUDE = ["kimi.plugin.json", "skills", "assets"];
+const DEFAULT_OUT_NAME = "cloudbase-kimi.zip";
+
 function parseArgs(argv = process.argv.slice(2)) {
-  const args = { out: null, version: null };
+  const args = { out: null };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--") continue;
     if (a === "--out") {
       args.out = argv[++i];
       if (!args.out) throw new Error("--out requires a path");
-    } else if (a === "--version") {
-      args.version = argv[++i];
-      if (!args.version) throw new Error("--version requires a value");
     } else if (a === "--help" || a === "-h") args.help = true;
     else throw new Error(`Unknown argument: ${a}`);
   }
@@ -42,14 +49,9 @@ function parseArgs(argv = process.argv.slice(2)) {
 }
 
 function assertReady() {
-  const required = [
-    MANIFEST_PATH,
-    path.join(PLUGIN_DIR, ".mcp.json"),
-    path.join(PLUGIN_DIR, "skills"),
-  ];
-  for (const p of required) {
-    if (!fs.existsSync(p)) {
-      throw new Error(`Missing required path for Kimi pack: ${p}`);
+  for (const entry of INCLUDE) {
+    if (!fs.existsSync(path.join(PLUGIN_DIR, entry))) {
+      throw new Error(`Missing required path for Kimi pack: ${entry}`);
     }
   }
 }
@@ -59,10 +61,11 @@ function main() {
   if (args.help) {
     console.log(`Pack CloudBase plugin for Kimi Code / Kimi Work.
 
+Only ${INCLUDE.join(", ")} are included; IDE-specific dirs are excluded.
+
 Usage:
   node scripts/pack-kimi-plugin.mjs
   node scripts/pack-kimi-plugin.mjs --out ./dist/cloudbase-kimi.zip
-  node scripts/pack-kimi-plugin.mjs --version 0.2.0
 `);
     return;
   }
@@ -70,35 +73,22 @@ Usage:
   assertReady();
 
   const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf8"));
-  const version = args.version || manifest.version || "0.0.0";
-  const outPath =
-    args.out ||
-    path.join(ROOT, "dist", `cloudbase-kimi-v${version}.zip`);
+  const outPath = args.out || path.join(ROOT, "dist", DEFAULT_OUT_NAME);
 
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   if (fs.existsSync(outPath)) fs.rmSync(outPath);
 
   // zip from inside plugin dir so archive root is the plugin contents
-  execFileSync(
-    "zip",
-    [
-      "-r",
-      outPath,
-      ".",
-      "-x",
-      "*.DS_Store",
-      "./.git/*",
-      "./.sync-metadata.json",
-      "./generated/*",
-    ],
-    { cwd: PLUGIN_DIR, stdio: "inherit" },
-  );
+  execFileSync("zip", ["-r", outPath, ...INCLUDE, "-x", "*.DS_Store"], {
+    cwd: PLUGIN_DIR,
+    stdio: "inherit",
+  });
 
   const size = fs.statSync(outPath).size;
   console.log("");
   console.log(`Packed: ${outPath}`);
   console.log(`Size:   ${(size / 1024 / 1024).toFixed(2)} MiB`);
-  console.log(`Name:   ${manifest.name}@${version}`);
+  console.log(`Name:   ${manifest.name}@${manifest.version}`);
   console.log("");
   console.log("Next:");
   console.log("  1. Upload this zip to the GitHub release assets");
