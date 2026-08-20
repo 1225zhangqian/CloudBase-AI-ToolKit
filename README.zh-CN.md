@@ -24,18 +24,17 @@
 
 ## 最近更新
 
+**v2.30.x**（2026-08）
+
+- 环境：支持跨区域环境查询，并更清晰暴露 MCP 鉴权的 credential-scope 边界
+- 鉴权：移除冗余 `login_mode`，统一用 `credential_scope` 表达凭据边界
+- 发布：Kimi 插件 zip 改为白名单打包、无版本号的稳定资源名
+
 **v2.29.x**（2026-08）
 
 - IDE：新增 Kimi Code 插件（`kimi.plugin.json`），复用共享 CloudBase skills / MCP 资产
 - 发布：自动打包 Kimi 插件 zip，并挂到 GitHub Release 附件
 - 登录体验：Kimi 侧通过 MCP `auth` 设备码登录；routing skill 按需拉取领域知识
-
-**v2.28.x**（2026-08）
-
-- 环境：`queryEnv` 新增指标查询（`DescribeCurveData`）与资源用量查询
-- 云托管：`getProcessLog`、流量/部署记录查询、镜像部署 `next_step`、`initEnv` VPC/tcbr 修复，并屏蔽小租户创建接口
-- 注册表：`@cloudbase/cloudbase-mcp` 已发布到 Official MCP Registry
-- Skills / 运维：ops-inspector v3 告警剧本；skill-inject 元数据持久化与 React 全栈路由匹配
 
 [Releases][changelog] · [Star][github-stars-link] · Watch → Releases
 

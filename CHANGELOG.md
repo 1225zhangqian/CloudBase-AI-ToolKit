@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file. Follow the 
 
 ## Unreleased
 
+## [2.30.0](https://github.com/TencentCloudBase/CloudBase-AI-Toolkit/compare/v2.29.0...v2.30.0) (2026-08-20)
+
+### Features
+
+* **mcp**: support cross-region env query and expose credential boundary for auth/env tools
+
+### Code Refactoring
+
+* **mcp**: drop redundant `login_mode`, keep `credential_scope` as the credential boundary signal
+* **kimi**: whitelist-only plugin zip with a version-free asset name
+
 ## [2.29.0](https://github.com/TencentCloudBase/CloudBase-AI-Toolkit/compare/v2.28.1...v2.29.0) (2026-08-20)
 
 ### Features

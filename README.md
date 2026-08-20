@@ -24,18 +24,17 @@ The CloudBase integration layer for AI coding tools: Plugin installs the stack, 
 
 ## Recent updates
 
+**v2.30.x** (2026-08)
+
+- Env: cross-region environment query and clearer credential-scope boundary for MCP auth
+- Auth: drop redundant `login_mode`; keep `credential_scope` as the single credential boundary signal
+- Release: Kimi plugin zip uses a whitelist-only, version-free asset name
+
 **v2.29.x** (2026-08)
 
 - IDE: Kimi Code plugin (`kimi.plugin.json`) reuses shared CloudBase skills/MCP assets
 - Release: pack Kimi plugin zip and attach it to GitHub Release assets automatically
 - Auth UX: Kimi login via MCP `auth` device-code flow; routing skill loads domain knowledge on demand
-
-**v2.28.x** (2026-08)
-
-- Env: `queryEnv` adds metrics (`DescribeCurveData`) and resource-usage query
-- Cloud Run: `getProcessLog`, traffic/deploy-record query, image-deploy `next_step`, `initEnv` VPC/tcbr fixes, and hide small-tenant create API
-- Registry: `@cloudbase/cloudbase-mcp` published to the Official MCP Registry
-- Skills / ops: ops-inspector v3 alarm playbooks; skill-inject metadata persistence and React fullstack routing
 
 [Releases][changelog] · [Star][github-stars-link] · Watch → Releases
 
