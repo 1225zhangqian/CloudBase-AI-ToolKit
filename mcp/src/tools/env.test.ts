@@ -290,7 +290,6 @@ describe("env tools - auth", () => {
       tool: "auth",
       action: "start_auth",
     });
-    expect(payload.login_mode).toBe("account");
     expect(payload.credential_scope).toBe("account");
     expect(payload.current_region).toBeTruthy();
   });
@@ -776,7 +775,6 @@ describe("env tools - auth", () => {
       code: "ENV_READY",
       current_env_id: "alfred-test-sg-d7gxpjc7g94e84f6c",
       current_region: "ap-singapore",
-      login_mode: "account",
     });
     expect(mockEnvManagerSetEnvId).toHaveBeenCalledWith("alfred-test-sg-d7gxpjc7g94e84f6c");
     expect(server.cloudBaseOptions?.region).toBe("ap-singapore");
@@ -803,7 +801,6 @@ describe("env tools - auth", () => {
     expect(payload).toMatchObject({
       ok: false,
       code: "CREDENTIAL_SCOPE_LIMITED",
-      login_mode: "api_key",
       credential_scope: "single_env",
     });
     expect(payload.message).toContain("凭据权限边界");
@@ -1100,7 +1097,6 @@ describe("env tools - envQuery", () => {
       fields: ["EnvId", "Alias"],
       currentEnvOnly: false,
     });
-    expect(payload.login_mode).toBe("account");
     expect(payload.credential_scope).toBe("account");
   });
 

@@ -77,8 +77,8 @@ CloudBase MCP 支持两种连接方式：**本地模式**（MCP 服务在本机�
 
 | 登录方式 | `auth(status)` 字段 | 能看到什么 |
 |----------|---------------------|------------|
-| 账号级（device / web / 腾讯云 SecretId） | `login_mode=account`，`credential_scope=account` | 当前地域下账号有权的环境；其他地域需显式查询 |
-| 环境级 API Key（`CLOUDBASE_API_KEY` + `CLOUDBASE_ENV_ID`） | `login_mode=api_key`，`credential_scope=single_env` | **仅绑定的那一个 envId**，无法列出其他环境或其他地域 |
+| 账号级（device / web / 腾讯云 SecretId） | `credential_scope=account` | 当前地域下账号有权的环境；其他地域需显式查询 |
+| 环境级 API Key（`CLOUDBASE_API_KEY` + `CLOUDBASE_ENV_ID`） | `credential_scope=single_env` | **仅绑定的那一个 envId**，无法列出其他环境或其他地域 |
 
 跨地域查询（仅账号级凭据）：
 
