@@ -24,20 +24,18 @@ The CloudBase integration layer for AI coding tools: Plugin installs the stack, 
 
 ## Recent updates
 
+**v2.29.x** (2026-08)
+
+- IDE: Kimi Code plugin (`kimi.plugin.json`) reuses shared CloudBase skills/MCP assets
+- Release: pack Kimi plugin zip and attach it to GitHub Release assets automatically
+- Auth UX: Kimi login via MCP `auth` device-code flow; routing skill loads domain knowledge on demand
+
 **v2.28.x** (2026-08)
 
 - Env: `queryEnv` adds metrics (`DescribeCurveData`) and resource-usage query
 - Cloud Run: `getProcessLog`, traffic/deploy-record query, image-deploy `next_step`, `initEnv` VPC/tcbr fixes, and hide small-tenant create API
 - Registry: `@cloudbase/cloudbase-mcp` published to the Official MCP Registry
 - Skills / ops: ops-inspector v3 alarm playbooks; skill-inject metadata persistence and React fullstack routing
-
-**v2.27.x** (2026-08)
-
-- Tools: `downloadRemoteFile` removed (high error rate) — download remote assets with shell `curl` / `Invoke-WebRequest` instead (#908, #909)
-- Cloud Run: `manageCloudRun` unifies tcbr init-check + deploy and drops legacy tcb cloudrun APIs; app deployment skips `target/.next` to avoid oversized zips
-- Skills: mini program SEO / search-optimization guidance merged into `miniprogram-development` (#906)
-- Gateway / hosting: route-level enable support with disabled access URL detection; hosting skips deploy notifications when `accessUrl` is empty
-- Docs: simplified quick start with externalized images (#905), `--cloudbase-api-key` CLI login, and CodeBuddy plugin marketplace install guide
 
 [Releases][changelog] · [Star][github-stars-link] · Watch → Releases
 

@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file. Follow the 
 
 ## Unreleased
 
+## [2.29.0](https://github.com/TencentCloudBase/CloudBase-AI-Toolkit/compare/v2.28.1...v2.29.0) (2026-08-20)
+
+### Features
+
+* **kimi**: add Kimi Code plugin manifest reusing shared CloudBase skills and MCP assets
+* **kimi**: pack Kimi plugin zip and attach it to GitHub Release assets on publish
+
+### Bug Fixes
+
+* **kimi**: align manifest with Kimi official docs (`INTEGRATION_IDE=Kimi`), pin MCP package version, and drop unsupported skill-inject hooks
+* **kimi**: load a single routing skill via `searchKnowledgeBase` instead of shipping 29 skills
+* **kimi**: prefer MCP `auth` device-code login and remove tcb CLI from skillInstructions
+
+### Documentation
+
+* **kimi**: rewrite plugin interface copy for scenarios and permissions; align with Vercel/Supabase Codex plugin patterns
+
 ## [2.28.1](https://github.com/TencentCloudBase/CloudBase-AI-Toolkit/compare/v2.28.0...v2.28.1) (2026-08-18)
 
 ### Bug Fixes
