@@ -24,6 +24,10 @@ The CloudBase integration layer for AI coding tools: Plugin installs the stack, 
 
 ## Recent updates
 
+**v2.31.x** (2026-08)
+
+- CloudRun: `getDeployLog` failures (CODING login / image deploy with no build) now rewrite to `getProcessLog` / `getDeployRecords` next steps instead of raw English errors
+
 **v2.30.x** (2026-08)
 
 - Env: cross-region environment query and clearer credential-scope boundary for MCP auth

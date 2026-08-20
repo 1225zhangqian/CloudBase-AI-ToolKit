@@ -24,6 +24,10 @@
 
 ## 最近更新
 
+**v2.31.x**（2026-08）
+
+- 云托管：`getDeployLog` 遇 CODING 未登录 / 镜像部署无构建时，改写为 `getProcessLog` / `getDeployRecords` 建议，不再暴露原始英文报错
+
 **v2.30.x**（2026-08）
 
 - 环境：支持跨区域环境查询，并更清晰暴露 MCP 鉴权的 credential-scope 边界
