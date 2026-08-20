@@ -29,6 +29,7 @@
 - 环境：支持跨区域环境查询，并更清晰暴露 MCP 鉴权的 credential-scope 边界
 - 鉴权：移除冗余 `login_mode`，统一用 `credential_scope` 表达凭据边界
 - 发布：Kimi 插件 zip 改为白名单打包、无版本号的稳定资源名
+- Kimi：插件 zip 将兄弟 skills 组装进 `skills/cloudbase/references/`，保证压缩包自包含且与 manifest 契约同步
 
 **v2.29.x**（2026-08）
 

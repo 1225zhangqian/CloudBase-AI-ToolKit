@@ -29,6 +29,7 @@ The CloudBase integration layer for AI coding tools: Plugin installs the stack, 
 - Env: cross-region environment query and clearer credential-scope boundary for MCP auth
 - Auth: drop redundant `login_mode`; keep `credential_scope` as the single credential boundary signal
 - Release: Kimi plugin zip uses a whitelist-only, version-free asset name
+- Kimi: plugin zip assembles sibling skills into `skills/cloudbase/references/` so the archive stays self-contained and in sync with the manifest contract
 
 **v2.29.x** (2026-08)
 
