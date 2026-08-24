@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file. Follow the 
 
 ## Unreleased
 
+## [2.31.0](https://github.com/TencentCloudBase/CloudBase-AI-Toolkit/compare/v2.30.1...v2.31.0) (2026-08-20)
+
+### Bug Fixes
+
+* **cloudrun**: rewrite getDeployLog (DescribeCloudRunBuildLog) CODING-login / image-deploy failures to `getProcessLog` / `getDeployRecords` next steps instead of bubbling raw English errors
+
 ## [2.30.1](https://github.com/TencentCloudBase/CloudBase-AI-Toolkit/compare/v2.30.0...v2.30.1) (2026-08-20)
 
 ### Code Refactoring
