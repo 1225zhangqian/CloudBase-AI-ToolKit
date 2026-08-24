@@ -30,6 +30,11 @@ export const XPAY_EVENT_TYPES = [
 
 /** 配置不存在的业务码（getappconfig 返回该码时视为空配置） */
 const RET_CONFIG_NOT_EXISTS = 80209;
+/**
+ * uploadappconfig version 乐观锁冲突业务码（实测：用旧 version 覆盖写返回 ret=80208）。
+ * Prefer structured ret over errmsg regex; regex remains a fallback.
+ */
+const RET_VERSION_CONFLICT = 80208;
 /** 消息推送条目类型（虚拟支付回调等事件均为 event） */
 const MSG_TYPE_EVENT = "event";
 
@@ -94,8 +99,9 @@ function sameCallbackList(a: CallbackEntry[], b: CallbackEntry[]): boolean {
 
 /**
  * subscribe 幂等 merge：对每个目标事件，
- * - 已存在完全相同 (msgType, event, env, functionName) 的条目 → 保留（幂等，不重复添加）
- * - 该事件已绑定到其他云函数 → 移除旧条目并重绑到目标函数（一事一函数，与控制台一致）
+ * - 已存在完全相同 (msgType, event, env, functionName) 的条目 → 保留原条目（含 enable，幂等）
+ * - 该事件已绑定到其他云函数 → 移除旧条目并重绑到目标函数（一事一函数）；重绑保留原 enable
+ * - 全新事件条目 → 默认 enable=true
  * 未变化时 changed=false，调用方跳过 POST。
  */
 export function mergeSubscribeList(
@@ -109,6 +115,8 @@ export function mergeSubscribeList(
   const kept: CallbackEntry[] = [];
   const keptEvents = new Set<string>();
   const rebound: string[] = [];
+  /** enable to preserve when rebinding an existing event onto a different function */
+  const reboundEnableByEvent = new Map<string, boolean>();
 
   for (const entry of current) {
     if (entry.msgType === msgType && uniqueTargets.includes(entry.event)) {
@@ -120,6 +128,9 @@ export function mergeSubscribeList(
         kept.push(entry);
       } else {
         rebound.push(entry.event);
+        if (!reboundEnableByEvent.has(entry.event)) {
+          reboundEnableByEvent.set(entry.event, entry.enable ?? false);
+        }
       }
     } else {
       kept.push(entry);
@@ -136,7 +147,11 @@ export function mergeSubscribeList(
         e.functionName === functionName,
     );
     if (!exists) {
-      kept.push({ msgType, event: target, env: envId, functionName, enable: true });
+      // Rebound keeps prior enable; brand-new events default to enabled
+      const enable = reboundEnableByEvent.has(target)
+        ? reboundEnableByEvent.get(target)!
+        : true;
+      kept.push({ msgType, event: target, env: envId, functionName, enable });
       added.push(target);
     }
   }
@@ -266,12 +281,15 @@ async function callQbase(
   }
   const service = server.pluginOptions?.msgPush?.service ?? MSG_PUSH_SERVICE;
   try {
+    // Pass appid as a top-level optional field so hosts can select the correct
+    // WeChat login session in multi-appid scenarios (additive, non-breaking).
     const result = await requestFn({
       service,
       action,
       version: MSG_PUSH_VERSION,
       region: "",
       payload,
+      appid,
     });
     return (result ?? {}) as MsgPushQbaseResponse;
   } catch (e) {
@@ -348,10 +366,13 @@ async function uploadCallbackConfig(
   const ret = resp.base_resp?.ret;
   if (ret !== undefined && ret !== 0) {
     const errmsg = resp.base_resp?.errmsg ?? "";
-    if (/version|版本|conflict|冲突/i.test(errmsg)) {
+    // Prefer structured ret (80208); fall back to errmsg regex for older/unknown backends
+    const isVersionConflict =
+      ret === RET_VERSION_CONFLICT || /version|版本|conflict|冲突/i.test(errmsg);
+    if (isVersionConflict) {
       throw new QbaseError(
         "VERSION_CONFLICT",
-        `uploadappconfig version 冲突（本地 version=${state.version}，服务端已被其他操作修改）: ${errmsg}。` +
+        `uploadappconfig version 冲突（ret=${ret}，本地 version=${state.version}，服务端已被其他操作修改）: ${errmsg || "system error"}。` +
           `请重新调用 queryMessagePush(action=list) 获取最新配置后重试（RFC 7232 If-Match 语义：重读 → merge → 重试）。`,
       );
     }

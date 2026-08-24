@@ -371,6 +371,8 @@ async function runMsgPushTestGroup() {
   let cloudRequestFn;
   // 真实模式专用：qbase 直连 CGI 传输层（快照还原也用同一通道）
   let ticketTransport = null;
+  /** Track appids received by requestFn to assert multi-session pass-through */
+  const seenAppids = new Set();
   if (mockMsgPush) {
     const MOCK_URLS = {
       getAppConfig: "https://servicewechat.com/wxa-dev-qbase/getappconfig",
@@ -379,14 +381,20 @@ async function runMsgPushTestGroup() {
       getContainerCallbackConfig: "https://servicewechat.com/wxa-dev-qbase/getcontainercallbackconfig",
       setContainerCallbackConfig: "https://servicewechat.com/wxa-dev-qbase/setcontainercallbackconfig",
     };
-    cloudRequestFn = async ({ action, payload }) => {
+    cloudRequestFn = async ({ action, payload, appid: reqAppid }) => {
       const url = MOCK_URLS[action];
       if (!url) throw new Error(`mock qbase: 未知 action ${action}`);
+      if (!reqAppid) throw new Error("appid 未透传到 requestFn（多会话登录态选择会失败）");
+      if (reqAppid !== appid) {
+        throw new Error(`appid 透传异常：期望 ${appid}，实际 ${reqAppid}`);
+      }
+      seenAppids.add(reqAppid);
       const json = await mockBackend.requestFn({
         url,
         method: "post",
         body: payload ?? {},
-        appid,
+        // Prefer per-call appid from CloudApiRequestFn (multi-session); fall back to CLI
+        appid: reqAppid || appid,
       });
       // mock 后端直接返回 qbase 语义响应（{base_resp, version, config...}）
       return json;
@@ -396,10 +404,20 @@ async function runMsgPushTestGroup() {
     // apihttpagent，apihttpagent 只用于 tcb 等 CAPI 域）。按 action 映射到
     // QBASE_PATHS 后再交给 ticket 传输层。
     ticketTransport = createTicketMsgPushRequestFn();
-    cloudRequestFn = async ({ action, payload }) => {
+    cloudRequestFn = async ({ action, payload, appid: reqAppid }) => {
       const url = QBASE_PATHS[action];
       if (!url) throw new Error(`qbase: 未知 action ${action}`);
-      const json = await ticketTransport({ url, method: "post", body: payload ?? {}, appid });
+      if (!reqAppid) throw new Error("appid 未透传到 requestFn（多会话登录态选择会失败）");
+      if (reqAppid !== appid) {
+        throw new Error(`appid 透传异常：期望 ${appid}，实际 ${reqAppid}`);
+      }
+      seenAppids.add(reqAppid);
+      const json = await ticketTransport({
+        url,
+        method: "post",
+        body: payload ?? {},
+        appid: reqAppid || appid,
+      });
       return json;
     };
   }
@@ -481,6 +499,34 @@ async function runMsgPushTestGroup() {
   }
   process.stderr.write("[msgpush] ✅ 幂等验证通过：重复 subscribe 返回 NO_CHANGE（未重复写入）\n");
 
+  // 3b. setEnable：停用再启用匹配订阅（复核 matched 去重路径）
+  const disable = await call("manageMessagePush", {
+    ...baseArgs,
+    action: "setEnable",
+    event_types: [testEvent, testEvent],
+    enable: false,
+    confirm: "yes",
+  });
+  if (!disable.success && disable.code !== "NO_CHANGE") {
+    throw new Error(`setEnable(false) 失败: ${JSON.stringify(disable)}`);
+  }
+  if (disable.matched && disable.matched.length !== 1) {
+    throw new Error(`setEnable matched 未去重: ${JSON.stringify(disable.matched)}`);
+  }
+  process.stderr.write(`[msgpush] ✅ setEnable(false) 成功：matched=${JSON.stringify(disable.matched)}\n`);
+
+  const enableAgain = await call("manageMessagePush", {
+    ...baseArgs,
+    action: "setEnable",
+    event_types: [testEvent],
+    enable: true,
+    confirm: "yes",
+  });
+  if (!enableAgain.success && enableAgain.code !== "NO_CHANGE") {
+    throw new Error(`setEnable(true) 失败: ${JSON.stringify(enableAgain)}`);
+  }
+  process.stderr.write(`[msgpush] ✅ setEnable(true) 成功：matched=${JSON.stringify(enableAgain.matched)}\n`);
+
   // 4. confirm 保护验证：不带 confirm 应返回 CONFIRM_REQUIRED
   const noConfirm = await call("manageMessagePush", {
     ...baseArgs,
@@ -535,6 +581,11 @@ async function runMsgPushTestGroup() {
   if (mockMsgPush) {
     process.stderr.write(`[msgpush] mock 后端最终状态：version=${mockBackend.state().version}, callbacks=${mockBackend.state().callbacks.length}\n`);
   }
+
+  if (!seenAppids.has(appid)) {
+    throw new Error(`appid 透传验证失败：requestFn 未见 appid=${appid}，seen=${[...seenAppids]}`);
+  }
+  process.stderr.write(`[msgpush] ✅ appid 透传验证通过：requestFn 收到 appid=${appid}\n`);
 
   await client.close();
   process.stderr.write("[msgpush] 🎉 消息推送测试组全部通过\n");

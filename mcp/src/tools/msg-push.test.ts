@@ -30,7 +30,11 @@ function createQbaseBackendMock(options?: {
     options?.supportedEvents ?? ["user_enter_tempsession", ...XPAY_EVENT_TYPES],
   );
 
-  const calls: Array<{ action: string; payload?: Record<string, unknown> }> = [];
+  const calls: Array<{
+    action: string;
+    payload?: Record<string, unknown>;
+    appid?: string;
+  }> = [];
 
   const requestFn = async (params: {
     service: string;
@@ -38,8 +42,9 @@ function createQbaseBackendMock(options?: {
     version: string;
     region: string;
     payload: Record<string, unknown>;
+    appid?: string;
   }): Promise<MsgPushQbaseResponse> => {
-    calls.push({ action: params.action, payload: params.payload });
+    calls.push({ action: params.action, payload: params.payload, appid: params.appid });
     if (params.action === "getAppConfig") {
       return {
         base_resp: { ret: 0 },
@@ -58,13 +63,14 @@ function createQbaseBackendMock(options?: {
     if (params.action === "uploadAppConfig") {
       const body = params.payload ?? {};
       if (options?.conflictOnVersion !== undefined && body.version === options.conflictOnVersion) {
+        // Structured ret=80208 (prefer over errmsg sniffing)
         return {
-          base_resp: { ret: 99999, errmsg: "version conflict, please refresh" },
+          base_resp: { ret: 80208, errmsg: "system error" },
         };
       }
       if (body.version !== version) {
         return {
-          base_resp: { ret: 99999, errmsg: "version conflict, please refresh" },
+          base_resp: { ret: 80208, errmsg: "system error" },
         };
       }
       const config = JSON.parse(String(body.config));
@@ -179,6 +185,28 @@ describe("msg-push transport", () => {
     expect(result.ok).toBe(false);
     expect(result.code).toBe("MSG_PUSH_TRANSPORT_UNAVAILABLE");
     expect(result.next_step.tool).toBe("queryMessagePush");
+  });
+
+  it("callQbase 将 appid 透传到 requestFn 顶层（多会话登录态选择）", async () => {
+    const backend = createQbaseBackendMock();
+    const tools = createMockServer(backend.requestFn).tools;
+
+    await tools.queryMessagePush.handler({ appid: "wx-session-A", action: "list" });
+    await tools.manageMessagePush.handler({
+      appid: "wx-session-B",
+      env_id: "env-a",
+      function_name: "cb",
+      action: "subscribe",
+      event_types: ["user_enter_tempsession"],
+      confirm: "yes",
+    });
+
+    const getCalls = backend.calls.filter((c) => c.action === "getAppConfig");
+    const uploadCalls = backend.calls.filter((c) => c.action === "uploadAppConfig");
+    expect(getCalls.length).toBeGreaterThanOrEqual(2);
+    expect(getCalls[0]!.appid).toBe("wx-session-A");
+    expect(getCalls[1]!.appid).toBe("wx-session-B");
+    expect(uploadCalls[0]!.appid).toBe("wx-session-B");
   });
 });
 
@@ -432,7 +460,85 @@ describe("manageMessagePush — version 冲突与错误处理", () => {
     expect(result.code).toBe("VERSION_CONFLICT");
     expect(result.retryable).toBe(true);
     expect(result.next_step.tool).toBe("queryMessagePush");
-    expect(result.message).toMatch(/version/);
+    expect(result.message).toMatch(/version|80208|重试/);
+  });
+
+  it("优先按 base_resp.ret=80208 识别 VERSION_CONFLICT（errmsg 无 version 文案）", async () => {
+    const requestFn = async (params: any) => {
+      if (params.action === "uploadAppConfig") {
+        return { base_resp: { ret: 80208, errmsg: "system error" } };
+      }
+      if (params.action === "getAppConfig") {
+        return {
+          base_resp: { ret: 0 },
+          version: 1,
+          config: JSON.stringify({ enable: true, callbacks: [] }),
+        };
+      }
+      if (params.action === "getCallbackSupportList") {
+        return {
+          base_resp: { ret: 0 },
+          data: JSON.stringify({
+            list: [{ msgType: "event", event: "user_enter_tempsession" }],
+          }),
+        };
+      }
+      return { base_resp: { ret: 0 } };
+    };
+    const tools = createMockServer(requestFn).tools;
+
+    const result = parseResult(
+      await tools.manageMessagePush.handler({
+        appid: "wx1",
+        env_id: "env-a",
+        function_name: "cb",
+        action: "subscribe",
+        event_types: ["user_enter_tempsession"],
+        confirm: "yes",
+      }),
+    );
+    expect(result.code).toBe("VERSION_CONFLICT");
+    expect(result.retryable).toBe(true);
+    expect(result.message).toMatch(/80208/);
+    expect(result.next_step.tool).toBe("queryMessagePush");
+  });
+
+  it("errmsg 正则兜底：非 80208 但文案含 conflict 仍识别为 VERSION_CONFLICT", async () => {
+    const requestFn = async (params: any) => {
+      if (params.action === "uploadAppConfig") {
+        return { base_resp: { ret: 99999, errmsg: "version conflict, please refresh" } };
+      }
+      if (params.action === "getAppConfig") {
+        return {
+          base_resp: { ret: 0 },
+          version: 1,
+          config: JSON.stringify({ enable: true, callbacks: [] }),
+        };
+      }
+      if (params.action === "getCallbackSupportList") {
+        return {
+          base_resp: { ret: 0 },
+          data: JSON.stringify({
+            list: [{ msgType: "event", event: "user_enter_tempsession" }],
+          }),
+        };
+      }
+      return { base_resp: { ret: 0 } };
+    };
+    const tools = createMockServer(requestFn).tools;
+
+    const result = parseResult(
+      await tools.manageMessagePush.handler({
+        appid: "wx1",
+        env_id: "env-a",
+        function_name: "cb",
+        action: "subscribe",
+        event_types: ["user_enter_tempsession"],
+        confirm: "yes",
+      }),
+    );
+    expect(result.code).toBe("VERSION_CONFLICT");
+    expect(result.retryable).toBe(true);
   });
 
   it("upload 其他业务错误返回 QBASE_ERROR（可重试）", async () => {
@@ -570,6 +676,46 @@ describe("merge 纯函数", () => {
     });
   });
 
+  it("mergeSubscribeList 重绑保留原 enable=false（不强制启用）", () => {
+    const disabled = [
+      {
+        msgType: "event",
+        event: "xpay_refund_notify",
+        env: "env1",
+        functionName: "old-fn",
+        enable: false,
+      },
+    ];
+    const result = mergeSubscribeList(disabled, ["xpay_refund_notify"], "env1", "new-fn");
+    expect(result.rebound).toEqual(["xpay_refund_notify"]);
+    expect(result.list.find((e) => e.event === "xpay_refund_notify")!).toMatchObject({
+      env: "env1",
+      functionName: "new-fn",
+      enable: false,
+    });
+  });
+
+  it("mergeSubscribeList 已有同函数停用条目时保留 enable=false", () => {
+    const disabledSameFn = [
+      {
+        msgType: "event",
+        event: "xpay_refund_notify",
+        env: "env1",
+        functionName: "fn1",
+        enable: false,
+      },
+    ];
+    const result = mergeSubscribeList(disabledSameFn, ["xpay_refund_notify"], "env1", "fn1");
+    expect(result.changed).toBe(false);
+    expect(result.list[0]!.enable).toBe(false);
+  });
+
+  it("mergeSubscribeList 全新事件默认 enable=true", () => {
+    const result = mergeSubscribeList([], ["brand_new_event"], "env1", "fn1");
+    expect(result.added).toEqual(["brand_new_event"]);
+    expect(result.list[0]!.enable).toBe(true);
+  });
+
   it("mergeUnsubscribeList 只移除匹配的四元组", () => {
     const result = mergeUnsubscribeList(current, ["b"], "env1", "fn1");
     expect(result.changed).toBe(false); // b 绑定在 fn2，不匹配 fn1
@@ -582,5 +728,11 @@ describe("merge 纯函数", () => {
     const result = mergeSetEnableList(current, ["a"], "env1", "fn1", false);
     expect(result.changed).toBe(true);
     expect(result.list.find((e) => e.event === "a")!.enable).toBe(false);
+  });
+
+  it("mergeSetEnableList matched 去重（重复目标事件）", () => {
+    const result = mergeSetEnableList(current, ["a", "a", "a"], "env1", "fn1", false);
+    expect(result.matched).toEqual(["a"]);
+    expect(result.changed).toBe(true);
   });
 });

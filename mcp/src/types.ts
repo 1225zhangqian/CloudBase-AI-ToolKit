@@ -68,6 +68,9 @@ type CloudBaseConfigBase = NonNullable<ConstructorParameters<typeof CloudBase>[0
  * 自定义 API 请求函数，由外部注入，替代 TC3 签名发请求。
  * 入参对齐 CAPI 模式：service + action + version + region + payload。
  * 返回腾讯云 API 响应中 Response 字段的内容（已解包）。
+ *
+ * `appid` 为可选扩展字段（向后兼容）：多小程序会话场景下由工具透传，
+ * 宿主（如微信 IDE）据此选择对应登录态；未使用多 appid 的注入方可忽略。
  */
 export type CloudApiRequestFn = (params: {
   service: string
@@ -75,6 +78,8 @@ export type CloudApiRequestFn = (params: {
   version: string
   region: string
   payload: Record<string, any>
+  /** Optional WeChat mini-program AppID for host login-session selection */
+  appid?: string
 }) => Promise<any>
 
 export type CloudBaseOptions = CloudBaseConfigBase & {
