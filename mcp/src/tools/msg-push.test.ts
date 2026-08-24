@@ -17,6 +17,8 @@ function createQbaseBackendMock(options?: {
   initialCallbacks?: Array<Record<string, unknown>>;
   initialVersion?: number;
   supportedEvents?: string[];
+  /** Message types with empty event (text/image/...) included in getcallbacksupportlist */
+  supportedMsgTypes?: string[];
   containerQbaseOpen?: boolean;
   /** 上传携带该 version 时返回版本冲突（模拟并发写入） */
   conflictOnVersion?: number;
@@ -29,6 +31,13 @@ function createQbaseBackendMock(options?: {
   const supportedEvents = new Set(
     options?.supportedEvents ?? ["user_enter_tempsession", ...XPAY_EVENT_TYPES],
   );
+  const supportedMsgTypes = options?.supportedMsgTypes ?? [
+    "text",
+    "image",
+    "voice",
+    "video",
+    "miniprogrampage",
+  ];
 
   const calls: Array<{
     action: string;
@@ -56,7 +65,10 @@ function createQbaseBackendMock(options?: {
       return {
         base_resp: { ret: 0 },
         data: JSON.stringify({
-          list: [...supportedEvents].map((event) => ({ msgType: "event", event })),
+          list: [
+            ...[...supportedEvents].map((event) => ({ msgType: "event", event })),
+            ...supportedMsgTypes.map((msgType) => ({ msgType, event: "" })),
+          ],
         }),
       };
     }
@@ -141,13 +153,23 @@ describe("msg-push tools schema", () => {
     expect(schema.env?._def?.typeName).toBe("ZodOptional");
   });
 
-  it("manageMessagePush schema: action enum, open event_types, confirm", () => {
+  it("manageMessagePush schema: action enum, msg_type enum, open event_types, confirm", () => {
     const schema = tools.manageMessagePush.meta.inputSchema;
     expect(schema.action._def.values).toEqual([
       "subscribe",
       "unsubscribe",
       "setEnable",
       "ensureCloudFunctionMode",
+    ]);
+    // msg_type is optional enum (default event when omitted)
+    expect(schema.msg_type._def.typeName).toBe("ZodOptional");
+    expect(schema.msg_type._def.innerType._def.values).toEqual([
+      "event",
+      "text",
+      "image",
+      "voice",
+      "video",
+      "miniprogrampage",
     ]);
     // event_types 是开放字符串数组（工具通用，不按 xpay 枚举收窄）
     expect(schema.event_types._def.typeName).toBe("ZodOptional");
@@ -734,5 +756,188 @@ describe("merge 纯函数", () => {
     const result = mergeSetEnableList(current, ["a", "a", "a"], "env1", "fn1", false);
     expect(result.matched).toEqual(["a"]);
     expect(result.changed).toBe(true);
+  });
+
+  it("mergeSubscribeList 消息类型 text（event 空串）幂等", () => {
+    const first = mergeSubscribeList([], [""], "env1", "fn1", "text");
+    expect(first.added).toEqual([""]);
+    expect(first.list).toEqual([
+      { msgType: "text", event: "", env: "env1", functionName: "fn1", enable: true },
+    ]);
+    const second = mergeSubscribeList(first.list, [""], "env1", "fn1", "text");
+    expect(second.changed).toBe(false);
+  });
+
+  it("mergeUnsubscribeList / mergeSetEnableList 消息类型 text", () => {
+    const withText = [
+      { msgType: "text", event: "", env: "env1", functionName: "fn1", enable: true },
+      { msgType: "event", event: "a", env: "env1", functionName: "fn1", enable: true },
+    ];
+    const disabled = mergeSetEnableList(withText, [""], "env1", "fn1", false, "text");
+    expect(disabled.matched).toEqual([""]);
+    expect(disabled.list.find((e) => e.msgType === "text")!.enable).toBe(false);
+    const removed = mergeUnsubscribeList(disabled.list, [""], "env1", "fn1", "text");
+    expect(removed.removed).toEqual([""]);
+    expect(removed.list).toHaveLength(1);
+    expect(removed.list[0]!.msgType).toBe("event");
+  });
+});
+
+describe("manageMessagePush — 消息类型 msg_type", () => {
+  let backend: ReturnType<typeof createQbaseBackendMock>;
+  let tools: Record<string, { meta: any; handler: (args: any) => Promise<any> }>;
+
+  beforeEach(() => {
+    backend = createQbaseBackendMock({
+      initialCallbacks: [
+        {
+          msgType: "event",
+          event: "user_enter_tempsession",
+          env: "env-a",
+          functionName: "cb",
+          enable: true,
+        },
+      ],
+    });
+    const mock = createMockServer(backend.requestFn);
+    tools = mock.tools;
+  });
+
+  it("subscribe msg_type=text 写入 event 空串条目，不触碰事件类", async () => {
+    const result = parseResult(
+      await tools.manageMessagePush.handler({
+        appid: "wx123",
+        env_id: "env-a",
+        function_name: "msg-fn",
+        action: "subscribe",
+        msg_type: "text",
+        confirm: "yes",
+      }),
+    );
+    expect(result.success).toBe(true);
+    expect(result.msg_type).toBe("text");
+    expect(result.added).toEqual([""]);
+    const textEntry = result.callbacks.find((c: any) => c.msgType === "text");
+    expect(textEntry).toMatchObject({
+      msgType: "text",
+      event: "",
+      env: "env-a",
+      functionName: "msg-fn",
+      enable: true,
+    });
+    expect(result.callbacks.some((c: any) => c.msgType === "event")).toBe(true);
+    expect(backend.calls.filter((c) => c.action === "uploadAppConfig")).toHaveLength(1);
+  });
+
+  it("subscribe msg_type=text 重复执行幂等 NO_CHANGE", async () => {
+    await tools.manageMessagePush.handler({
+      appid: "wx123",
+      env_id: "env-a",
+      function_name: "msg-fn",
+      action: "subscribe",
+      msg_type: "text",
+      confirm: "yes",
+    });
+    const again = parseResult(
+      await tools.manageMessagePush.handler({
+        appid: "wx123",
+        env_id: "env-a",
+        function_name: "msg-fn",
+        action: "subscribe",
+        msg_type: "text",
+        confirm: "yes",
+      }),
+    );
+    expect(again.code).toBe("NO_CHANGE");
+    expect(backend.calls.filter((c) => c.action === "uploadAppConfig")).toHaveLength(1);
+  });
+
+  it("msg_type=text 时传 event_types 被拒绝", async () => {
+    await expect(
+      tools.manageMessagePush.handler({
+        appid: "wx123",
+        env_id: "env-a",
+        function_name: "msg-fn",
+        action: "subscribe",
+        msg_type: "text",
+        event_types: ["user_enter_tempsession"],
+        confirm: "yes",
+      }),
+    ).rejects.toThrow(/不应传 event_types/);
+  });
+
+  it("setEnable msg_type=text 翻转 enable", async () => {
+    await tools.manageMessagePush.handler({
+      appid: "wx123",
+      env_id: "env-a",
+      function_name: "msg-fn",
+      action: "subscribe",
+      msg_type: "text",
+      confirm: "yes",
+    });
+    const disabled = parseResult(
+      await tools.manageMessagePush.handler({
+        appid: "wx123",
+        env_id: "env-a",
+        function_name: "msg-fn",
+        action: "setEnable",
+        msg_type: "text",
+        enable: false,
+        confirm: "yes",
+      }),
+    );
+    expect(disabled.success).toBe(true);
+    expect(disabled.matched).toEqual([""]);
+    expect(disabled.callbacks.find((c: any) => c.msgType === "text")!.enable).toBe(false);
+  });
+
+  it("unsubscribe msg_type=text 只移除消息类型条目", async () => {
+    await tools.manageMessagePush.handler({
+      appid: "wx123",
+      env_id: "env-a",
+      function_name: "msg-fn",
+      action: "subscribe",
+      msg_type: "text",
+      confirm: "yes",
+    });
+    const unsub = parseResult(
+      await tools.manageMessagePush.handler({
+        appid: "wx123",
+        env_id: "env-a",
+        function_name: "msg-fn",
+        action: "unsubscribe",
+        msg_type: "text",
+        confirm: "yes",
+      }),
+    );
+    expect(unsub.success).toBe(true);
+    expect(unsub.removed).toEqual([""]);
+    expect(unsub.callbacks.every((c: any) => c.msgType !== "text")).toBe(true);
+    expect(unsub.callbacks.some((c: any) => c.event === "user_enter_tempsession")).toBe(true);
+  });
+
+  it("缺省 msg_type 时行为仍为 event（回归）", async () => {
+    const result = parseResult(
+      await tools.manageMessagePush.handler({
+        appid: "wx123",
+        env_id: "env-a",
+        function_name: "cb",
+        action: "subscribe",
+        event_types: ["user_enter_tempsession"],
+        confirm: "yes",
+      }),
+    );
+    expect(result.code).toBe("NO_CHANGE");
+    expect(result.msg_type).toBe("event");
+  });
+
+  it("listSupportedEvents 含消息类型分组（events 空数组）", async () => {
+    const result = parseResult(
+      await tools.queryMessagePush.handler({ appid: "wx123", action: "listSupportedEvents" }),
+    );
+    expect(result.success).toBe(true);
+    const textGroup = result.msgTypes.find((g: any) => g.msgType === "text");
+    expect(textGroup).toBeDefined();
+    expect(textGroup.events).toEqual([]);
   });
 });

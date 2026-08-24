@@ -314,6 +314,7 @@ function createMockMsgPushBackend() {
     "xpay_subscribe_ios_refund_query_notify", "xpay_refund_notify",
   ];
   const supported = new Set(["user_enter_tempsession", "user_subscribe_msg", ...XPAY_EVENTS]);
+  const supportedMsgTypes = ["text", "image", "voice", "video", "miniprogrampage"];
   let version = 0;
   let enable = true;
   let callbacks = [];
@@ -327,7 +328,12 @@ function createMockMsgPushBackend() {
       if (url.endsWith("/route/getcallbacksupportlist")) {
         return {
           base_resp: { ret: 0 },
-          data: JSON.stringify({ list: [...supported].map((event) => ({ msgType: "event", event })) }),
+          data: JSON.stringify({
+            list: [
+              ...[...supported].map((event) => ({ msgType: "event", event })),
+              ...supportedMsgTypes.map((msgType) => ({ msgType, event: "" })),
+            ],
+          }),
         };
       }
       if (url.endsWith("/uploadappconfig")) {
@@ -549,6 +555,100 @@ async function runMsgPushTestGroup() {
     throw new Error(`unsubscribe 失败: ${JSON.stringify(unsub)}`);
   }
   process.stderr.write("[msgpush] ✅ unsubscribe 成功（配置已还原）\n");
+
+  // 5b. 消息类型 msg_type=text：订阅 / 启停 / 取消（event 固定空串）
+  const textSub = await call("manageMessagePush", {
+    ...baseArgs,
+    action: "subscribe",
+    msg_type: "text",
+    confirm: "yes",
+  });
+  if (!textSub.success && textSub.code !== "NO_CHANGE") {
+    throw new Error(`subscribe msg_type=text 失败: ${JSON.stringify(textSub)}`);
+  }
+  process.stderr.write(
+    `[msgpush] ✅ subscribe msg_type=text：added=${JSON.stringify(textSub.added)}, code=${textSub.code || "ok"}\n`,
+  );
+
+  const textSubAgain = await call("manageMessagePush", {
+    ...baseArgs,
+    action: "subscribe",
+    msg_type: "text",
+    confirm: "yes",
+  });
+  if (textSubAgain.code !== "NO_CHANGE") {
+    throw new Error(
+      `msg_type=text 幂等失败：期望 NO_CHANGE，实际 ${JSON.stringify(textSubAgain)}`,
+    );
+  }
+  process.stderr.write("[msgpush] ✅ msg_type=text 幂等验证通过：重复 subscribe 返回 NO_CHANGE\n");
+
+  const textDisable = await call("manageMessagePush", {
+    ...baseArgs,
+    action: "setEnable",
+    msg_type: "text",
+    enable: false,
+    confirm: "yes",
+  });
+  if (!textDisable.success && textDisable.code !== "NO_CHANGE") {
+    throw new Error(`setEnable(false) msg_type=text 失败: ${JSON.stringify(textDisable)}`);
+  }
+  process.stderr.write(
+    `[msgpush] ✅ setEnable(false) msg_type=text：matched=${JSON.stringify(textDisable.matched)}\n`,
+  );
+
+  const textEnable = await call("manageMessagePush", {
+    ...baseArgs,
+    action: "setEnable",
+    msg_type: "text",
+    enable: true,
+    confirm: "yes",
+  });
+  if (!textEnable.success && textEnable.code !== "NO_CHANGE") {
+    throw new Error(`setEnable(true) msg_type=text 失败: ${JSON.stringify(textEnable)}`);
+  }
+  process.stderr.write(
+    `[msgpush] ✅ setEnable(true) msg_type=text：matched=${JSON.stringify(textEnable.matched)}\n`,
+  );
+
+  // 真实模式：与 qbase 直连核对 text 条目已写入
+  if (!mockMsgPush && ticketTransport) {
+    const verify = await ticketTransport({
+      url: QBASE_PATHS.getAppConfig,
+      method: "post",
+      body: { type: 1 },
+      appid,
+    });
+    const cfg = JSON.parse(verify.config || "{}");
+    const textEntry = (cfg.callbacks || []).find(
+      (c) => c.msgType === "text" && (c.event === "" || c.event == null),
+    );
+    if (!textEntry) {
+      throw new Error(
+        `qbase 直连未找到 text 消息类型条目: ${JSON.stringify(cfg.callbacks || []).slice(0, 500)}`,
+      );
+    }
+    if (textEntry.env !== envId || textEntry.functionName !== baseArgs.function_name) {
+      throw new Error(`text 条目绑定不符: ${JSON.stringify(textEntry)}`);
+    }
+    if (textEntry.enable !== true) {
+      throw new Error(`text 条目 enable 期望 true，实际 ${textEntry.enable}`);
+    }
+    process.stderr.write(
+      `[msgpush] ✅ qbase 直连核对 text 条目一致：env=${textEntry.env}, fn=${textEntry.functionName}, enable=${textEntry.enable}\n`,
+    );
+  }
+
+  const textUnsub = await call("manageMessagePush", {
+    ...baseArgs,
+    action: "unsubscribe",
+    msg_type: "text",
+    confirm: "yes",
+  });
+  if (!textUnsub.success && textUnsub.code !== "NO_CHANGE") {
+    throw new Error(`unsubscribe msg_type=text 失败: ${JSON.stringify(textUnsub)}`);
+  }
+  process.stderr.write("[msgpush] ✅ unsubscribe msg_type=text 成功\n");
 
   // 6. 全量快照还原（真实模式）：subscribe 会改绑已有回调 + 置 enable=true，
   //    unsubscribe/setEnable 只能还原工具自身写的条目，无法恢复被 rebound 的

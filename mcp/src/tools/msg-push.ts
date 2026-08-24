@@ -37,6 +37,22 @@ const RET_CONFIG_NOT_EXISTS = 80209;
 const RET_VERSION_CONFLICT = 80208;
 /** 消息推送条目类型（虚拟支付回调等事件均为 event） */
 const MSG_TYPE_EVENT = "event";
+/**
+ * manageMessagePush 可操作的消息类型。
+ * - event：事件类（需 event_types；event 字段为具体事件名）
+ * - text/image/voice/video/miniprogrampage：消息类型条目（event 固定空串 ""）
+ */
+export const MSG_TYPES = [
+  "event",
+  "text",
+  "image",
+  "voice",
+  "video",
+  "miniprogrampage",
+] as const;
+export type MsgType = (typeof MSG_TYPES)[number];
+/** Empty event field for non-event message-type callback entries */
+const EMPTY_EVENT = "";
 
 /** 单条消息推送回调配置（对应 uploadappconfig.config.callbacks 条目） */
 export interface CallbackEntry {
@@ -522,9 +538,10 @@ export function registerMsgPushTools(server: ExtendedMcpServer) {
       title: "查询小程序消息推送配置",
       description:
         "查询小程序云开发消息推送配置（qbase getappconfig）或全部合法消息推送事件约束（getcallbacksupportlist）。" +
-        "消息推送把小程序事件（含虚拟支付回调）送到云函数，无需自建服务器。" +
+        "消息推送把小程序事件/消息（含虚拟支付回调、text/image 等消息类型）送到云函数，无需自建服务器。" +
         "action=list 返回当前配置列表（msgType/event/env/functionName/enable）与 version（乐观锁版本号）；" +
-        "action=listSupportedEvents 返回全部合法事件（按消息类型分组，含虚拟支付 7 个 xpay_* 事件），供 manageMessagePush 的 event_types 使用。" +
+        "action=listSupportedEvents 返回全部合法约束（按消息类型分组：event 组含事件名列表；text/image/voice/video/miniprogrampage 组 events 为空数组），" +
+        "事件类用 manageMessagePush(event_types=...)，消息类型用 manageMessagePush(msg_type=...)。" +
         "需要微信 IDE 登录态通道（宿主注入 cloudBaseOptions.requestFn），独立 CloudBase MCP 运行会返回指引错误。",
       inputSchema: {
         appid: z
@@ -571,10 +588,13 @@ export function registerMsgPushTools(server: ExtendedMcpServer) {
         const grouped: Array<{ msgType: string; events: string[] }> = [];
         const byMsgType = new Map<string, string[]>();
         for (const c of constraints) {
-          if (!c.event) continue;
-          const list = byMsgType.get(c.msgType) ?? [];
-          list.push(c.event);
-          byMsgType.set(c.msgType, list);
+          // Ensure every msgType appears (message types like text have empty event)
+          if (!byMsgType.has(c.msgType)) {
+            byMsgType.set(c.msgType, []);
+          }
+          if (c.event) {
+            byMsgType.get(c.msgType)!.push(c.event);
+          }
         }
         for (const [msgType, events] of byMsgType) {
           grouped.push({ msgType, events });
@@ -597,7 +617,9 @@ export function registerMsgPushTools(server: ExtendedMcpServer) {
               ? "以下默认事件不在当前小程序合法约束中（可能未开通虚拟支付），订阅时服务端可能拒绝"
               : undefined,
           },
-          hint: "manageMessagePush 的 event_types 仅接受上述合法事件；subscribe 缺省 event_types 时默认订阅虚拟支付 7 事件",
+          hint:
+            "manageMessagePush 的 event_types 仅接受上述合法事件；subscribe 缺省 event_types 时默认订阅虚拟支付 7 事件。" +
+            "消息类型条目（text/image/voice/video/miniprogrampage，events 为空数组）请用 manageMessagePush(msg_type=...) 管理，无需 event_types。",
         });
       }
       throw new Error(`不支持的操作类型: ${action}`);
@@ -613,10 +635,12 @@ export function registerMsgPushTools(server: ExtendedMcpServer) {
         "管理小程序云开发消息推送配置（写操作，需 confirm=\"yes\" 确认）。" +
         "基于「读全量 → merge → 全量覆盖（带 version 乐观锁）」实现声明式幂等（对齐 kubectl apply：event_types 是期望集合，重复执行收敛到同一状态；" +
         "version 冲突即 RFC 7232 If-Match 412，返回可重试错误：重读 → merge → 重试）。" +
-        "action=subscribe 订阅事件到指定云函数（event_types 缺省时默认订阅虚拟支付 7 个 xpay_* 事件；显式传入支持任意合法事件）；" +
-        "同一事件只能推到一个云函数（一事一函数），已绑定其他函数的事件会自动重绑并说明。" +
-        "action=unsubscribe 移除指定事件订阅（event_types 必填，只移除匹配条目，保留其他配置）。" +
-        "action=setEnable 启用/停用指定事件订阅（event_types + enable 必填）。" +
+        "msg_type 区分两类条目（缺省 \"event\"，向后兼容）：" +
+        "msg_type=\"event\" 操作事件类（需 event_types；subscribe 缺省时默认虚拟支付 7 个 xpay_* 事件）；" +
+        "msg_type=\"text\"|\"image\"|\"voice\"|\"video\"|\"miniprogrampage\" 操作消息类型条目（event 固定空串，勿传 event_types）。" +
+        "action=subscribe 订阅到指定云函数；同一 (msgType,event) 只能推到一个云函数（一事一函数），已绑定其他函数会自动重绑并说明。" +
+        "action=unsubscribe 移除匹配订阅（msg_type=event 时 event_types 必填；消息类型时按 msg_type 移除）。" +
+        "action=setEnable 启用/停用匹配订阅（msg_type=event 时 event_types + enable 必填；消息类型时 msg_type + enable）。" +
         "action=ensureCloudFunctionMode 确保推送模式为云函数（若为云托管整包接收则切换 qbase_open=false，需确认）。" +
         "集合无变化时不发起写请求（幂等 no-op，无需确认）。" +
         "需要微信 IDE 登录态通道（宿主注入 cloudBaseOptions.requestFn）。",
@@ -629,19 +653,27 @@ export function registerMsgPushTools(server: ExtendedMcpServer) {
         action: z
           .enum(["subscribe", "unsubscribe", "setEnable", "ensureCloudFunctionMode"])
           .describe(
-            "subscribe: 订阅事件到指定云函数（event_types 缺省=虚拟支付 7 事件）\n" +
-              "unsubscribe: 移除指定事件订阅（event_types 必填）\n" +
-              "setEnable: 启用/停用指定事件订阅（event_types + enable 必填）\n" +
+            "subscribe: 订阅到指定云函数（msg_type=event 时 event_types 缺省=虚拟支付 7 事件；消息类型时按 msg_type 订阅）\n" +
+              "unsubscribe: 移除匹配订阅（msg_type=event 时 event_types 必填）\n" +
+              "setEnable: 启用/停用匹配订阅（msg_type=event 时 event_types + enable 必填）\n" +
               "ensureCloudFunctionMode: 确保为云函数推送模式（云托管整包接收时切换，需确认）",
+          ),
+        msg_type: z
+          .enum(MSG_TYPES)
+          .optional()
+          .describe(
+            '消息类型（缺省 "event"）。' +
+              '"event"：事件类条目，需配合 event_types（subscribe 可缺省=虚拟支付 7 事件）。' +
+              '"text"|"image"|"voice"|"video"|"miniprogrampage"：消息类型条目（event 固定空串），勿传 event_types。',
           ),
         event_types: z
           .array(z.string())
           .optional()
           .describe(
-            "要操作的事件列表（任意合法事件，可先 queryMessagePush(action=listSupportedEvents) 查询全量约束）。" +
+            "要操作的事件列表（仅 msg_type=\"event\" 时使用；可先 queryMessagePush(action=listSupportedEvents) 查询全量约束）。" +
               "subscribe 缺省时默认订阅虚拟支付 7 个事件：xpay_goods_deliver_notify、xpay_coin_pay_notify、xpay_complaint_notify、" +
               "xpay_subscribe_signing_result_notify、xpay_subscribe_pay_fail_notify、xpay_subscribe_ios_refund_query_notify、xpay_refund_notify；" +
-              "unsubscribe / setEnable 时必填。",
+              "unsubscribe / setEnable 且 msg_type=event 时必填。消息类型操作请勿传本参数。",
           ),
         enable: z.boolean().optional().describe("setEnable 时必填：true 启用订阅 / false 停用订阅"),
         confirm: z
@@ -664,6 +696,7 @@ export function registerMsgPushTools(server: ExtendedMcpServer) {
       env_id,
       function_name,
       action,
+      msg_type,
       event_types,
       enable,
       confirm,
@@ -672,6 +705,7 @@ export function registerMsgPushTools(server: ExtendedMcpServer) {
       env_id: string;
       function_name: string;
       action: string;
+      msg_type?: MsgType;
       event_types?: string[];
       enable?: boolean;
       confirm?: string;
@@ -680,6 +714,8 @@ export function registerMsgPushTools(server: ExtendedMcpServer) {
         return buildTransportUnavailablePayload("manageMessagePush", action);
       }
       const confirmed = confirm === "yes";
+      const resolvedMsgType: MsgType = msg_type ?? MSG_TYPE_EVENT;
+      const isEventMsgType = resolvedMsgType === MSG_TYPE_EVENT;
 
       if (action === "ensureCloudFunctionMode") {
         const current = await readContainerConfig(server, appid);
@@ -722,23 +758,57 @@ export function registerMsgPushTools(server: ExtendedMcpServer) {
         });
       }
 
-      // subscribe / unsubscribe / setEnable 共用流程：读 → 校验 → merge → 确认 → 覆盖写
-      const targets = event_types ? [...new Set(event_types)] : undefined;
-      if (action === "subscribe" && !targets) {
-        // 缺省 = 虚拟支付默认事件集合
-      } else if (!targets || targets.length === 0) {
+      // Message-type entries use a fixed empty event; event_types must not be supplied
+      if (!isEventMsgType && event_types && event_types.length > 0) {
         throw new Error(
-          `${action} 必须提供 event_types（要操作的事件列表，可先 queryMessagePush(action=listSupportedEvents) 查询）`,
+          `msg_type="${resolvedMsgType}" 时不应传 event_types（消息类型条目的 event 固定为空串 ""）；` +
+            `请去掉 event_types，仅传 msg_type / function_name / enable（setEnable 时）`,
         );
       }
-      const eventList = targets ?? [...XPAY_EVENT_TYPES];
+
+      // subscribe / unsubscribe / setEnable 共用流程：读 → 校验 → merge → 确认 → 覆盖写
+      let eventList: string[];
+      if (!isEventMsgType) {
+        // Non-event message types: single entry keyed by (msgType, event="")
+        eventList = [EMPTY_EVENT];
+      } else {
+        const targets = event_types ? [...new Set(event_types)] : undefined;
+        if (action === "subscribe" && !targets) {
+          // 缺省 = 虚拟支付默认事件集合
+        } else if (!targets || targets.length === 0) {
+          throw new Error(
+            `${action} 必须提供 event_types（要操作的事件列表，可先 queryMessagePush(action=listSupportedEvents) 查询）；` +
+              `若操作消息类型条目请传 msg_type（如 "text"），勿传 event_types`,
+          );
+        }
+        eventList = targets ?? [...XPAY_EVENT_TYPES];
+      }
 
       // 1. 读当前配置（乐观锁基础：必须读全量再 merge，禁止用本地列表直接覆盖）
       const state = await readCallbackConfig(server, appid);
 
-      // 2. 显式 event_types 时严格校验合法性（默认集合仅警告，服务端为准）
+      // 2. 合法性校验
       let warnings: string[] = [];
-      if (action === "subscribe" && event_types && event_types.length > 0) {
+      if (!isEventMsgType) {
+        // Validate msg_type exists in support list (message types have empty/missing event)
+        try {
+          const constraints = await fetchSupportedEvents(server, appid);
+          const supportedMsgTypes = new Set(constraints.map((c) => c.msgType));
+          if (!supportedMsgTypes.has(resolvedMsgType)) {
+            return buildJsonToolResult({
+              ok: false,
+              code: "INVALID_MSG_TYPE",
+              message:
+                `msg_type="${resolvedMsgType}" 不在 getcallbacksupportlist 合法消息类型内。` +
+                `请先 queryMessagePush(action=listSupportedEvents) 查看可用 msgTypes。`,
+              next_step: { tool: "queryMessagePush", action: "listSupportedEvents" },
+            });
+          }
+        } catch {
+          // Constraint fetch failure does not block; server still validates on write
+        }
+      } else if (action === "subscribe" && event_types && event_types.length > 0) {
+        // 显式 event_types 时严格校验合法性（默认集合仅警告，服务端为准）
         const constraints = await fetchSupportedEvents(server, appid);
         const supported = new Set(
           constraints.filter((c) => c.event).map((c) => c.event),
@@ -759,20 +829,43 @@ export function registerMsgPushTools(server: ExtendedMcpServer) {
         }
       }
 
-      // 3. merge（纯函数，幂等）
+      // 3. merge（纯函数，幂等；透传 resolvedMsgType）
       let result: MergeResult;
       if (action === "subscribe") {
-        result = mergeSubscribeList(state.list, eventList, env_id, function_name);
+        result = mergeSubscribeList(
+          state.list,
+          eventList,
+          env_id,
+          function_name,
+          resolvedMsgType,
+        );
       } else if (action === "unsubscribe") {
-        result = mergeUnsubscribeList(state.list, eventList, env_id, function_name);
+        result = mergeUnsubscribeList(
+          state.list,
+          eventList,
+          env_id,
+          function_name,
+          resolvedMsgType,
+        );
       } else if (action === "setEnable") {
         if (enable === undefined) {
           throw new Error("setEnable 必须提供 enable（true=启用 / false=停用）");
         }
-        result = mergeSetEnableList(state.list, eventList, env_id, function_name, enable);
+        result = mergeSetEnableList(
+          state.list,
+          eventList,
+          env_id,
+          function_name,
+          enable,
+          resolvedMsgType,
+        );
       } else {
         throw new Error(`不支持的操作类型: ${action}`);
       }
+
+      const targetLabel = isEventMsgType
+        ? eventList.join(", ")
+        : `msg_type=${resolvedMsgType}`;
 
       // 4. 集合无变化 → 幂等成功，不 POST（无需确认）
       if (!result.changed) {
@@ -782,11 +875,12 @@ export function registerMsgPushTools(server: ExtendedMcpServer) {
           code: "NO_CHANGE",
           message:
             action === "subscribe"
-              ? `订阅已处于期望状态，无变更（幂等，未发起写请求）：${eventList.join(", ")} 均已绑定 ${env_id}/${function_name}`
+              ? `订阅已处于期望状态，无变更（幂等，未发起写请求）：${targetLabel} 均已绑定 ${env_id}/${function_name}`
               : action === "unsubscribe"
                 ? `未找到可移除的匹配订阅，无变更（幂等，未发起写请求）`
                 : `目标订阅状态已一致，无变更（幂等，未发起写请求）`,
           action,
+          msg_type: resolvedMsgType,
           warnings: warnings.length ? warnings : undefined,
         });
       }
@@ -797,7 +891,8 @@ export function registerMsgPushTools(server: ExtendedMcpServer) {
         return buildConfirmPayload({
           toolName: "manageMessagePush",
           action,
-          message: `即将执行消息推送配置变更（${env_id}/${function_name}，version=${state.version}）：\n${diffText}`,
+          message:
+            `即将执行消息推送配置变更（${env_id}/${function_name}，msg_type=${resolvedMsgType}，version=${state.version}）：\n${diffText}`,
           requiredParams: ["appid", "env_id", "function_name", "confirm"],
         });
       }
@@ -842,6 +937,7 @@ export function registerMsgPushTools(server: ExtendedMcpServer) {
         appid,
         envId: env_id,
         functionName: function_name,
+        msgType: resolvedMsgType,
         events: eventList,
       });
 
@@ -861,6 +957,7 @@ export function registerMsgPushTools(server: ExtendedMcpServer) {
         success: true,
         message: `${action} 成功（${changedText}），version=${state.version} → 服务端已更新`,
         action,
+        msg_type: resolvedMsgType,
         added: result.added,
         rebound: result.rebound,
         removed: result.removed,
