@@ -135,15 +135,23 @@ function httpsPost(urlStr, bodyStr) {
 const CLOUD_API_AGENT_URL = "https://servicewechat.com/wxa-dev-qbase/apihttpagent";
 const COS_AUTH_URL = "https://servicewechat.com/wxa-dev-qbase/route/getcosauth";
 
-function makeTicketUrl(base) {
-  return `${base}?appid=${appid}&newticket=${encodeURIComponent(ticket)}&platform=0&os=darwin`;
+// 与微信开发者工具真实抓包一致（2026-08-24 实测）：apihttpagent 需要
+// `_i={service}~{action}`（URL 编码 `%7E`）+ test_env=0 + clientversion，
+// 否则返回 `ret:42001 access_token expired`。
+function makeTicketUrl(base, service, action) {
+  const sep = base.includes("?") ? "&" : "?";
+  const i = encodeURIComponent(`${service}~${action}`);
+  return (
+    `${base}${sep}_i=${i}&test_env=0&appid=${appid}&platform=0&ext_appid=&deployAppid=` +
+    `&newticket=${encodeURIComponent(ticket)}&os=darwin&clientversion=2022806182&_r=${Math.random()}`
+  );
 }
 
 // ─── CAPI requestFn ──────────────────────────────────────────────────────────
 function createTicketRequestFn() {
   return async ({ service, action, version, region, payload }) => {
     const body = JSON.stringify({ service, action, version, region: region || "", postdata: JSON.stringify(payload) });
-    const json = await httpsPost(makeTicketUrl(CLOUD_API_AGENT_URL), body);
+    const json = await httpsPost(makeTicketUrl(CLOUD_API_AGENT_URL, service, action), body);
     const inner = json?.content ? JSON.parse(json.content) : json;
     return inner?.Response ?? inner;
   };
@@ -160,7 +168,7 @@ async function getCosAuth({ region, bucket, method, path: cosPath }) {
     params: "",
     signature_type: 0,
   });
-  const json = await httpsPost(makeTicketUrl(COS_AUTH_URL), bodyStr);
+  const json = await httpsPost(makeTicketUrl(COS_AUTH_URL, "qbase", "getCosAuth"), bodyStr);
 
   // 解析 base_resp（与 IDE 端一致）
   if (json?.base_resp?.ret !== 0) {
@@ -355,16 +363,53 @@ async function runMsgPushTestGroup() {
   process.stderr.write(`[test-with-ticket] 运行消息推送测试组（event=${testEvent}, mock=${mockMsgPush}）...\n`);
 
   const mockBackend = createMockMsgPushBackend();
-  const msgPushRequestFn = mockMsgPush
-    ? mockBackend.requestFn
-    : createTicketMsgPushRequestFn();
+
+  // #949 重构后 msg-push 工具走 `cloudBaseOptions.requestFn`（CloudApiRequestFn：
+  // service/action/version/region/payload），不再是 pluginOptions.msgPush.requestFn。
+  //  - mock 模式：把 mock 后端（旧 url/body 语义）包装成 CloudApiRequestFn
+  //  - 真实模式：用带 `_i={service}~{action}` 的 createTicketRequestFn（与 IDE 抓包一致）
+  let cloudRequestFn;
+  // 真实模式专用：qbase 直连 CGI 传输层（快照还原也用同一通道）
+  let ticketTransport = null;
+  if (mockMsgPush) {
+    const MOCK_URLS = {
+      getAppConfig: "https://servicewechat.com/wxa-dev-qbase/getappconfig",
+      uploadAppConfig: "https://servicewechat.com/wxa-dev-qbase/uploadappconfig",
+      getCallbackSupportList: "https://servicewechat.com/wxa-dev-qbase/route/getcallbacksupportlist",
+      getContainerCallbackConfig: "https://servicewechat.com/wxa-dev-qbase/getcontainercallbackconfig",
+      setContainerCallbackConfig: "https://servicewechat.com/wxa-dev-qbase/setcontainercallbackconfig",
+    };
+    cloudRequestFn = async ({ action, payload }) => {
+      const url = MOCK_URLS[action];
+      if (!url) throw new Error(`mock qbase: 未知 action ${action}`);
+      const json = await mockBackend.requestFn({
+        url,
+        method: "post",
+        body: payload ?? {},
+        appid,
+      });
+      // mock 后端直接返回 qbase 语义响应（{base_resp, version, config...}）
+      return json;
+    };
+  } else {
+    // qbase 直连 CGI（与微信开发者工具抓包一致：/getappconfig 等不走
+    // apihttpagent，apihttpagent 只用于 tcb 等 CAPI 域）。按 action 映射到
+    // QBASE_PATHS 后再交给 ticket 传输层。
+    ticketTransport = createTicketMsgPushRequestFn();
+    cloudRequestFn = async ({ action, payload }) => {
+      const url = QBASE_PATHS[action];
+      if (!url) throw new Error(`qbase: 未知 action ${action}`);
+      const json = await ticketTransport({ url, method: "post", body: payload ?? {}, appid });
+      return json;
+    };
+  }
 
   const server = await createCloudBaseMcpServer({
     enableTelemetry: false,
     ide: "wxide",
-    cloudBaseOptions: { envId, requestFn: createTicketRequestFn() },
+    cloudBaseOptions: { envId, requestFn: cloudRequestFn },
     pluginsEnabled: ["msg-push"],
-    pluginOptions: { msgPush: { requestFn: msgPushRequestFn } },
+    pluginOptions: { msgPush: {} },
   });
 
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
@@ -383,7 +428,22 @@ async function runMsgPushTestGroup() {
   // 1. 只读检查
   const list1 = await call("queryMessagePush", { appid, action: "list" });
   if (!list1.success) throw new Error(`queryMessagePush(list) 失败: ${JSON.stringify(list1)}`);
-  process.stderr.write(`[msgpush] ✅ list 成功：version=${list1.version}, callbacks=${list1.callbacks.length}\n`);
+  process.stderr.write(`[msgpush] ✅ list 成功：version=${list1.version}, enable=${list1.enable}, callbacks=${list1.callbacks.length}\n`);
+
+  // 真实模式：快照完整原始 config（version + 原始 config 字符串），
+  // subscribe 的 rebound 语义可能改绑已有回调、enable 也会被置 true，
+  // unsubscribe/setEnable 无法保证还原，结束必须全量快照还原。
+  let configSnapshot = null;
+  if (!mockMsgPush && ticketTransport) {
+    const raw = await ticketTransport({
+      url: QBASE_PATHS.getAppConfig,
+      method: "post",
+      body: { type: 1 },
+      appid,
+    });
+    configSnapshot = { version: raw.version, config: raw.config };
+    process.stderr.write(`[msgpush] 📸 已快照原始配置 version=${raw.version}\n`);
+  }
 
   const supported = await call("queryMessagePush", { appid, action: "listSupportedEvents" });
   if (!supported.success) throw new Error(`listSupportedEvents 失败: ${JSON.stringify(supported)}`);
@@ -443,6 +503,34 @@ async function runMsgPushTestGroup() {
     throw new Error(`unsubscribe 失败: ${JSON.stringify(unsub)}`);
   }
   process.stderr.write("[msgpush] ✅ unsubscribe 成功（配置已还原）\n");
+
+  // 6. 全量快照还原（真实模式）：subscribe 会改绑已有回调 + 置 enable=true，
+  //    unsubscribe/setEnable 只能还原工具自身写的条目，无法恢复被 rebound 的
+  //    原回调 —— 必须用测试前的完整 config 覆盖写还原。
+  if (!mockMsgPush && configSnapshot) {
+    // uploadAppConfig 有 version 乐观锁：测试过程已使 version 递增，
+    // 需先读当前 version 再用快照 config 覆盖写（config 才是还原的本质）。
+    const cur = await ticketTransport({
+      url: QBASE_PATHS.getAppConfig,
+      method: "post",
+      body: { type: 1 },
+      appid,
+    });
+    const restore = await ticketTransport({
+      url: QBASE_PATHS.uploadAppConfig,
+      method: "post",
+      body: {
+        type: 1,
+        version: cur.version,
+        config: configSnapshot.config,
+      },
+      appid,
+    });
+    if (restore?.base_resp?.ret !== 0) {
+      throw new Error(`快照还原失败: ${JSON.stringify(restore)}`);
+    }
+    process.stderr.write(`[msgpush] ✅ 原始配置快照已还原（version=${cur.version}）\n`);
+  }
 
   if (mockMsgPush) {
     process.stderr.write(`[msgpush] mock 后端最终状态：version=${mockBackend.state().version}, callbacks=${mockBackend.state().callbacks.length}\n`);
