@@ -1,7 +1,7 @@
 ---
 name: miniprogram-development
-description: WeChat Mini Program development skill for building, debugging, previewing, testing, publishing, optimizing, and promoting mini program projects. This skill should be used when users ask to create, develop, modify, debug, preview, test, deploy, publish, launch, review, optimize, or promote WeChat Mini Programs, mini program pages, components, `tabBar`, routing, navigation, icon assets, project structure, project configuration, `project.config.json`, `appid` setup, device preview, real-device validation, WeChat Developer Tools Nightly workflows, `wechatide` CLI, WeChat IDE Skills/MCP, console/network debugging, `miniprogram-ci` preview/upload flows, or mini program release processes. It should also be used when users ask about mini program SEO / search optimization / search promotion (小程序 SEO、搜索优化、微信搜索收录、搜索推广、页面收录、关键词排名、被搜索到) or page indexing by the WeChat search crawler (`mpcrawler`). Use it when users explicitly mention CloudBase, `wx.cloud`, Tencent CloudBase, 腾讯云开发, 微信云开发, or 云开发 in a mini program project.
-version: 2.31.0
+description: WeChat Mini Program development skill for building, debugging, previewing, testing, publishing, optimizing, and promoting mini program projects. This skill should be used when users ask to create, develop, modify, debug, preview, test, deploy, publish, launch, review, optimize, or promote WeChat Mini Programs, mini program pages, components, `tabBar`, routing, navigation, icon assets, project structure, project configuration, `project.config.json`, `appid` setup, device preview, real-device validation, WeChat Developer Tools Nightly workflows, `wechatide` CLI, WeChat IDE Skills/MCP, console/network debugging, `miniprogram-ci` preview/upload flows, or mini program release processes. It should also be used when users ask about mini program SEO / search optimization / search promotion (小程序 SEO、搜索优化、微信搜索收录、搜索推广、页面收录、关键词排名、被搜索到) or page indexing by the WeChat search crawler (`mpcrawler`). Use it for message push / customer-service auto-reply (消息推送、客服消息、客服自动回复、MsgType、Event 回调、体验版、灰度) and when users explicitly mention CloudBase, `wx.cloud`, Tencent CloudBase, 腾讯云开发, 微信云开发, or 云开发 in a mini program project. 也适用于：微信小程序开发/调试/预览/上传/发布、消息推送与客服会话自动回复、体验版与灰度发布、微信云开发集成、小程序搜索优化与页面收录。
+version: 2.32.0
 alwaysApply: false
 ---
 
@@ -154,6 +154,8 @@ Keep the custom `tabBar` layout text-only, and use flex centering or matching `h
 - For detailed workflows, read [debug and preview reference](references/devtools-debug-preview.md) and [WeChat IDE Skills vs CloudBase MCP](references/wxide-vs-cloudbase-mcp.md)
 
 ## Message Push & Customer Service Auto-Reply
+
+> 微信生态专章：消息推送 / 客服自动回复细节以中文 reference 为准（术语保留英文 API 名）。
 
 - **Current only ops path:** WeChat Developer Tools IDE + wxide CLI. Do not teach low-level bypasses while `cloud_msg_push_query` / `cloud_msg_push_manage` are not yet exposed (track **9109db6b**).
 - Deploy receiver functions with `cloud_fn_deploy` **and** `--remote-npm-install`; bind (MsgType, Event) → one cloud function in the IDE message-push panel until CLI tools land.

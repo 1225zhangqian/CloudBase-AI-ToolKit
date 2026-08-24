@@ -1,66 +1,66 @@
-# Message Push & Customer Service Auto-Reply
+# 消息推送与客服自动回复
 
-Practical guide for **WeChat Mini Program + CloudBase** message push (消息推送) and customer-service auto-reply (客服消息自动回复).
+面向 **微信小程序 + 云开发（CloudBase）** 的消息推送与客服消息自动回复实操指南。
 
-## Operation surface (mandatory)
+## 操作面（强制）
 
-**Current only supported path:** WeChat Developer Tools (IDE) and wxide CLI (`wechatide` Nightly tools, or classic DevTools `cli`).
+**当前唯一支持路径：** 微信开发者工具（IDE）与 wxide CLI（Nightly 的 `wechatide`，或经典 DevTools `cli`）。
 
-| Do | Don't |
+| 应当 | 禁止 |
 | --- | --- |
-| Configure / deploy / preview via IDE UI or wxide CLI high-level commands below | Bypass CLI with low-level transport, ticket capture, or undocumented CGI |
-| Prefer Nightly `wechatide -c <clientName> -t <toolName>` (discover flags with `--help`) | Invent tool names or flags |
-| Until WeChat-side tools are exposed, use IDE **云开发控制台 → 消息推送** for callback binding | Guide agents to call CloudBase MCP `queryMessagePush` / `manageMessagePush` as the mini-program daily path |
+| 通过 IDE UI 或下方 wxide CLI 高层命令完成配置 / 部署 / 预览 | 用底层传输、抓 ticket、未文档化的 CGI 绕过 CLI |
+| 优先 Nightly：`wechatide -c <clientName> -t <toolName>`（用 `--help` 发现参数） | 臆造工具名或参数 |
+| 在微信侧工具尚未暴露前，用 IDE **云开发控制台 → 消息推送** 做回调绑定 | 把 CloudBase MCP 的 `queryMessagePush` / `manageMessagePush` 当作小程序日常操作路径教给 agent |
 
-**WeChat IDE exposure status:** Spec designs `cloud_msg_push_query` / `cloud_msg_push_manage` (mapped from CloudBase MCP `queryMessagePush` / `manageMessagePush` via `EXPOSED_TOOL_NAME` after main upgrades `@cloudbase/cloudbase-mcp`). That consumption track is **9109db6b** — **not exposed yet**. Until then, this skill treats **IDE UI + existing wxide CLI cloud/preview commands** as the only agent-facing ops surface. Do not document or teach low-level alternatives.
+**微信 IDE 暴露状态：** 规格设计了 `cloud_msg_push_query` / `cloud_msg_push_manage`（由 CloudBase MCP 的 `queryMessagePush` / `manageMessagePush` 经 `EXPOSED_TOOL_NAME` 映射；需 main 升级 `@cloudbase/cloudbase-mcp` 后）。该消费链路归属 **9109db6b** —— **尚未暴露**。在此之前，本 skill 只把 **IDE UI + 现有 wxide CLI 云/预览命令** 当作面向 agent 的操作面。不要文档化或教授底层替代方案。
 
-**Maintainer E2E (not for product agents):** Full ticket / regression procedure for CloudBase-MCP msg-push tools lives in the external skill `wxide-qbase-msgpush-e2e` (`~/.workbuddy/skills/wxide-qbase-msgpush-e2e/SKILL.md`). Point there; do not copy its low-level steps into this reference.
+**维护者 E2E（不对产品 agent）：** CloudBase-MCP msg-push 工具的完整 ticket / 回归流程在外部 skill `wxide-qbase-msgpush-e2e`（`~/.workbuddy/skills/wxide-qbase-msgpush-e2e/SKILL.md`）。只指向该处；不要把其中的底层步骤复制进本参考。
 
-## When to read this reference
+## 何时阅读本参考
 
-- Bind message types or events to a cloud function
-- Build customer-service auto-reply that must answer user chat
-- Deploy the receiver function / upload experience build for real-device verification
-- Find where function logs appear after a push
+- 将消息类型或事件绑定到云函数
+- 实现必须能回复用户聊天的客服自动回复
+- 部署接收端云函数 / 上传体验版以便真机验证
+- 推送触发后查找云函数日志位置
 
 ---
 
-## 1. Message push configuration mechanism
+## 1. 消息推送配置机制
 
-### Message type vs event class
+### 消息类型 vs 事件类
 
-Callback routing is keyed by the **(MsgType, Event)** pair:
+回调路由以 **(MsgType, Event)** 对为键：
 
-| Kind | `MsgType` | `Event` | Typical use |
+| 类别 | `MsgType` | `Event` | 典型用途 |
 | --- | --- | --- | --- |
-| Message type | `text` / `image` / `voice` / `video` / `miniprogrampage` | empty (`""`) | User sends a chat message / card into customer service |
-| Event class | `event` | concrete event name (e.g. virtual-pay notify events) | Platform / business events |
+| 消息类型 | `text` / `image` / `voice` / `video` / `miniprogrampage` | 空字符串 (`""`) | 用户向客服发送聊天消息 / 卡片 |
+| 事件类 | `event` | 具体事件名（如虚拟支付通知事件） | 平台 / 业务事件 |
 
-Rules:
+规则：
 
-- The **same (MsgType, Event) pair can bind to only one cloud function** (rebinding replaces the previous function).
-- Legal event names for `MsgType=event` come from the platform support list (IDE message-push UI / future `cloud_msg_push_query` `listSupportedEvents`). Do not invent event strings.
-- Enable the push switch in the IDE message-push panel when bindings should take effect.
+- **同一 (MsgType, Event) 对只能绑定一个云函数**（重新绑定会替换原先函数）。
+- `MsgType=event` 的合法事件名来自平台支持列表（IDE 消息推送面板 / 未来的 `cloud_msg_push_query` `listSupportedEvents`）。不要臆造事件字符串。
+- 需要生效时，在 IDE 消息推送面板打开推送开关。
 
-### Configure callbacks (current)
+### 配置回调（当前）
 
-1. Open **微信开发者工具 → 云开发控制台 → 消息推送** (wording may vary by DevTools version).
-2. Choose **云函数** mode (not container) unless the project explicitly uses CloudRun callbacks.
-3. Add entries for needed message types and/or events; point each to the receiver function name; enable push.
+1. 打开 **微信开发者工具 → 云开发控制台 → 消息推送**（文案可能随 DevTools 版本变化）。
+2. 选择 **云函数** 模式（非容器），除非项目明确使用云托管回调。
+3. 为所需消息类型和/或事件添加入口；各自指向接收端函数名；开启推送。
 
-**Pending wxide CLI (9109db6b):**
+**待 wxide CLI（9109db6b）：**
 
 ```text
-# Not available yet — do not invent or substitute low-level calls
+# 尚不可用 — 不要臆造或用底层调用代替
 wechatide -c <clientName> -t cloud_msg_push_query   ...
 wechatide -c <clientName> -t cloud_msg_push_manage  ...
 ```
 
-When those tools ship, prefer them over manual IDE clicks for subscribe / unsubscribe / list / setEnable. Until then, use the IDE panel only.
+这些工具上线后，subscribe / unsubscribe / list / setEnable 优先用它们，少用手点 IDE。在此之前仅用 IDE 面板。
 
-### Deploy the receiver cloud function
+### 部署接收端云函数
 
-Always install npm deps **in the cloud** so runtime modules such as `@cloudbase/node-sdk` / `wx-server-sdk` resolve:
+务必在**云端**安装 npm 依赖，以便运行时解析 `@cloudbase/node-sdk` / `wx-server-sdk` 等模块：
 
 ```bash
 wechatide -c <clientName> -t cloud_fn_deploy \
@@ -70,7 +70,7 @@ wechatide -c <clientName> -t cloud_fn_deploy \
   --remote-npm-install
 ```
 
-Classic DevTools CLI equivalent:
+经典 DevTools CLI 等价写法：
 
 ```bash
 cli cloud functions deploy \
@@ -80,58 +80,58 @@ cli cloud functions deploy \
   --remote-npm-install
 ```
 
-Notes:
+注意：
 
-- Function directory name = function name.
-- If deploy fails while the function is Creating/Updating, wait ~10–15s and retry.
-- Omitting `--remote-npm-install` / `-r` commonly yields runtime `Cannot find module '...'`.
+- 函数目录名 = 函数名。
+- 若部署时函数处于 Creating/Updating，等待约 10–15s 后重试。
+- 省略 `--remote-npm-install` / `-r` 常见运行时报错 `Cannot find module '...'`。
 
-### Experience build / real-device check
+### 体验版 / 真机验证
 
 ```bash
-# Upload experience build (only when the user explicitly asks to publish 体验版)
+# 上传体验版（仅在用户明确要求发布体验版时）
 wechatide -c <clientName> -t miniprogram_upload \
   --project <absProjectPath> \
   --upload-version <x.y.z> \
   --desc "<desc>"
 
-# Preview QR when a scannable code file/window is needed
+# 需要可扫码二维码文件/窗口时用预览二维码
 wechatide -c <clientName> -t create_preview_qrcode \
   --project <absProjectPath> \
   --qr-output <absOutputPath>
 ```
 
-For quick phone push without a file path, prefer `auto_preview`. Customer-service entry usually needs `<button open-type="contact">` and customer-service capability enabled in the MP admin backend.
+手机快速推送且无需文件路径时，优先 `auto_preview`。客服入口通常需要 `<button open-type="contact">`，并在小程序后台开通客服能力。
 
 ---
 
-## 2. Cloud function as push receiver
+## 2. 云函数作为推送接收端
 
-Minimal pattern:
+最小模式：
 
 ```js
 const cloud = require("wx-server-sdk");
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
 exports.main = async (event, context) => {
-  // event.MsgType / event.Event identify the (MsgType, Event) pair
+  // event.MsgType / event.Event 标识 (MsgType, Event) 对
   console.log("msg-push", event.MsgType, event.Event, event);
-  // ... business logic ...
-  return {}; // return value alone does NOT reply to the user (see §3)
+  // ... 业务逻辑 ...
+  return {}; // 仅靠返回值不会回复用户（见 §3）
 };
 ```
 
-Checklist:
+检查清单：
 
-- One function per logical handler is fine; **one (MsgType, Event) → one function** at the push config layer.
-- Log enough to debug (`MsgType`, `Event`, openid if present).
-- For privileged OpenAPI calls, declare permissions in the function `config.json` (see §3).
+- 一个逻辑处理器对应一个函数即可；推送配置层必须保证 **一个 (MsgType, Event) → 一个函数**。
+- 日志足够排查（`MsgType`、`Event`、若有则记 openid）。
+- 特权 OpenAPI 调用须在函数 `config.json` 中声明权限（见 §3）。
 
 ---
 
-## 3. Customer service auto-reply mechanism
+## 3. 客服自动回复机制
 
-**Critical:** In cloud-function message-push mode, the function **return value does not** become a customer-service reply. To answer the user you must **actively send** via OpenAPI:
+**关键：** 云函数消息推送模式下，函数的 **返回值不会** 变成客服回复。要回复用户必须通过 OpenAPI **主动发送**：
 
 ```js
 await cloud.openapi.customerServiceMessage.send({
@@ -141,7 +141,7 @@ await cloud.openapi.customerServiceMessage.send({
 });
 ```
 
-Declare OpenAPI permission on the function (example `config.json`):
+在函数上声明 OpenAPI 权限（`config.json` 示例）：
 
 ```json
 {
@@ -151,55 +151,55 @@ Declare OpenAPI permission on the function (example `config.json`):
 }
 ```
 
-Redeploy with `--remote-npm-install` after changing code or `config.json`.
+修改代码或 `config.json` 后，用 `--remote-npm-install` 重新部署。
 
-Common failures:
+常见失败：
 
-- Assuming `return { errcode: 0, ... }` or a text body will reply → silent no-reply.
-- Missing `openapi` permission → send API fails at runtime.
-- No customer-service entry / capability → real device never triggers `text` push.
+- 以为 `return { errcode: 0, ... }` 或文本 body 会回复 → 静默无回复。
+- 缺少 `openapi` 权限 → 发送 API 运行时失败。
+- 无客服入口 / 未开通能力 → 真机永远触发不了 `text` 推送。
 
 ---
 
-## 4. Cloud function logs
+## 4. 云函数日志
 
-### IDE (available now)
+### IDE（现已可用）
 
 **微信开发者工具 → 云开发控制台 → 云函数 → \<function\> → 日志**
 
-After enabling the CloudBase console panels, invocation logs for the receiver function appear here. Use this path for real-device push verification.
+开启云开发控制台相关面板后，接收端函数的调用日志会出现在这里。真机推送验证走此路径。
 
-### wxide CLI (gap)
+### wxide CLI（缺口）
 
-There is **no** stable wxide CLI log-query tool yet (for example a future `cloud_fn_logs` / equivalent).
+目前尚无稳定的 wxide CLI 日志查询工具（例如未来的 `cloud_fn_logs` 或等价物）。
 
 ```text
-# Pending — 待 wxide CLI 提供（归属 9109db6b；接口调研 d5735473）
-# Do not teach low-level log CGI workarounds in this skill
+# 待补齐 — 待 wxide CLI 提供（归属 9109db6b；接口调研 d5735473）
+# 本 skill 不要教授底层日志 CGI 绕过
 wechatide -c <clientName> -t <cloud_fn_logs_or_equivalent> ...
 ```
 
-Until that lands, instruct agents/users to read logs in the IDE console path above.
+在此之前，指引 agent/用户在上方 IDE 控制台路径查看日志。
 
 ---
 
-## 5. Suggested end-to-end flow (product)
+## 5. 建议的端到端流程（产品）
 
-1. Implement receiver cloud function (+ OpenAPI send if auto-reply is required).
-2. `cloud_fn_deploy` **with** `--remote-npm-install`.
-3. Bind (MsgType, Event) → function in IDE **消息推送** (or future `cloud_msg_push_manage`).
-4. Ensure customer-service entry / capability if testing `text` / media message types.
-5. Upload experience build / preview; trigger from a real device.
-6. Verify in IDE cloud function **日志** (CLI logs: pending 9109db6b).
+1. 实现接收端云函数（若需自动回复则加 OpenAPI send）。
+2. `cloud_fn_deploy` **并带上** `--remote-npm-install`。
+3. 在 IDE **消息推送** 中绑定 (MsgType, Event) → 函数（或未来的 `cloud_msg_push_manage`）。
+4. 测试 `text` / 媒体消息类型时，确保已有客服入口 / 能力。
+5. 上传体验版 / 预览；用真机触发。
+6. 在 IDE 云函数 **日志** 中验证（CLI 日志：待 9109db6b）。
 
 ---
 
-## Related
+## 相关
 
-- Debug / preview / `wechatide` context: [devtools-debug-preview.md](devtools-debug-preview.md)
-- IDE Skills vs CloudBase MCP layering: [wxide-vs-cloudbase-mcp.md](wxide-vs-cloudbase-mcp.md)
-- CloudBase mini program integration: [cloudbase-integration.md](cloudbase-integration.md)
-- Maintainer MCP E2E authority (external): `wxide-qbase-msgpush-e2e` skill — do not inline its low-level steps here
-- WeChat-side CLI exposure / missing commands: task **9109db6b**
-- Log API research: task **d5735473**
-- Spec design (CloudBase-MCP msg-push + EXPOSED_TOOL_NAME): `specs/virtual-payment-mcp/design.md` (task **43367cc6**)
+- 调试 / 预览 / `wechatide` 上下文：[devtools-debug-preview.md](devtools-debug-preview.md)
+- IDE Skills 与 CloudBase MCP 分层：[wxide-vs-cloudbase-mcp.md](wxide-vs-cloudbase-mcp.md)
+- CloudBase 小程序集成：[cloudbase-integration.md](cloudbase-integration.md)
+- 维护者 MCP E2E 权威源（外部）：`wxide-qbase-msgpush-e2e` skill — 不要在此内联其底层步骤
+- 微信侧 CLI 暴露 / 缺失命令：任务 **9109db6b**
+- 日志 API 调研：任务 **d5735473**
+- 规格设计（CloudBase-MCP msg-push + EXPOSED_TOOL_NAME）：`specs/virtual-payment-mcp/design.md`（任务 **43367cc6**）
