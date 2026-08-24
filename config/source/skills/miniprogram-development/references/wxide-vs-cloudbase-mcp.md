@@ -19,9 +19,12 @@ Nightly ships built-in Skills/MCP: https://developers.weixin.qq.com/miniprogram/
 2. Is the task **daily** cloud ops on the mini program CloudBase env (list/query collections, deploy a function, list/upload storage)?
    - Nightly available → **WeChat IDE Skills** `cloudbase-operator` tools.
    - Nightly unavailable → **CloudBase MCP** (after Tencent Cloud login).
-3. Is the task **advanced cloud** (data model / MySQL / PG / fine-grained security rules / multi-env platform ops beyond IDE tools)?
+3. Is the task **message push / customer-service auto-reply** (消息推送、客服自动回复、MsgType/Event 回调绑定)?
+   - → **WeChat IDE Skills / IDE 云开发控制台** first. See [message-push-customer-service.md](message-push-customer-service.md).
+   - `cloud_msg_push_query` / `cloud_msg_push_manage` are **not exposed yet** (9109db6b). Do not bypass with low-level transport.
+4. Is the task **advanced cloud** (data model / MySQL / PG / fine-grained security rules / multi-env platform ops beyond IDE tools)?
    - → **CloudBase MCP**.
-4. Always useful: install **CloudBase Skills** as knowledge constraints for how to write CloudBase code — they are not a substitute for either execution surface.
+5. Always useful: install **CloudBase Skills** as knowledge constraints for how to write CloudBase code — they are not a substitute for either execution surface.
 
 ## Do / Don't
 
@@ -41,3 +44,4 @@ Nightly ships built-in Skills/MCP: https://developers.weixin.qq.com/miniprogram/
 
 - Execution paths: [devtools-debug-preview.md](devtools-debug-preview.md)
 - `wx.cloud` / OPENID / client rules: [cloudbase-integration.md](cloudbase-integration.md)
+- Message push / customer-service auto-reply: [message-push-customer-service.md](message-push-customer-service.md)

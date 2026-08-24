@@ -64,11 +64,18 @@ Saving canvas as image then uploading without handling the temporary file path c
 - After changing cloud environment in DevTools, restart the simulator.
 - For CI/CD with `miniprogram-ci`, the IP whitelist must include the build machine.
 
-## 5. General Recommendation
+## 5. Message Push / Customer Service Auto-Reply
+
+**Problem**: Agents teach low-level bypasses, omit `--remote-npm-install`, or assume function return values reply to chat.
+
+**Correct approach**: Follow [message-push-customer-service.md](message-push-customer-service.md) — IDE / wxide CLI only; OpenAPI `customerServiceMessage.send` for replies; CLI gaps marked 9109db6b.
+
+## 6. General Recommendation
 
 When generating mini program code that touches CloudBase:
 1. Read this pitfalls file first.
 2. Apply the Change Safety Protocol before any modification.
 3. For upload/publish flows, complete the Deployment Gate checklist.
+4. For message push / 客服自动回复, read [message-push-customer-service.md](message-push-customer-service.md).
 
 This keeps the skill defensive and reduces repeated correction loops.
