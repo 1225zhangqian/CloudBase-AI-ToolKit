@@ -399,8 +399,7 @@ async function runMsgPushTestGroup() {
         url,
         method: "post",
         body: payload ?? {},
-        // Prefer per-call appid from CloudApiRequestFn (multi-session); fall back to CLI
-        appid: reqAppid || appid,
+        appid: reqAppid,
       });
       // mock 后端直接返回 qbase 语义响应（{base_resp, version, config...}）
       return json;
@@ -422,7 +421,7 @@ async function runMsgPushTestGroup() {
         url,
         method: "post",
         body: payload ?? {},
-        appid: reqAppid || appid,
+        appid: reqAppid,
       });
       return json;
     };
