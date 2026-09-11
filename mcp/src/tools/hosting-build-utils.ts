@@ -3,13 +3,13 @@ import path from "node:path";
 import CloudBase from "@cloudbase/manager-node";
 
 /**
- * hosting 声明式构建的 MCP 策略层（appBuild / deployApply 共用）
+ * hosting 声明式构建的 MCP 策略层（deployBuild / deployApply 共用）
  *
  * 背景：deployApply 此前会经 manager-node StaticDeployer.deployHosting →
  * runLocalBuild 在部署链路内隐式本地执行 buildCommand。对齐 CLI
  * （cloudbase-cli `tcb app build`，业界 Vercel vercel build / Azure swa build），
  * 拆分为：
- *   - appBuild      负责本地构建（不装依赖、不上传）
+ *   - deployBuild      负责本地构建（不装依赖、不上传）
  *   - deployApply   只上传产物目录（有 buildCommand 的项必须先构建，经
  *                    neutralizeHostingForDeploy 中立化后直传产物）
  *
@@ -17,7 +17,7 @@ import CloudBase from "@cloudbase/manager-node";
  * - 框架推断（buildCommand / outputDir 解析、package.json 探测）与构建执行
  *   在 manager-node（CloudBase.resolveHostingBuildCommand / resolveHostingOutputDir /
  *   buildHosting），本模块不复制 —— 单一真相源在 manager-node。
- * - 本模块只做 MCP 侧策略：产物存在性检查、node_modules 提示、deploy 中立化改写。
+ * - 本模块只做 MCP 侧策略：产物有效性检查（存在且非空）、node_modules 提示（限定 workspace root）、deploy 中立化改写。
  *
  * 抛错统一用 HostingBuildError（带稳定 code），deploy.ts 的错误信封会透传该 code，
  * 供 agent 程序化分支处理。
@@ -49,9 +49,9 @@ export interface DeployConfig {
 
 /**
  * hosting 构建/中立化的稳定错误码。与 CLI 同名同义，随 deploy 信封的 errorCode 返回。
- * - BUILD_OUTPUT_NOT_FOUND：deployApply 中立化时产物目录缺失 → 引导先 appBuild
- * - DEPENDENCY_NOT_INSTALLED：appBuild 前检测到声明依赖但未安装 node_modules
- * - BUILD_FAILED：appBuild 构建命令执行失败
+ * - BUILD_OUTPUT_NOT_FOUND：deployApply 中立化时产物目录缺失 → 引导先 deployBuild
+ * - DEPENDENCY_NOT_INSTALLED：deployBuild 前检测到声明依赖但未安装 node_modules
+ * - BUILD_FAILED：deployBuild 构建命令执行失败
  */
 export const HOSTING_BUILD_ERROR_CODES = {
   BUILD_OUTPUT_NOT_FOUND: "BUILD_OUTPUT_NOT_FOUND",
@@ -119,17 +119,24 @@ export function buildHostingItem(item: HostingItem, cwd: string): HostingBuildOu
     // 无 package.json 或解析失败 → 按无依赖处理，仅尝试构建
   }
   if (hasDeps) {
-    // node_modules 沿父链向上查找：pnpm workspace / monorepo 中依赖通常 hoist 到仓库根
-    // （子包只有 symlink），仅检查 root 目录会误报「未安装」。上溯到文件系统根仍不存在才判定为缺依赖。
+    // node_modules 沿父链向上查找，但**限定在 workspace root（cwd）以内**：
+    // pnpm workspace / monorepo 依赖通常 hoist 到项目根（子包只有 symlink），
+    // 只查 item.root 会误报「未安装」；但若不设上界，会一路爬到文件系统根，
+    // 项目外无关的 node_modules（如 home 目录的全局依赖）会造成「漏报」——
+    // 把未安装误判成已安装，反而拖到构建阶段才崩、报错更晦涩。故以 cwd 为上界。
+    const boundary = path.resolve(cwd);
+    const withinBoundary = (dir: string): boolean =>
+      dir === boundary || dir.startsWith(boundary + path.sep);
     let nodeModulesFound = false;
     let probeDir = root;
-    while (probeDir) {
+    while (true) {
       if (fs.existsSync(path.join(probeDir, "node_modules"))) {
         nodeModulesFound = true;
         break;
       }
       const parent = path.dirname(probeDir);
-      if (parent === probeDir) break;
+      // 到达文件系统根，或再上溯就越过 workspace root → 停止
+      if (parent === probeDir || !withinBoundary(parent)) break;
       probeDir = parent;
     }
     if (!nodeModulesFound) {
@@ -163,13 +170,13 @@ export function buildHostingItem(item: HostingItem, cwd: string): HostingBuildOu
 /**
  * deployApply 前的 hosting 中立化：
  *
- * 声明式部署不再由 MCP 执行本地构建（拆到 appBuild）。对每个 hosting 项：
+ * 声明式部署不再由 MCP 执行本地构建（拆到 deployBuild）。对每个 hosting 项：
  *   - 无 buildCommand → 纯静态直传，原样放行
  *   - 有 buildCommand → 检查产物目录存在：
  *       · 存在 → 清空 buildCommand/installCommand（manager-node 收到空命令即跳过
  *         runLocalBuild 直接上传），并确保 outputDir 指向产物目录，避免
  *         manager-node resolveHostingOutputDir 在无 outputDir 时回退上传 root
- *       · 缺失 → 报错并引导先执行 appBuild
+ *       · 缺失 → 报错并引导先执行 deployBuild
  *
  * @returns 处理后的 config（不修改入参，返回新对象）
  * @throws HostingBuildError 产物缺失（BUILD_OUTPUT_NOT_FOUND）
@@ -192,20 +199,38 @@ export function neutralizeHostingForDeploy(config: DeployConfig, cwd: string): D
       return item;
     }
 
-    // 原产物目录（与 appBuild 落盘位置一致）
+    // 原产物目录（与 deployBuild 落盘位置一致）
     const outputDir = CloudBase.resolveHostingOutputDir(item, root);
 
-    // 产物不存在 → 引导先执行 appBuild
-    if (!fs.existsSync(outputDir)) {
+    // 产物缺失或为空 → 引导先执行 deployBuild
+    // 仅 existsSync 不足以判断产物有效：构建被中断、或产物目录被清空后未重新构建，
+    // 会留下一个空目录；直传空目录会把线上站点覆盖成空白页。故要求「存在且非空」。
+    // 注：这里只做确定性的「空/缺失」拦截，不做源码 vs 产物的 mtime/hash 新鲜度校验
+    //     —— 那类校验易误报（改 README、git checkout 触碰源码文件都会误判过期），
+    //     且与 CLI（tcb app build）/ Vercel 语义一致：是否重新构建交由用户判断。
+    let artifactReady = false;
+    try {
+      const stat = fs.statSync(outputDir);
+      // 目录要求非空；极少数产物为单文件的情况，存在即视为就绪
+      artifactReady = stat.isDirectory() ? fs.readdirSync(outputDir).length > 0 : true;
+    } catch {
+      artifactReady = false; // 不存在 / 无访问权限
+    }
+    if (!artifactReady) {
       throw new HostingBuildError(
         HOSTING_BUILD_ERROR_CODES.BUILD_OUTPUT_NOT_FOUND,
-        `[${name}] 未找到构建产物：${outputDir}\n` +
-          "hosting 声明式部署不再自动执行本地构建，请先执行 appBuild 完成构建后再执行 deployApply。",
+        `[${name}] 未找到有效构建产物（目录不存在或为空）：${outputDir}\n` +
+          "hosting 声明式部署不再自动执行本地构建，请先执行 deployBuild 完成构建后再执行 deployApply。",
       );
     }
 
     // 中立化：清空 build/install 命令；outputDir 显式写回（相对 root 的产物目录），
     // 确保 manager-node 上传产物而非回退 root
+    //
+    // 空命令语义依赖 manager-node 的 resolveBuildCommand（lib/deploy/framework.js）：
+    //   if (config.buildCommand !== undefined) return config.buildCommand || null;
+    // 显式声明的 buildCommand 最先短路（'' → null → 跳过 runLocalBuild），不会进入
+    // framework 映射分支，因此保留 framework 字段（如 "vite"）不会被框架映射"复活"构建命令。
     const { buildCommand: _build, installCommand: _install, ...rest } = item;
     return {
       ...rest,

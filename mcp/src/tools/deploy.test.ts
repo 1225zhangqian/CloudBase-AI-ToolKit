@@ -88,18 +88,18 @@ const BASE_CONFIG = {
 };
 
 describe("deploy tools registration", () => {
-  it("registers appBuild, deployPlan and deploy with expected annotations", async () => {
+  it("registers deployBuild, deployPlan and deploy with expected annotations", async () => {
     const { tools } = await createDeployTools();
 
-    expect(Object.keys(tools).sort()).toEqual(["appBuild", "deployApply", "deployPlan"]);
+    expect(Object.keys(tools).sort()).toEqual(["deployApply", "deployBuild", "deployPlan"]);
 
-    // appBuild is a local-only build step: not read-only (executes the build command
+    // deployBuild is a local-only build step: not read-only (executes the build command
     // and writes artifacts locally) but not destructive on cloud resources either.
-    expect(tools.appBuild.meta.annotations).toMatchObject({
+    expect(tools.deployBuild.meta.annotations).toMatchObject({
       readOnlyHint: false,
       category: "deploy",
     });
-    expect(tools.appBuild.meta.annotations.destructiveHint).not.toBe(true);
+    expect(tools.deployBuild.meta.annotations.destructiveHint).not.toBe(true);
     expect(tools.deployPlan.meta.annotations).toMatchObject({
       readOnlyHint: true,
       category: "deploy",
@@ -111,12 +111,12 @@ describe("deploy tools registration", () => {
     });
   });
 
-  it("appBuild only exposes cwd/mode (no envId / confirm / destructive gates)", async () => {
+  it("deployBuild only exposes cwd/mode (no envId / confirm / destructive gates)", async () => {
     const { tools } = await createDeployTools();
 
-    expect(Object.keys(tools.appBuild.meta.inputSchema).sort()).toEqual(["cwd", "mode"]);
-    // No confirm gate: appBuild only builds locally, never mutates cloud resources.
-    expect(tools.appBuild.meta.description).not.toContain("confirm=true");
+    expect(Object.keys(tools.deployBuild.meta.inputSchema).sort()).toEqual(["cwd", "mode"]);
+    // No confirm gate: deployBuild only builds locally, never mutates cloud resources.
+    expect(tools.deployBuild.meta.description).not.toContain("confirm=true");
   });
 
   it("declares only/skip as enums matching orchestration order in both tools", async () => {
@@ -736,7 +736,7 @@ const HOSTING_CONFIG = {
   hosting: [{ name: "site", root: ".", buildCommand: "npm run build", outputDir: "dist" }],
 };
 
-describe("appBuild", () => {
+describe("deployBuild", () => {
   let tmpDirs: string[];
 
   beforeEach(() => {
@@ -765,7 +765,7 @@ describe("appBuild", () => {
     const emptyDir = fs.mkdtempSync(path.join(process.cwd(), ".tmp-deploy-test-"));
     tmpDirs.push(emptyDir);
 
-    const result = parseToolResult(await tools.appBuild.handler({ cwd: emptyDir }));
+    const result = parseToolResult(await tools.deployBuild.handler({ cwd: emptyDir }));
 
     expect(result.success).toBe(false);
     expect(result.errorCode).toBe("CONFIG_NOT_FOUND");
@@ -776,7 +776,7 @@ describe("appBuild", () => {
     const { tools } = await createDeployTools();
     const cwd = makeProject({ version: "2.1", envId: "env-from-config" });
 
-    const result = parseToolResult(await tools.appBuild.handler({ cwd }));
+    const result = parseToolResult(await tools.deployBuild.handler({ cwd }));
 
     expect(result.success).toBe(true);
     expect(result.message).toContain("无需构建");
@@ -803,7 +803,7 @@ describe("appBuild", () => {
       })
       .mockReturnValueOnce({ name: "site-b", root: cwd, action: "skipped" });
 
-    const result = parseToolResult(await tools.appBuild.handler({ cwd }));
+    const result = parseToolResult(await tools.deployBuild.handler({ cwd }));
 
     expect(result.success).toBe(true);
     expect(result.data.built).toBe(1);
@@ -823,7 +823,7 @@ describe("appBuild", () => {
       outputDir: path.join(cwd, "dist"),
     });
 
-    await tools.appBuild.handler({ cwd });
+    await tools.deployBuild.handler({ cwd });
 
     expect(mockGetCloudBaseManager).not.toHaveBeenCalled();
     expect(mockGetEnvId).not.toHaveBeenCalled();
@@ -838,7 +838,7 @@ describe("appBuild", () => {
       });
     });
 
-    const result = parseToolResult(await tools.appBuild.handler({ cwd }));
+    const result = parseToolResult(await tools.deployBuild.handler({ cwd }));
 
     expect(result.success).toBe(false);
     expect(result.errorCode).toBe("DEPENDENCY_NOT_INSTALLED");
@@ -897,7 +897,7 @@ describe("deployApply hosting neutralization", () => {
     mockNeutralizeHosting.mockImplementation(() => {
       throw Object.assign(
         new Error(
-          "[site] 未找到构建产物：/x/dist\nhosting 声明式部署不再自动执行本地构建，请先执行 appBuild 完成构建后再执行 deployApply。",
+          "[site] 未找到构建产物：/x/dist\nhosting 声明式部署不再自动执行本地构建，请先执行 deployBuild 完成构建后再执行 deployApply。",
         ),
         { code: "BUILD_OUTPUT_NOT_FOUND" },
       );
@@ -907,7 +907,7 @@ describe("deployApply hosting neutralization", () => {
 
     expect(result.success).toBe(false);
     expect(result.errorCode).toBe("BUILD_OUTPUT_NOT_FOUND");
-    expect(result.message).toContain("appBuild");
+    expect(result.message).toContain("deployBuild");
     expect(deployMock).not.toHaveBeenCalled();
   });
 

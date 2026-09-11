@@ -9,7 +9,7 @@ Supported file formats (searched from `cwd` downward): `cloudbaserc.json`,
 > path described in `references/plan-and-apply.md` (no local `cwd` / filesystem execution).
 > The config contract remains the same desired-state model.
 
-`appBuild` / `deployApply` / `deployPlan` validate the parsed config against the official
+`deployBuild` / `deployApply` / `deployPlan` validate the parsed config against the official
 cloudbaserc schema before building / applying. A schema failure aborts with the offending
 field path and reason.
 

@@ -18,7 +18,7 @@ import ParameterTable from '../../api-reference/components/ApiContainer';
 
 - [`queryEnv`](#queryenv)
 - [`manageEnv`](#manageenv)
-- [`appBuild`](#appbuild)
+- [`deployBuild`](#deploybuild)
 - [`deployPlan`](#deployplan)
 - [`deployApply`](#deployapply)
 - [`queryApps`](#queryapps)
@@ -2153,7 +2153,7 @@ CloudBase 云函数统一写入口。支持创建函数、更新代码、更新�
 文档名：cloudbase-agent 文档介绍：Build and deploy AI agents with CloudBase Agent SDK (TypeScript & Python). Implements the AG-UI protocol for streaming agent-UI communication. Use when deploying agent servers, using LangGraph/LangChain/CrewAI adapters, building custom adapters, understanding AG-UI protocol events, or building web/mini-program UI clients. Supports both TypeScript (@cloudbase/agent-server) and Python (cloudbase-agent-server via FastAPI).
 文档名：cloudbase-cli 文档介绍：CloudBase CLI (tcb, 云开发CLI, Tencent CloudBase命令行) resource management skill. Use when deploying cloud functions, CloudRun, storage, NoSQL/MySQL, static hosting, permissions, CORS/domains via tcb; for CI/CD and batch ops; when the user prefers CLI; or as the first-session fallback when CloudBase MCP tools are not loaded yet (after install/config, before IDE restart). Covers tcb login (device code for Tencent Cloud accounts; --cloudbase-api-key -e for environment API Key without an account; --apiKeyId/--apiKey for CI) and domain commands (fn/hosting/cloudrun/…) as MCP auth/manage parity — do not default to tcb deploy.
 文档名：cloudbase-code-review 文档介绍："Code review and validation for CloudBase projects. After writing code for Web / miniprogram / CloudRun / cloud-function projects, call this skill to check for known pitfalls — auth guard misuse, missing database tables, RLS misconfiguration, storage domain setup, and SDK API misuse. Supports automated lint scripts (regex-based) + LLM semantic review."
-文档名：cloudbase-declarative-deploy 文档介绍：CloudBase declarative deployment from a cloudbaserc config (声明式部署, 配置式部署, cloudbaserc 部署) through the appBuild / deployPlan / deployApply MCP tools. Use when deploying database, functions, app, hosting, or gateway resources described in cloudbaserc.json/yaml as a single desired-state config, when a user wants to build static hosting artifacts locally first (appBuild), or wants a dry-run plan before applying (deployPlan), or when handling multi-environment deploys via mode / envOverrides. Covers build-plan-apply flow (appBuild local build → deployPlan dry-run → deployApply confirm=true), hosting build-output neutralization, envId resolution priority, only/skip filtering, concurrency, and continueOnError. Prefer appBuild (when hosting declares a buildCommand) and deployPlan before deployApply; do not confuse with per-resource tcb CLI deploy or single-function deploy.
+文档名：cloudbase-declarative-deploy 文档介绍：CloudBase declarative deployment from a cloudbaserc config (声明式部署, 配置式部署, cloudbaserc 部署) through the deployBuild / deployPlan / deployApply MCP tools. Use when deploying database, functions, app, hosting, or gateway resources described in cloudbaserc.json/yaml as a single desired-state config, when a user wants to build static hosting artifacts locally first (deployBuild), or wants a dry-run plan before applying (deployPlan), or when handling multi-environment deploys via mode / envOverrides. Covers build-plan-apply flow (deployBuild local build → deployPlan dry-run → deployApply confirm=true), hosting build-output neutralization, envId resolution priority, only/skip filtering, concurrency, and continueOnError. Prefer deployBuild (when hosting declares a buildCommand) and deployPlan before deployApply; do not confuse with per-resource tcb CLI deploy or single-function deploy.
 文档名：cloudbase-document-database-in-wechat-miniprogram 文档介绍：Use CloudBase document database WeChat MiniProgram SDK to query, create, update, and delete data. Supports complex queries, pagination, aggregation, and geolocation queries.
 文档名：cloudbase-document-database-web-sdk 文档介绍：Use CloudBase document database Web SDK only for confirmed NoSQL collection work. Query, create, update, and delete document data; if the task mentions PostgreSQL / CloudBase PG / app.rdb(), route to postgresql-development instead.
 文档名：cloudbase-platform 文档介绍：CloudBase platform overview and routing guide. This skill should be used when users need high-level capability selection, platform concepts, console navigation, or cross-platform best practices before choosing a more specific implementation skill.
@@ -2172,10 +2172,10 @@ CloudBase 云函数统一写入口。支持创建函数、更新代码、更新�
 文档名：web-development 文档介绍：Use when users need to implement, integrate, debug, build, deploy, or validate a Web frontend after the product direction is already clear, especially for React, Vue, Vite, browser flows, or CloudBase Web integration.
 
       OpenAPI 文档 (openapi) 查询只需要传 mode="openapi" 和 apiName，不要传 action；action 仅用于 mode="docs"。当前支持 7 个 API 文档，分别是：
-      API名：functions API介绍：Cloud Functions API - 云函数 HTTP API
+      API名：cloudrun API介绍：CloudRun API - 云托管服务 HTTP API
 API名：ai_model API介绍：AI 大模型接入 API - 统一 AI 模型 HTTP API
+API名：functions API介绍：Cloud Functions API - 云函数 HTTP API
 API名：storage API介绍：Storage API - 云存储 HTTP API
-API名：cloudrun API介绍：CloudRun API - 云托管服务 HTTP API
 API名：nosql API介绍：NoSQL RESTful API - 文档型数据库 HTTP API
 API名：mysqldb API介绍：关系型数据库 RESTful API (MySQL/PostgreSQL) - 云开发关系型数据库 HTTP API
 API名：auth API介绍：Authentication API - 身份认证 HTTP API
@@ -2198,7 +2198,7 @@ API名：auth API介绍：Authentication API - 身份认证 HTTP API
     {
       name: "apiName",
       type: "string",
-      description: `mode=openapi 时指定。API 名称。 可填写的值: "functions", "ai_model", "storage", "cloudrun", "nosql", "mysqldb", "auth"`,
+      description: `mode=openapi 时指定。API 名称。 可填写的值: "cloudrun", "ai_model", "functions", "storage", "nosql", "mysqldb", "auth"`,
     },
     {
       name: "action",
@@ -2675,8 +2675,8 @@ API名：auth API介绍：Authentication API - 身份认证 HTTP API
 
 ---
 
-### `appBuild`
-解析 cloudbaserc 并对 hosting[] 各项目执行本地构建（仅执行 buildCommand，不安装依赖、不上传）。声明式 hosting 部署拆分为「build → plan → apply」三步，本工具是第一步：先本地构建产物，再 deployPlan 预演，最后 deployApply 上传产物。deployApply 不再隐式本地构建 —— 带构建命令的 hosting 项在产物缺失时会报错引导先执行本工具。纯静态托管（未配置 buildCommand 且无法探测框架）自动跳过。构建为纯本地操作：不解析环境、不要求登录，也不需要 confirm。
+### `deployBuild`
+解析 cloudbaserc 并对 hosting[] 中配置了 buildCommand 的项目执行本地构建（仅执行 buildCommand，不安装依赖、不上传）。对应 CLI 的 tcb app build，但只处理 hosting[] 静态托管项，与 cloudbaserc 的 app 资源类型（云端构建管线）无关。声明式 hosting 部署拆分为「build → plan → apply」三步，本工具是第一步：先本地构建产物，再 deployPlan 预演，最后 deployApply 上传产物。deployApply 不再隐式本地构建 —— 带构建命令的 hosting 项在产物缺失时会报错引导先执行本工具。纯静态托管（未配置 buildCommand 且无法探测框架）自动跳过。构建为纯本地操作：不解析环境、不要求登录，也不需要 confirm。
 - cwd：项目根目录，默认当前工作目录
 - mode：环境名，命中 envOverrides.&lt;mode&gt; 时合并对应的多环境覆盖配置
 

@@ -1,9 +1,9 @@
-# Build → Plan → Apply: appBuild, deployPlan & deployApply
+# Build → Plan → Apply: deployBuild, deployPlan & deployApply
 
 Three MCP tools implement the declarative flow. **Build first when hosting needs it,
 then always run `deployPlan` before applying.**
 
-## appBuild (local hosting build)
+## deployBuild (local hosting build)
 
 Parses `cloudbaserc`, and for every `hosting` item that resolves a `buildCommand`
 (explicit config > framework mapping > package.json auto-detection) executes that
@@ -21,17 +21,17 @@ Notes:
 - Pure-static `hosting` items (no `buildCommand`) are skipped — nothing to build.
 - No `envId` resolution and no login required: it never calls the cloud.
 - A missing `node_modules` when `package.json` declares dependencies fails with
-  `DEPENDENCY_NOT_INSTALLED` (run install first; `appBuild` never installs for you).
+  `DEPENDENCY_NOT_INSTALLED` (run install first; `deployBuild` never installs for you).
 - A failed build command fails with `BUILD_FAILED`.
 - `deployApply` no longer runs hosting builds implicitly: after source changes, run
-  `appBuild` again so the uploaded artifact is fresh.
+  `deployBuild` again so the uploaded artifact is fresh.
 
 ## deployPlan (read-only dry-run)
 
 Parses `cloudbaserc`, validates it, resolves `envId`, and computes the plan **without
 making any change**.
 
-> `appBuild` / `deployPlan` / `deployApply` are local-form tools. In cloud-hosted MCP
+> `deployBuild` / `deployPlan` / `deployApply` are local-form tools. In cloud-hosted MCP
 > mode they are intentionally not registered; use the cloud upload-channel fallback
 > below.
 
@@ -98,16 +98,16 @@ build → plan → apply
 
 Where build runs depends on resource and path:
 
-- `hosting`: run `appBuild` first (local build when `buildCommand` exists), then
+- `hosting`: run `deployBuild` first (local build when `buildCommand` exists), then
   `deployApply` uploads the artifacts. A missing output aborts apply with
-  `BUILD_OUTPUT_NOT_FOUND` and directs you back to `appBuild`
+  `BUILD_OUTPUT_NOT_FOUND` and directs you back to `deployBuild`
 - `app` (`framework=static`): local/prebuilt artifacts uploaded directly
 - `app` (non-static): source package uploaded, cloud pipeline builds and deploys
 - `functions`: path depends on `buildStrategy` (`zip`/`cloud`/`local`/`image`)
 
 ## Cloud-hosted upload pipeline path (not local-form deployPlan/deployApply)
 
-In cloud-hosted MCP mode, `appBuild` / `deployPlan` / `deployApply` are intentionally not
+In cloud-hosted MCP mode, `deployBuild` / `deployPlan` / `deployApply` are intentionally not
 registered.
 Treat this as an **execution-channel switch**, not a change in declarative intent.
 
@@ -145,7 +145,7 @@ This path deploys by package artifact (not local path).
 ## Recommended sequence (local mode)
 
 ```
-1. appBuild({ cwd, mode? })                            # only when hosting has a buildCommand
+1. deployBuild({ cwd, mode? })                            # only when hosting has a buildCommand
 2. deployPlan({ cwd, mode?, envId?, only?, skip?, yes? })
 3. Review plan; resolve any `conflict`; complete Deployment Gate declaration.
 4. deployApply({ confirm: true, cwd, mode?, envId?, only?, skip?, yes?, concurrency?, continueOnError?, confirmDestructive? })
@@ -153,7 +153,7 @@ This path deploys by package artifact (not local path).
 ```
 
 If `deployApply` fails with `BUILD_OUTPUT_NOT_FOUND`, you skipped step 1: run
-`appBuild` (after installing dependencies if it reports `DEPENDENCY_NOT_INSTALLED`),
+`deployBuild` (after installing dependencies if it reports `DEPENDENCY_NOT_INSTALLED`),
 then retry apply.
 
 Keep `mode` / `envId` / `only` / `skip` identical between plan and apply so the applied

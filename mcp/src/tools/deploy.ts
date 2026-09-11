@@ -326,13 +326,14 @@ export function registerDeployTools(server: ExtendedMcpServer) {
   const cloudBaseOptions = server.cloudBaseOptions;
   const getManager = () => getCloudBaseManager({ cloudBaseOptions });
 
-  // 工具一：appBuild —— 本地构建 hosting[] 产物（build → plan → apply 的第一步，与 tcb app build 对齐）
+  // 工具一：deployBuild —— 本地构建 hosting[] 产物（build → plan → apply 的第一步，与 tcb app build 对齐）
   server.registerTool?.(
-    "appBuild",
+    "deployBuild",
     {
       title: "构建声明式配置中的静态托管项目（本地构建）",
       description:
-        "解析 cloudbaserc 并对 hosting[] 各项目执行本地构建（仅执行 buildCommand，不安装依赖、不上传）。" +
+        "解析 cloudbaserc 并对 hosting[] 中配置了 buildCommand 的项目执行本地构建（仅执行 buildCommand，不安装依赖、不上传）。" +
+        "对应 CLI 的 tcb app build，但只处理 hosting[] 静态托管项，与 cloudbaserc 的 app 资源类型（云端构建管线）无关。" +
         "声明式 hosting 部署拆分为「build → plan → apply」三步，本工具是第一步：" +
         "先本地构建产物，再 deployPlan 预演，最后 deployApply 上传产物。" +
         "deployApply 不再隐式本地构建 —— 带构建命令的 hosting 项在产物缺失时会报错引导先执行本工具。" +
@@ -677,8 +678,8 @@ export function registerDeployTools(server: ExtendedMcpServer) {
         }
 
         // hosting 中立化：hosting 参与本次部署时，deploy 不再隐式本地构建
-        // （声明式构建已拆到 appBuild）。每个带 buildCommand 的项必须有构建产物：
-        // 有则清空命令后直传产物；缺失则抛 BUILD_OUTPUT_NOT_FOUND 引导先 appBuild。
+        // （声明式构建已拆到 deployBuild）。每个带 buildCommand 的项必须有构建产物：
+        // 有则清空命令后直传产物；缺失则抛 BUILD_OUTPUT_NOT_FOUND 引导先 deployBuild。
         // 与 databaseParticipates 同一判定模式：hosting 被 only/skip 排除时不检查，
         // 避免「本次不部署 hosting」却因产物缺失误报。
         const hostingParticipates =

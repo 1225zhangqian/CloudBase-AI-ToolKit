@@ -1,6 +1,6 @@
 ---
 name: cloudbase-declarative-deploy
-description: CloudBase declarative deployment from a cloudbaserc config (声明式部署, 配置式部署, cloudbaserc 部署) through the appBuild / deployPlan / deployApply MCP tools. Use when deploying database, functions, app, hosting, or gateway resources described in cloudbaserc.json/yaml as a single desired-state config, when a user wants to build static hosting artifacts locally first (appBuild), or wants a dry-run plan before applying (deployPlan), or when handling multi-environment deploys via mode / envOverrides. Covers build-plan-apply flow (appBuild local build → deployPlan dry-run → deployApply confirm=true), hosting build-output neutralization, envId resolution priority, only/skip filtering, concurrency, and continueOnError. Prefer appBuild (when hosting declares a buildCommand) and deployPlan before deployApply; do not confuse with per-resource tcb CLI deploy or single-function deploy.
+description: CloudBase declarative deployment from a cloudbaserc config (声明式部署, 配置式部署, cloudbaserc 部署) through the deployBuild / deployPlan / deployApply MCP tools. Use when deploying database, functions, app, hosting, or gateway resources described in cloudbaserc.json/yaml as a single desired-state config, when a user wants to build static hosting artifacts locally first (deployBuild), or wants a dry-run plan before applying (deployPlan), or when handling multi-environment deploys via mode / envOverrides. Covers build-plan-apply flow (deployBuild local build → deployPlan dry-run → deployApply confirm=true), hosting build-output neutralization, envId resolution priority, only/skip filtering, concurrency, and continueOnError. Prefer deployBuild (when hosting declares a buildCommand) and deployPlan before deployApply; do not confuse with per-resource tcb CLI deploy or single-function deploy.
 version: 2.33.3
 alwaysApply: false
 ---
@@ -8,7 +8,7 @@ alwaysApply: false
 # CloudBase Declarative Deploy
 
 Deploy a whole CloudBase project from one `cloudbaserc` config as **desired state**,
-using the `appBuild` (local hosting build), `deployPlan` (dry-run) and `deployApply`
+using the `deployBuild` (local hosting build), `deployPlan` (dry-run) and `deployApply`
 (apply) MCP tools. The orchestrator applies resources in a fixed dependency order:
 
 ```
@@ -36,7 +36,7 @@ missing constraints (or to install the missing skill). Do **not** HTTP-fetch rem
 - The user asks for 声明式部署 / 配置式部署 / "deploy from cloudbaserc" / "deploy the whole project".
 - The user wants to preview what a deploy will change before applying (dry-run plan).
 - The user wants to build the static hosting artifact locally first (declarative
-  hosting deploys no longer build implicitly — see `appBuild`).
+  hosting deploys no longer build implicitly — see `deployBuild`).
 - Multi-environment deploy: production/staging via `mode` + `envOverrides`.
 
 ## Do NOT use for
@@ -47,12 +47,12 @@ missing constraints (or to install the missing skill). Do **not** HTTP-fetch rem
 
 ## Cloud mode
 
-`appBuild` / `deployPlan` / `deployApply` in this skill are the **local-form declarative
+`deployBuild` / `deployPlan` / `deployApply` in this skill are the **local-form declarative
 executor**. In cloud-hosted MCP mode these tools are intentionally not registered
 (filtered at tool registration), because that runtime has no local `cwd` /
 filesystem-bound execution path.
 
-If you are in cloud mode and do not see `appBuild` / `deployPlan` / `deployApply` in the
+If you are in cloud mode and do not see `deployBuild` / `deployPlan` / `deployApply` in the
 tool list, this is expected behavior.
 
 Use the cloud upload-channel path instead:
@@ -126,12 +126,12 @@ When `hosting` declares a `buildCommand`, declarative deploy is a three-step flo
 
 1. Ensure a `cloudbaserc` config exists under the project root (`cwd`).
 2. **Build first** (only when `hosting` has a `buildCommand`): call
-   `appBuild({ cwd, mode? })` to produce the local artifacts (builds every hosting
+   `deployBuild({ cwd, mode? })` to produce the local artifacts (builds every hosting
    item; pure-static items without a build command are skipped automatically).
    - If the build artifacts are missing at apply time, `deployApply` fails with
-     `BUILD_OUTPUT_NOT_FOUND` and directs you back to this step — call `appBuild`
+     `BUILD_OUTPUT_NOT_FOUND` and directs you back to this step — call `deployBuild`
      first, then retry.
-   - `appBuild` needs no `envId` and no `confirm` (local build only, never touches
+   - `deployBuild` needs no `envId` and no `confirm` (local build only, never touches
      cloud resources); if dependencies are not installed it fails with
      `DEPENDENCY_NOT_INSTALLED` and tells you to run install first.
 3. Call `deployPlan` (optionally with `mode`, `envId`, `only`, `skip`). Read the plan.
@@ -139,7 +139,7 @@ When `hosting` declares a `buildCommand`, declarative deploy is a three-step flo
 5. Call `deployApply` with `confirm=true` (plus `yes` / `concurrency` / `continueOnError`
    as needed). Reuse the same `mode` / `envId` / `only` / `skip` as the plan.
    A hosting item with existing build output is uploaded directly (the tool clears
-   the build command and reports `hostingNeutralized: true`); rebuild with `appBuild`
+   the build command and reports `hostingNeutralized: true`); rebuild with `deployBuild`
    after source changes so the upload is not stale.
 6. Report the applied result back to the user.
 
@@ -152,15 +152,15 @@ Use this mental model: **build → plan → apply**. The build executor depends 
 
 | resource | typical build executor | deployment path |
 |----------|------------------------|-----------------|
-| `hosting` | `appBuild` (local shell build, run **before** apply) | `deployApply` uploads the built output directly; missing output → `BUILD_OUTPUT_NOT_FOUND` |
+| `hosting` | `deployBuild` (local shell build, run **before** apply) | `deployApply` uploads the built output directly; missing output → `BUILD_OUTPUT_NOT_FOUND` |
 | `app` (`framework=static`) | local prebuilt artifact | package upload + deploy record |
 | `app` (non-static frameworks) | cloud pipeline | source zip upload + cloud build + deploy |
 | `functions` | local zip / cloud build / image pipeline | depends on `buildStrategy` (`zip`/`cloud`/`local`/`image`) |
 
-`appBuild` builds every `hosting` item that has a `buildCommand` (framework mapping or
+`deployBuild` builds every `hosting` item that has a `buildCommand` (framework mapping or
 package.json auto-detection); it skips pure-static items. Build failures surface as
 `BUILD_FAILED`, missing local dependencies as `DEPENDENCY_NOT_INSTALLED` (run install
-first — `appBuild` never installs dependencies for you).
+first — `deployBuild` never installs dependencies for you).
 
 Build command resolution follows declaration priority:
 
@@ -186,7 +186,7 @@ moved from local shell to cloud pipeline; agent transmits declarations and artif
 
 ## Minimum self-check
 
-- [ ] Built the hosting artifacts first (`appBuild`) when `hosting` declares a `buildCommand`?
+- [ ] Built the hosting artifacts first (`deployBuild`) when `hosting` declares a `buildCommand`?
 - [ ] Ran `deployPlan` and read the action classification before `deployApply`?
 - [ ] Resolved and confirmed the target `envId`?
 - [ ] Completed the Deployment Gate declaration before applying?

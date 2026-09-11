@@ -94,6 +94,7 @@ describe("neutralizeHostingForDeploy", () => {
     const root = makeRoot();
     const outputDir = path.join(root, "dist");
     fs.mkdirSync(outputDir, { recursive: true });
+    fs.writeFileSync(path.join(outputDir, "index.html"), "<html></html>"); // non-empty artifact
     const item: HostingItem = {
       name: "site",
       buildCommand: "npm run build",
@@ -125,6 +126,7 @@ describe("neutralizeHostingForDeploy", () => {
     fs.mkdirSync(nested, { recursive: true });
     const outputDir = path.join(nested, "dist");
     fs.mkdirSync(outputDir, { recursive: true });
+    fs.writeFileSync(path.join(outputDir, "index.html"), "<html></html>"); // non-empty artifact
     mockResolveOutputDir.mockReturnValue(outputDir);
 
     const result = neutralizeHostingForDeploy(
@@ -133,6 +135,22 @@ describe("neutralizeHostingForDeploy", () => {
     );
 
     expect(result.hosting![0].outputDir).toBe("dist");
+  });
+
+  it("throws BUILD_OUTPUT_NOT_FOUND when the build output directory exists but is empty", () => {
+    const root = makeRoot();
+    const outputDir = path.join(root, "dist");
+    fs.mkdirSync(outputDir, { recursive: true }); // exists but empty → not a valid artifact
+    mockResolveOutputDir.mockReturnValue(outputDir);
+
+    expect(() =>
+      neutralizeHostingForDeploy(
+        { hosting: [{ name: "site", buildCommand: "npm run build" }] },
+        root,
+      ),
+    ).toThrowError(
+      expect.objectContaining({ code: HOSTING_BUILD_ERROR_CODES.BUILD_OUTPUT_NOT_FOUND }),
+    );
   });
 
   it("throws BUILD_OUTPUT_NOT_FOUND when the build output directory is missing", () => {
@@ -180,17 +198,37 @@ describe("buildHostingItem", () => {
     );
   });
 
-  it("finds node_modules hoisted to a parent directory (pnpm workspace / monorepo)", () => {
-    const root = makeRoot();
-    fs.mkdirSync(path.join(root, "node_modules"), { recursive: true });
-    const nested = path.join(root, "packages", "web");
-    fs.mkdirSync(nested, { recursive: true });
-    writePkg(nested, { dependencies: { react: "^18.0.0" } });
+  it("finds node_modules hoisted to the workspace root (pnpm workspace / monorepo)", () => {
+    // cwd is the repo root; the hosting item's root is a subpackage below it.
+    const repoRoot = makeRoot();
+    fs.mkdirSync(path.join(repoRoot, "node_modules"), { recursive: true }); // hoisted at workspace root
+    const pkgDir = path.join(repoRoot, "packages", "web");
+    fs.mkdirSync(pkgDir, { recursive: true });
+    writePkg(pkgDir, { dependencies: { react: "^18.0.0" } });
 
-    const outcome = buildHostingItem({ name: "site", buildCommand: "npm run build" }, nested);
+    const outcome = buildHostingItem(
+      { name: "site", root: "packages/web", buildCommand: "npm run build" },
+      repoRoot,
+    );
 
     expect(outcome.action).toBe("built");
     expect(mockBuildHosting).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT climb above the workspace root (cwd) when probing for node_modules", () => {
+    // node_modules only exists ABOVE the workspace root; must not be treated as installed.
+    const repoRoot = makeRoot();
+    fs.mkdirSync(path.join(repoRoot, "node_modules"), { recursive: true });
+    const workspace = path.join(repoRoot, "app"); // this is the cwd handed to the tool
+    fs.mkdirSync(workspace, { recursive: true });
+    writePkg(workspace, { dependencies: { react: "^18.0.0" } });
+
+    expect(() =>
+      buildHostingItem({ name: "site", buildCommand: "npm run build" }, workspace),
+    ).toThrowError(
+      expect.objectContaining({ code: HOSTING_BUILD_ERROR_CODES.DEPENDENCY_NOT_INSTALLED }),
+    );
+    expect(mockBuildHosting).not.toHaveBeenCalled();
   });
 
   it("builds without a dependency check when there is no package.json", () => {
