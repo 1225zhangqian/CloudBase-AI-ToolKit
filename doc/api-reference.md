@@ -2,7 +2,7 @@
 
 > - 数据源：[API 概览](https://cloud.tencent.com/document/api/876/34809) · [依赖产品接口指引](https://cloud.tencent.com/document/api/876/34808)
 > - 所有接口均为腾讯云 API 3.0 管控面接口，支持各语言官方 SDK 调用；也可通过 CloudBase MCP 的 `callCloudApi` 工具或 [API Explorer](https://console.cloud.tencent.com/api/explorer) 直接调用
-> - 最近同步：2026-09-13
+> - 最近同步：2026-09-14
 
 ## API 概览
 
@@ -277,17 +277,17 @@
 
 | 接口名称 | 接口功能 |
 | --- | --- |
-| [CreateFunction](https://cloud.tencent.com/document/product/583/18586) | 创建函数 |
+| [CreateFunction](https://cloud.tencent.com/document/api/876/137951) | 创建函数 |
 | [UpdateFunctionCode](https://cloud.tencent.com/document/product/583/18581) | 更新函数代码 |
-| [ListFunctions](https://cloud.tencent.com/document/product/583/18582) | 获取函数列表 |
+| [ListFunctions](https://cloud.tencent.com/document/api/876/137947) | 获取函数列表 |
 | [Invoke](https://cloud.tencent.com/document/product/583/17243) | 运行函数 |
-| [GetFunction](https://cloud.tencent.com/document/product/583/18584) | 获取函数详细信息 |
-| [GetFunctionAddress](https://cloud.tencent.com/document/product/583/37164) | 获取函数代码下载地址 |
+| [GetFunction](https://cloud.tencent.com/document/api/876/137948) | 获取函数详细信息 |
+| [DownloadFunction](https://cloud.tencent.com/document/api/876/137949) | 获取云函数地址并下载 |
 | [CreateTrigger](https://cloud.tencent.com/document/product/583/18589) | 设置函数触发方式 |
 | [DeleteTrigger](https://cloud.tencent.com/document/product/583/18588) | 删除触发器 |
 | [CopyFunction](https://cloud.tencent.com/document/product/583/33847) | 复制函数 |
-| [UpdateFunctionConfiguration](https://cloud.tencent.com/document/product/583/18580) | 更新函数配置 |
-| [DeleteFunction](https://cloud.tencent.com/document/product/583/18585) | 删除函数 |
+| [UpdateFunctionConfiguration](https://cloud.tencent.com/document/api/876/137946) | 更新函数配置 |
+| [DeleteFunction](https://cloud.tencent.com/document/api/876/137950) | 删除函数 |
 
 ### COS 对象操作
 
