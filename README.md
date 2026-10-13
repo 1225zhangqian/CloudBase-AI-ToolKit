@@ -29,6 +29,7 @@ The CloudBase integration layer for AI coding tools: Plugin installs the stack, 
 - Hosted / Auth: each hosted MCP request runs on its own transport with client metadata cached per credential, and a project-level credential now takes precedence over the account login state
 - Tools / Skills: MySQL provisioning is retired from the tool surface; every skill package ships a `LICENSE.md` next to `SKILL.md`; a new MCP reference skill documents the remote endpoints, the plugin flags and the tool schemas
 - Feedback: `prepareFeedback` returns the repository's new-issue page instead of an auto-filled error report, and a hosted server now enables the same default plugin set as a local one
+- Onboarding / Docs: every `initialize` response now carries server `instructions` — the call to make first, the order a first run needs, and prompts that can be copied verbatim; the remote setup docs now lead with OAuth, so the URL alone is the configuration and a key pair is the CI path
 
 **v2.34.x** (2026-09)
 

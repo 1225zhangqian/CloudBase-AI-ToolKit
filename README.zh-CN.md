@@ -29,6 +29,7 @@
 - 托管 / 认证：托管 MCP 每个请求使用独立 transport，客户端元数据按凭据隔离缓存；项目级凭据优先于账号级登录态
 - 工具 / Skills：工具面移除 MySQL 开通能力；每个 skill 包在 `SKILL.md` 旁自带 `LICENSE.md`；新增 MCP 参考 skill，写明远程端点、插件开关与工具 schema
 - 反馈：`prepareFeedback` 改为返回仓库的新建 issue 页面，不再自动拼错误报告；托管服务器默认启用的插件集与本地一致
+- 上手引导 / 文档：`initialize` 响应现在带服务端 `instructions`（该先做的那个调用、首用顺序、可照抄的问法）；远程接入文档改为 OAuth 优先，只填地址即完成配置，密钥改为 CI 场景的写法
 
 **v2.34.x**（2026-09）
 
