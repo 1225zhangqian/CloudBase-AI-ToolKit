@@ -32,6 +32,8 @@ All notable changes to this project will be documented in this file. Follow the 
 
 ### Bug Fixes
 
+* **mcp**: the error hint for a cloud platform, permission or account problem now points at the community issue tracker instead of this repository's issue page, because that kind of problem is not a defect in this repository.
+
 * **mcp**: the `searchKnowledgeBase` description no longer names skill ids the parameter enum rejects, and a test keeps it that way. Two of its four examples were stale short ids — `auth-tool` and `auth-web`, from before those skills were renamed to `auth-tool-cloudbase` / `auth-web-cloudbase` — so a caller that copied an example got `-32602 Invalid enum value` from the parameter schema and the call never left the client; the substring match behind the lookup could not help, because validation runs first. The examples now use the ids that exist, the description gains a fifth entry pointing at `cloudbase-mcp` for connecting MCP (local vs remote), calling tools from the shell with mcporter, and the site / plugin switches, and a test asserts that every `skillName=<value>` example in the description is a value the enum accepts.
 
 * **skills**: `minimal-web-baas-demo` and the all-in-one guideline route MCP connection and mcporter usage to the `cloudbase-mcp` skill. Both already told the reader to prefer MCP and to fall back to the CLI, but neither pointed at the skill that documents the connection modes, the shell commands and the plugin flags, leaving that material findable only by browsing.
