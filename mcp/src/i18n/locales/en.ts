@@ -32,6 +32,7 @@ import { confirmation } from "./modules/confirmation.js";
 import { credential } from "./modules/credential.js";
 import { mcpUi } from "./modules/mcpUi.js";
 import { mcpUiCredits } from "./modules/mcpUiCredits.js";
+import { mcpUiArtifact } from "./modules/mcpUiArtifact.js";
 
 export const en = {
   env: env.en,
@@ -67,4 +68,5 @@ export const en = {
   credential: credential.en,
   mcpUi: mcpUi.en,
   mcpUiCredits: mcpUiCredits.en,
+  mcpUiArtifact: mcpUiArtifact.en,
 };
