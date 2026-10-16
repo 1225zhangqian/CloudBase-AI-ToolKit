@@ -2885,8 +2885,31 @@ describe("manageEnv", () => {
   it("listPackages should return package list", async () => {
     const describeBaasPackageList = vi.fn().mockResolvedValue({
       PackageList: [
-        { PackageId: "baas_personal", PackageName: "个人版", Region: "ap-shanghai" },
-        { PackageId: "baas_pf_standard", PackageName: "标准版", Region: "ap-shanghai" },
+        {
+          PackageName: "baas_personal",
+          PackageTitle: "个人版",
+          PackageType: "default",
+          UnitPrice: "39.9",
+        },
+        {
+          PackageName: "baas_pf_standard",
+          PackageTitle: "标准版",
+          PackageType: "basic",
+          UnitPrice: "199",
+        },
+        // 旧版套餐：出现在接口返回里，但不在新购 / 新建菜单中，应被白名单滤掉
+        {
+          PackageName: "starter",
+          PackageTitle: "入门版",
+          PackageType: "default",
+          UnitPrice: "99",
+        },
+        {
+          PackageName: "baas_team",
+          PackageTitle: "团队版",
+          PackageType: "default",
+          UnitPrice: "999",
+        },
       ],
     });
     mockGetCloudBaseManager.mockResolvedValue({
@@ -2908,6 +2931,11 @@ describe("manageEnv", () => {
       code: "PACKAGE_LIST",
       packages: expect.any(Array),
     });
+    // 只保留新购 / 新建菜单里可选的档位（见 LISTABLE_PACKAGE_IDS），旧版族整族滤掉
+    expect(payload.packages.map((p: { PackageName: string }) => p.PackageName)).toEqual([
+      "baas_personal",
+      "baas_pf_standard",
+    ]);
   });
 
   it("listPackages should surface BillTags failures clearly", async () => {
