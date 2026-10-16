@@ -308,7 +308,7 @@
           },
           "packageId": {
             "type": "string",
-            "description": "套餐 ID（action=create/modifyPlan 时必填）。取值以 manageEnv(action=\"listPackages\") 返回的 PackageName 为准，各站点可售套餐不同，不要凭记忆填写。"
+            "description": "套餐 ID（action=create/modifyPlan 时必填）。优先取 manageEnv(action=\"listPackages\") 返回的 PackageName；该列表按新购页口径返回，只覆盖 default/basic/trial 族，平台仍接受其它合法 packageId（如标准版 baas_pf_standard，及需白名单的 vip 族），以实际创建结果为准。各站点可售套餐不同，不要凭记忆填写。"
           },
           "resources": {
             "type": "array",

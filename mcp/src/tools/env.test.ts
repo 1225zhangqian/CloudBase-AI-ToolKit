@@ -2818,6 +2818,7 @@ describe("manageEnv", () => {
     expect(describeBaasPackageList).toHaveBeenCalledWith({
       TargetAction: "new",
       Source: "qcloud",
+      PackageTypeList: ["default", "basic", "trial"],
     });
     expect(payload).toMatchObject({
       ok: true,
@@ -3278,9 +3279,10 @@ describe("manageEnv", () => {
       ],
     });
     const calculatePackageCreatePrice = vi.fn().mockResolvedValue({
-      RealTotalCost: 19.9,
-      TotalCost: 29.9,
-      Price: 19.9,
+      // 计费接口金额字段单位是「分」（见 env.ts fenToYuan），故 19.9 元 = 1990 分。
+      RealTotalCost: 1990,
+      TotalCost: 2990,
+      Price: 1990,
       TimeSpan: 1,
       TimeUnit: "mon",
       Currency: "CNY",
@@ -3559,8 +3561,9 @@ describe("manageEnv", () => {
       ],
     });
     const calculatePackageModifyPrice = vi.fn().mockResolvedValue({
-      RealTotalCost: 50,
-      TotalCost: 80,
+      // 计费接口金额字段单位是「分」（见 env.ts fenToYuan），故 50 元 = 5000 分。
+      RealTotalCost: 5000,
+      TotalCost: 8000,
       Refund: 0,
       Currency: "CNY",
     });
@@ -3690,8 +3693,9 @@ describe("manageEnv", () => {
       ],
     });
     const calculatePackageRenewPrice = vi.fn().mockResolvedValue({
-      RealTotalCost: 19.9,
-      TotalCost: 29.9,
+      // 计费接口金额字段单位是「分」（见 env.ts fenToYuan），故 19.9 元 = 1990 分。
+      RealTotalCost: 1990,
+      TotalCost: 2990,
       TimeSpan: 3,
       TimeUnit: "mon",
       Currency: "CNY",

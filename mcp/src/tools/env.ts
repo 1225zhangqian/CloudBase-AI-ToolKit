@@ -1785,9 +1785,13 @@ async function fetchPackageTitle(
   packageId: string,
 ): Promise<string | undefined> {
   try {
+    // 与 listPackages 同一个坑：漏传 PackageTypeList 会被服务端默认按 ["default"] 过滤，
+    // basic 族（baas_pf_standard / baas_pf_enterprise 等）查不到，packageTitle 静默降级为 undefined。
+    // 这里只需要「能查到名字」，与 manager-node 询价口径一致，故含 vip。
     const result = await manager.env.describeBaasPackageList({
       TargetAction: "new",
       Source: "qcloud",
+      PackageTypeList: ["default", "vip", "basic", "trial"],
     });
     const packageList = result?.PackageList || [];
     const matched = packageList.find(
@@ -1913,6 +1917,18 @@ async function calculateModifyPrice(
 }
 
 /**
+ * 计费接口（billing PriceResult / DescribeBaasPackageList）的金额字段单位是「分」，不是「元」。
+ * 契约旁证：DescribeBaasPackageList 的 UnitPrice（元）× 100 == create 询价的 TotalCost（分），
+ * 四档套餐全部吻合。控制台同样处处 /100 展示（tea-console-buy 的 PricePartDetailResource.tsx、
+ * ResPackItem.tsx、PricePartDetailPrivate.tsx）。漏掉这次换算会把 199 元的标准版
+ * 报成「预计实付 ￥19900」。
+ */
+function fenToYuan(value: unknown): number {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? amount / 100 : NaN;
+}
+
+/**
  * 把 PriceResult 格式化为人类可读的价格摘要。
  * 返回 { summary, detail }：summary 是一行短语，detail 是多行明细。
  */
@@ -1925,12 +1941,17 @@ function formatPriceSection(priceResult: any): {
   }
 
   const currency = priceResult.Currency === "USD" ? "$" : "￥";
-  const realTotalCost = Number(priceResult.RealTotalCost);
-  const totalCost = Number(priceResult.TotalCost);
-  const unitPrice = Number(priceResult.Price);
+  // ⚠️ 计费接口 PriceResult 的金额字段单位是「分」，不是「元」。
+  // 契约侧旁证：DescribeBaasPackageList 的 UnitPrice(元) × 100 == create 询价的 TotalCost(分)。
+  // 控制台实现同样处处 /100 展示：tea-console-buy/src/components/PricePartDetailResource.tsx、
+  // ResPackItem.tsx、PricePartDetailPrivate.tsx。此前漏了这次换算，
+  // 导致 199 元的标准版被报成「预计实付 ￥19900」。
+  const realTotalCost = fenToYuan(priceResult.RealTotalCost);
+  const totalCost = fenToYuan(priceResult.TotalCost);
+  const unitPrice = fenToYuan(priceResult.Price);
   const timeSpan = priceResult.TimeSpan;
   const TimeUnit = priceResult.TimeUnit || "";
-  const refund = priceResult.Refund ? Number(priceResult.Refund) : undefined;
+  const refund = priceResult.Refund ? fenToYuan(priceResult.Refund) : undefined;
 
   const lines: string[] = [];
   let summary = "";
@@ -3609,9 +3630,14 @@ export function registerEnvTools(server: ExtendedMcpServer) {
         switch (action) {
           case "listPackages": {
             // Query packages for new purchase. Source aligns with billing-side Baas package APIs.
+            // PackageTypeList 必须显式传：服务端默认按 ["default"] 过滤（见控制台 SDK 类型注释
+            // transactioncontract/tcb.d.ts），漏传会把 basic 族（标准版/企业版/企业高级版/集成版）
+            // 和 vip 族整族滤掉，导致「列表里查不到、实际却能创建」。
+            // 取值对齐控制台新购页 NewCreateEnvDuck：vip 是白名单语义，MCP 侧无白名单能力故不含。
             const result = await cloudbase.env.describeBaasPackageList({
               TargetAction: "new",
               Source: "qcloud",
+              PackageTypeList: ["default", "basic", "trial"],
             });
             logCloudBaseResult(server.logger, result);
             return buildJsonToolResult({
@@ -3745,8 +3771,8 @@ export function registerEnvTools(server: ExtendedMcpServer) {
                   ? {
                       summary: priceSection.summary,
                       currency: priceProbe.priceResult?.Currency,
-                      realTotalCost: priceProbe.priceResult?.RealTotalCost,
-                      totalCost: priceProbe.priceResult?.TotalCost,
+                      realTotalCost: fenToYuan(priceProbe.priceResult?.RealTotalCost),
+                      totalCost: fenToYuan(priceProbe.priceResult?.TotalCost),
                       timeSpan: priceProbe.priceResult?.TimeSpan,
                       timeUnit: priceProbe.priceResult?.TimeUnit,
                       inquiryRegion: pricingRegion,
@@ -3934,8 +3960,8 @@ export function registerEnvTools(server: ExtendedMcpServer) {
                   ? {
                       summary: priceSection.summary,
                       currency: priceProbe.priceResult?.Currency,
-                      realTotalCost: priceProbe.priceResult?.RealTotalCost,
-                      totalCost: priceProbe.priceResult?.TotalCost,
+                      realTotalCost: fenToYuan(priceProbe.priceResult?.RealTotalCost),
+                      totalCost: fenToYuan(priceProbe.priceResult?.TotalCost),
                       refund: priceProbe.priceResult?.Refund,
                     }
                   : priceProbe.error
@@ -4065,8 +4091,8 @@ export function registerEnvTools(server: ExtendedMcpServer) {
                   ? {
                       summary: priceSection.summary,
                       currency: priceProbe.priceResult?.Currency,
-                      realTotalCost: priceProbe.priceResult?.RealTotalCost,
-                      totalCost: priceProbe.priceResult?.TotalCost,
+                      realTotalCost: fenToYuan(priceProbe.priceResult?.RealTotalCost),
+                      totalCost: fenToYuan(priceProbe.priceResult?.TotalCost),
                       timeSpan: priceProbe.priceResult?.TimeSpan,
                       timeUnit: priceProbe.priceResult?.TimeUnit,
                     }
