@@ -105,6 +105,32 @@ export function resolveCreateEnvResources(
 }
 
 /**
+ * 新购 / 新建菜单里真正可选的套餐 id —— `manageEnv(action="listPackages")` 的过滤白名单。
+ *
+ * 为什么用 id 白名单而不是按 `PackageTypeList` 过滤：**类型分不出「新版 / 旧版」**。
+ * 个人版 `baas_personal` 与旧版入门版 `starter` 同属 `default` 族；标准版 `baas_pf_standard`
+ * 与旧版教育体验版 `education_demo` 分别混在 `basic` / `vip` 族里。
+ * 控制台同样是枚举硬编码而非类型过滤 —— 新版套餐枚举、新建环境套餐清单、购买页套餐枚举
+ * 三处收敛到同一套：个人版 / 标准版 / 企业版 / 企业高级版（另有体验版；购买页还含集成版）。
+ *
+ * 旧版族（入门版 / 初创版 / 商用版 / 团队版 / 团队高级版 / 团队进阶版 / 团队旗舰版 /
+ * 企业入门版 / 企业基础版 / 教育体验版 / 企业标准版~企业旗舰版）不出现在任何新购或新建菜单里，
+ * 只在套餐升级映射中作为「可升级来源」存在，故不列出。
+ *
+ * 取数仍传多个 `PackageTypeList`（将来新增档位不会被类型过滤静默丢掉），只在返回前按本表收敛。
+ */
+export const LISTABLE_PACKAGE_IDS = [
+  "baas_trial",
+  "baas_integration",
+  "baas_personal",
+  "baas_pf_standard",
+  "baas_pf_enterprise",
+  "baas_pf_enterprise_senior",
+] as const;
+
+const LISTABLE_PACKAGE_ID_SET: ReadonlySet<string> = new Set(LISTABLE_PACKAGE_IDS);
+
+/**
  * Resource-usage modules aligned with tcb CLI `USAGE_MODULES`
  * (`tcb env usage` / `tcb env info --type`).
  */
@@ -3688,11 +3714,21 @@ export function registerEnvTools(server: ExtendedMcpServer) {
               PackageTypeList: ["default", "basic", "trial"],
             });
             logCloudBaseResult(server.logger, result);
+            // 接口按「类型」返回，结果里混着旧版套餐（入门版 / 团队版 / 企业基础版 …）。
+            // 这里按 id 白名单收敛到新购 / 新建菜单真正可选的那几档，理由见 LISTABLE_PACKAGE_IDS。
+            const fetched = (result.PackageList || result) as unknown;
+            const packages = Array.isArray(fetched)
+              ? fetched.filter((item) =>
+                  LISTABLE_PACKAGE_ID_SET.has(
+                    String((item as { PackageName?: unknown } | null)?.PackageName ?? ""),
+                  ),
+                )
+              : fetched;
             return buildJsonToolResult({
               ok: true,
               code: "PACKAGE_LIST",
               message: t("env.manage.packagesSuccess"),
-              packages: result.PackageList || result,
+              packages,
             });
           }
 
