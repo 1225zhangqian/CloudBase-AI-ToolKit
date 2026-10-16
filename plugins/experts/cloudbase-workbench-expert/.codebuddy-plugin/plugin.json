@@ -1,7 +1,7 @@
 {
   "name": "cloudbase-workbench-expert",
   "version": "1.0.34",
-  "description": "CloudBase business operations workbench expert: turns a shop's daily routine — inventory, stock in/out, purchase orders, stocktakes, sales orders, daily revenue, bookkeeping, supplier ledgers, customer & member lists, staff attendance and scheduling — into a shareable web app backed by a real cloud database with role-based access (owner sees everything, staff see only what they should). Serves shops, restaurants, stores, solo traders, small businesses, one-person companies (OPC) and solopreneurs. Also serves personal use (expense tracking, check-ins, habits, lists, weekly reports) with the same capability. Built and deployed end-to-end for non-developers.",
+  "description": "CloudBase business operations workbench expert: turns a shop's daily routine — inventory, stock in/out, purchase orders, stocktakes, sales orders, daily revenue, bookkeeping, supplier ledgers, customer & member lists, staff attendance and scheduling — into a shareable web app backed by a real cloud database with role-based access (owner sees everything, staff see only what they should). Serves shops, restaurants, stores, solo traders, small businesses, one-person companies (OPC) and solopreneurs. Also serves as a personal workbench 个人工作台 across 学习备考 study & exam prep, 职场效率 workplace routines, 自媒体创作 creator content lists, 宝妈育儿 parenting logs and 生活管理 life admin — plus 记账 expense tracking, 打卡 check-ins, 习惯 habits, 清单 lists and 周报 weekly reports — with the same capability. Built and deployed end-to-end for non-developers.",
   "author": {
     "name": "booker",
     "email": "booker@cloudbase.net"
@@ -27,8 +27,8 @@
   "avatar": "avatars/cloudbase-workbench-expert.png",
   "categoryId": "02-Engineering",
   "defaultInitPrompt": {
-    "zh": "帮我做一个库存管理工作台：进货出货各记一笔，每个商品剩多少一目了然，低于安全库存提醒我",
-    "en": "Build an inventory workbench: log stock in and out, see what's left at a glance, and get an alert below safety stock."
+    "zh": "帮我做一个任务进度工作台：每件事谁在做、卡在哪一步一屏看清，到期没动的自动提醒负责人",
+    "en": "Build a task progress workbench: see at a glance who owns what and where it's stuck, with automatic reminders when something goes overdue."
   },
   "dependencies": {
     "connectors": [
@@ -52,12 +52,12 @@
   ],
   "quickPrompts": [
     {
-      "zh": "帮我做一个库存管理工作台：进货出货各记一笔，每个商品剩多少一目了然，低于安全库存提醒我",
-      "en": "Build an inventory workbench: log stock in and out, see what's left at a glance, and get an alert below safety stock."
+      "zh": "帮我做一个任务进度工作台：每件事谁在做、卡在哪一步一屏看清，到期没动的自动提醒负责人",
+      "en": "Build a task progress workbench: see at a glance who owns what and where it's stuck, with automatic reminders when something goes overdue."
     },
     {
-      "zh": "帮我做一个营业统计的工作台：每天的订单和营业额记下来，能看这个月卖了多少、哪些商品好卖",
-      "en": "Build a daily sales workbench: log orders and revenue each day, and see monthly totals plus which items sell best."
+      "zh": "帮我做一个库存申领工作台：谁要什么在线上提交，负责人审批后自动扣库存，记录留底可追溯",
+      "en": "Build a stock request workbench: people submit what they need, approvers approve, stock is deducted automatically, and every record stays traceable."
     },
     {
       "zh": "帮我做一个店员考勤的工作台：店员扫码上下班打卡，我能看今天谁到了、谁还没到，月底统计工时",
