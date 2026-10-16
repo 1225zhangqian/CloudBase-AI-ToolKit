@@ -28,6 +28,8 @@ import { setup } from "./modules/setup.js";
 import { envSetup } from "./modules/envSetup.js";
 import { interactive } from "./modules/interactive.js";
 import { feedback } from "./modules/feedback.js";
+import { confirmation } from "./modules/confirmation.js";
+import { credential } from "./modules/credential.js";
 import { mcpUi } from "./modules/mcpUi.js";
 import { mcpUiCredits } from "./modules/mcpUiCredits.js";
 
@@ -61,6 +63,8 @@ export const zh = {
   envSetup: envSetup.zh,
   interactive: interactive.zh,
   feedback: feedback.zh,
+  confirmation: confirmation.zh,
+  credential: credential.zh,
   mcpUi: mcpUi.zh,
   mcpUiCredits: mcpUiCredits.zh,
 };
