@@ -130,7 +130,7 @@ IDE 支持时优先用 Plugin；只需 MCP 配置时用本包即可。
 
 ## 破坏性操作的执行前确认
 
-删除云函数、集合、集合内的文档、云存储文件、云托管服务或 MySQL 实例时，调用会在执行前暂停，等你在确认框里选一次——框里写清**这次要动什么**（例如「即将删除云函数 `hello`（环境 `env-abc`）」），而不是只问一句"确定吗"。同一批删除如果改走 `callCloudApi`，也按写死的 `service` + `Action` 停下来确认：`tcb`/`scf` 的 `DeleteFunction`、`tcb.DeleteTable`、`tcb.DeleteItem`、`tcb.DestroyEnv`、`tcb.DestroyPlatformEnv`、`tcb.DestroyMySQL`、`tcbr.DeleteCloudRunServer`，以及 `tcbr.DeleteCloudRunVersions` 且 `IsDeleteServer` 为 true。不会按 `Delete` 前缀去拦其它云 API。云存储删除不走 `callCloudApi`。它基于 MCP 的表单式 elicitation，所以只在**声明了该能力、并且真的会问用户**的客户端里出现。
+删除云函数、集合、集合内的文档、云存储文件、云托管服务或 MySQL 实例时，调用会在执行前暂停，等你在确认框里选一次——框里写清**这次要动什么**（例如「即将删除云函数 `hello`（环境 `env-abc`）」），而不是只问一句"确定吗"。同一批删除如果改走 `callCloudApi`，也按写死的 `service` + `Action` 停下来确认：`tcb`/`scf` 的 `DeleteFunction`、`tcb.DeleteTable`、`tcb.DeleteItem`、`tcb.DestroyEnv`、`tcb.DestroyPlatformEnv`、`tcb.DestroyMySQL`、`tcbr.DeleteCloudRunServer`，以及 `tcbr.DeleteCloudRunVersions` 且 `IsDeleteServer` 为 true。不会按 `Delete` 前缀去拦其它云 API。云存储删除不走 `callCloudApi`。PostgreSQL 的 `execute` / `applyMigration` 只在语句本身是 `DELETE`、`DROP`、`TRUNCATE` 或 `ALTER … DROP` 时才停下来；`INSERT` / `UPDATE` / `CREATE TABLE` 不拦。它基于 MCP 的表单式 elicitation，所以只在**声明了该能力、并且真的会问用户**的客户端里出现。
 
 | 情况 | 行为 |
 | --- | --- |

@@ -147,7 +147,7 @@ the call until you answer a dialog that names the target — "about to delete th
 of asking a bare "are you sure?". The same deletes pause when they arrive as `callCloudApi`, but only for an explicit
 `service` + `Action` pair: `DeleteFunction` on `tcb` or `scf`, `tcb.DeleteTable`, `tcb.DeleteItem`, `tcb.DestroyEnv`, `tcb.DestroyPlatformEnv`, `tcb.DestroyMySQL`,
 `tcbr.DeleteCloudRunServer`, and `tcbr.DeleteCloudRunVersions` when `IsDeleteServer` is true. A `Delete` prefix does not
-confirm other cloud APIs. Cloud storage deletes do not go through `callCloudApi`. It is built on MCP form elicitation, so it
+confirm other cloud APIs. Cloud storage deletes do not go through `callCloudApi`. PostgreSQL `execute` / `applyMigration` pause only when the SQL itself is `DELETE`, `DROP`, `TRUNCATE` or `ALTER … DROP`; `INSERT`, `UPDATE` and `CREATE TABLE` do not. It is built on MCP form elicitation, so it
 can only appear where the client declares that capability *and* actually asks the user.
 
 | Situation | What happens |

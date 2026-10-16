@@ -10,6 +10,9 @@ import { defineModule } from "../types.js";
  */
 export const confirmation = defineModule(
   {
+    // 按钮文案**有意保留全局这一份**（裁定：不改）：本护栏拦下来的动作，无论是删函数、
+    // 删集合、销毁实例，还是 PostgreSQL 的 DROP TABLE / TRUNCATE / ALTER…DROP，本质都是
+    // "删数据或删对象" —— "确认删除"不误导；改成"确认执行"反而更含糊（执行什么？）。
     "option.confirm": "确认删除",
     "option.cancel": "取消",
 
@@ -24,6 +27,17 @@ export const confirmation = defineModule(
     "message.destroyMysqlEnv": "即将销毁当前环境的 MySQL 实例（环境 {envId}）。实例与数据都会删除，无法恢复。",
     "message.destroyEnv": "即将销毁环境 {resource}。环境本身以及其中的云函数、数据库和存储都会删除，无法恢复。",
     "message.mysqlThisEnv": "当前环境的 MySQL 实例",
+    // PostgreSQL：按**参数里的 SQL** 判定才拦，所以文案要把命中的语句点名出来（{resource}）
+    "message.pgExecuteDestructiveSql":
+      "即将在环境 {envId} 上执行会改动数据的 SQL：{resource}。这条语句会删数据或删结构，执行后无法恢复，请确认它就是你要跑的那条。",
+    "message.pgApplyMigrationDestructive":
+      "这条 migration 里有会删结构的语句（环境 {envId}）：{resource}。执行后无法恢复，请确认这次迁移确实要这么做。",
+    // 多条时的变体：把**条数**说出来（预览只截首条，所以这个信号必须有）。单条时用上面那条，
+    // 不出现"共 1 条"这类噪音。
+    "message.pgExecuteDestructiveSqlMany":
+      "即将在环境 {envId} 上执行会改动数据的 SQL：{resource}。本次共有 {count} 条破坏性语句（这里只预览第一条），执行后无法恢复，请确认。",
+    "message.pgApplyMigrationDestructiveMany":
+      "这条 migration 里有会删结构的语句（环境 {envId}）：{resource}。本次共有 {count} 条破坏性语句（这里只预览第一条），执行后无法恢复，请确认这次迁移确实要这么做。",
     "message.unknownResource": "（未能从参数中取到资源名）",
     "message.unknownEnv": "未知",
 
@@ -50,6 +64,14 @@ export const confirmation = defineModule(
     "message.destroyMysqlEnv": "About to destroy this environment's MySQL instance (env {envId}). The instance and its data are deleted and cannot be recovered.",
     "message.destroyEnv": "About to destroy the environment {resource}. The environment itself, and the functions, databases and storage inside it, are deleted and cannot be recovered.",
     "message.mysqlThisEnv": "this environment's MySQL instance",
+    "message.pgExecuteDestructiveSql":
+      "About to run data-changing SQL in env {envId}: {resource}. This statement drops data or schema and cannot be undone - confirm it is the one you meant to run.",
+    "message.pgApplyMigrationDestructive":
+      "This migration contains statements that drop schema (env {envId}): {resource}. This cannot be undone - confirm this migration should do that.",
+    "message.pgExecuteDestructiveSqlMany":
+      "About to run data-changing SQL in env {envId}: {resource}. There are {count} destructive statements in this call (only the first is previewed here) and they cannot be undone - confirm.",
+    "message.pgApplyMigrationDestructiveMany":
+      "This migration contains statements that drop schema (env {envId}): {resource}. There are {count} destructive statements in this call (only the first is previewed here) and they cannot be undone - confirm this migration should do that.",
     "message.unknownResource": "(could not read the resource name from the arguments)",
     "message.unknownEnv": "unknown",
 
