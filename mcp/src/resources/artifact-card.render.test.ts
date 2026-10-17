@@ -41,6 +41,8 @@ interface PanelHarness {
   clickDocument(id: string): void;
   sent: SentMessage[];
   methods(): string[];
+  /** 模拟宿主对面板某次请求的应答（result 或 error） */
+  respond(method: string, outcome: { result?: unknown; error?: unknown }): void;
 }
 
 const FALLBACK = { envId: "my-env-3gk9ab", site: "domestic", region: "ap-shanghai" };
@@ -141,6 +143,17 @@ function loadPanel(html: string): PanelHarness {
       }
       return element;
     },
+    respond(method, outcome) {
+      for (let i = sent.length - 1; i >= 0; i--) {
+        const message = sent[i] as { id?: number; method?: string };
+        if (message.method === method) {
+          messageListeners.forEach((fn) =>
+            fn({ data: { jsonrpc: "2.0", id: message.id, ...outcome }, source: sandbox.parent }),
+          );
+          return;
+        }
+      }
+    },
     clickDocument(id) {
       clickListeners.forEach((fn) =>
         fn({ target: { closest: (sel: string) => (sel === "button" ? elements.get(id) ?? null : null) } }),
@@ -226,37 +239,44 @@ describe("artifact-card 面板脚本运行时（载荷驱动）", () => {
     expect(deploying.el("st-text").textContent).toBe(L("mcpUiArtifact.state.deploying"));
     expect(deploying.el("st-dot").className).toContain("warn");
     expect(deploying.el("c-hint").textContent).toBe(L("mcpUiArtifact.hint.deploying"));
-    expect(deploying.el("btn-main").textContent).toBe(L("mcpUiArtifact.action.viewBuildLog"));
+    expect(deploying.el("btn-main-label").textContent).toBe(L("mcpUiArtifact.action.viewBuildLog"));
     expect(deploying.el("btn-main").hidden).toBe(false);
-    // 部署中不展示地址（那是已有服务的地址），但给一个图标刷新
+    // 部署中不展示地址（那是已有服务的地址），但给一个刷新按钮
     expect(deploying.el("f-url").hidden).toBe(true);
     expect(deploying.el("btn-refresh").hidden).toBe(false);
+    // 还没上线就没有可分享的作品
+    expect(deploying.el("btn-share").hidden).toBe(true);
 
     const published = render(payloadPublished());
     expect(published.el("st-text").textContent).toBe(L("mcpUiArtifact.state.published"));
     expect(published.el("st-dot").className).toContain("ok");
     expect(published.el("c-hint").textContent).toBe(L("mcpUiArtifact.hint.published"));
-    expect(published.el("btn-main").textContent).toBe(L("mcpUiArtifact.action.openUrl"));
+    expect(published.el("btn-main-label").textContent).toBe(L("mcpUiArtifact.action.openUrl"));
     expect(published.el("f-url").hidden).toBe(false);
     expect(published.el("k-url").textContent).toBe(PUBLIC_URL);
     expect(published.el("k-url-tag").hidden).toBe(true);
+    // 有公网地址才有东西可分享；文案与按钮都在
+    expect(published.el("btn-share").hidden).toBe(false);
+    expect(published.el("btn-share-label").textContent).toBe(L("mcpUiArtifact.action.shareCase"));
 
     const internal = render(payloadInternal());
     expect(internal.el("st-text").textContent).toBe(L("mcpUiArtifact.state.published"));
     expect(internal.el("c-hint").textContent).toBe(L("mcpUiArtifact.hint.publishedInternal"));
     // 仅内网：撤掉「打开」，主行动改成绑定公网域名，地址带「仅内网」Tag
-    expect(internal.el("btn-main").textContent).toBe(L("mcpUiArtifact.action.bindDomain"));
+    expect(internal.el("btn-main-label").textContent).toBe(L("mcpUiArtifact.action.bindDomain"));
     expect(internal.el("k-url").textContent).toBe(INTERNAL_URL);
     expect(internal.el("k-url-tag").hidden).toBe(false);
     expect(internal.el("k-url-tag").textContent).toBe(L("mcpUiArtifact.tag.internalOnly"));
     expect(internal.el("btn-log").hidden).toBe(false);
+    // 仅内网的地址外人打不开，不给「分享案例」
+    expect(internal.el("btn-share").hidden).toBe(true);
 
     const failed = render(payloadFailed());
     expect(failed.el("st-text").textContent).toBe(L("mcpUiArtifact.state.failed"));
     expect(failed.el("st-dot").className).toContain("err");
     // 说明句是**后端原文**，逐字（不是词典里的话）
     expect(failed.el("c-hint").textContent).toBe(FAILURE_TEXT);
-    expect(failed.el("btn-main").textContent).toBe(L("mcpUiArtifact.action.viewLog"));
+    expect(failed.el("btn-main-label").textContent).toBe(L("mcpUiArtifact.action.viewLog"));
     expect(failed.el("f-url").hidden).toBe(true);
 
     const unknown = render(buildArtifactCardPayload({ ...BASE }));
@@ -324,11 +344,41 @@ describe("artifact-card 面板脚本运行时（载荷驱动）", () => {
       },
     });
 
+    // 公网已上线：主行动直接请宿主打开地址，不再把「帮我打开 xxx」丢回会话多绕一轮
     const published = render(payloadPublished());
     published.clickDocument("btn-main");
-    expect(published.sent.filter((entry) => entry.method === "ui/message")[0]?.params.content.text).toBe(
-      fill(L("mcpUiArtifact.message.openUrl"), targetOf("hosting", "my-blog"), PUBLIC_URL),
+    expect(published.sent.filter((entry) => entry.method === "ui/message")).toHaveLength(0);
+    expect(published.sent.filter((entry) => entry.method === "ui/open-link")[0]?.params).toEqual({
+      url: PUBLIC_URL,
+    });
+  });
+
+  it("宿主拒绝打开时回落：地址进剪贴板，并在地址下方写明一句", async () => {
+    const published = render(payloadPublished());
+    published.clickDocument("btn-main");
+    published.respond("ui/open-link", { error: { code: -32000, message: "denied" } });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(published.el("k-note").hidden).toBe(false);
+    expect(published.el("k-note").textContent).toBe(L("mcpUiArtifact.action.openFailed"));
+    expect(published.el("btn-main").disabled).toBe(false);
+  });
+
+  it("「分享这个案例」交给会话去调 prepareFeedback，正文里只带对象与地址、不带环境 ID", () => {
+    const published = render(payloadPublished());
+    published.clickDocument("btn-share");
+
+    const message = published.sent.filter((entry) => entry.method === "ui/message")[0]?.params.content.text ?? "";
+    // 先把模板里的占位符按同一规则填好，再逐字比——避免"包含关键字"这种自证断言
+    expect(message).toBe(
+      fill(L("mcpUiArtifact.message.shareCase"), targetOf("hosting", "my-blog"), PUBLIC_URL),
     );
+    // 走的是部署后分享流程的前半段（先要作品卡片与文案），不是直接丢一个 issue 链接
+    expect(message).toContain("作品卡片");
+    expect(message).toContain("案例墙");
+    // 案例墙是公开的：环境 ID 与密钥一律不进正文
+    expect(message).not.toContain("my-env-3gk9ab");
+    expect(message).not.toContain("secret");
   });
 
   it("发给会话的话里带着本次部署的对象（否则技能不知道查哪个服务）", () => {
@@ -364,17 +414,20 @@ describe("artifact-card 面板脚本运行时（载荷驱动）", () => {
       panel.clickDocument("btn-copy-env");
 
       expect(panel.methods().filter((method) => method === "tools/call")).toEqual([]);
-      // 面板只会发这四条消息名；没有任何其它调用（尤其没有 tools/call）
+      // 面板只会发这几个消息名；没有任何其它调用（尤其没有 tools/call）
       const allowed = new Set([
         "ui/initialize",
         "ui/notifications/initialized",
         "ui/notifications/size-changed",
         "ui/message",
+        "ui/open-link",
       ]);
       for (const method of panel.methods()) {
         expect(allowed, `面板不应发出 ${method}`).toContain(method);
       }
-      expect(panel.methods()).toContain("ui/message");
+      // 点击一定产生了对宿主的请求：要么交给会话（ui/message），要么请宿主打开地址
+      const talk = panel.methods().filter((m) => m === "ui/message" || m === "ui/open-link");
+      expect(talk.length).toBeGreaterThan(0);
     }
   });
 
@@ -419,7 +472,7 @@ describe("artifact-card 面板脚本运行时（载荷驱动）", () => {
     expect(panel.el("btn-copy-env").hidden).toBe(false);
     // 但不留旧地址（那属于上一次结果），也不给「打开」
     expect(panel.el("f-url").hidden).toBe(true);
-    expect(panel.el("btn-main").textContent).toBe(L("mcpUiArtifact.action.viewLog"));
+    expect(panel.el("btn-main-label").textContent).toBe(L("mcpUiArtifact.action.viewLog"));
     // 原文只进折叠区，不进正文
     expect(panel.el("raw-out").textContent).toContain("boom");
     expect(panel.el("c-hint").textContent).toBe("");
@@ -433,7 +486,7 @@ describe("artifact-card 面板脚本运行时（载荷驱动）", () => {
     expect(panel.el("st-text").textContent).toBe(L("mcpUiArtifact.state.failed"));
     expect(panel.el("c-title").hidden).toBe(true);
     expect(panel.el("f-url").hidden).toBe(true);
-    expect(panel.el("btn-main").textContent).toBe(L("mcpUiArtifact.action.viewLog"));
+    expect(panel.el("btn-main-label").textContent).toBe(L("mcpUiArtifact.action.viewLog"));
   });
 
   it("读不懂的返回只进折叠区，卡片回到未确认（正文不摊原文）", () => {
@@ -492,11 +545,13 @@ describe("artifact-card 面板脚本运行时（载荷驱动）", () => {
     expect(panel.el("k-url").textContent).toContain(PUBLIC_URL);
     expect(panel.el("k-url").textContent).not.toContain("evil.example.com");
 
-    // ④ 最要紧的一条：点主行动发回会话的那句话里，只能是真地址
+    // ④ 最要紧的一条：点主行动要打开的是真地址，假地址一步都不能走
     panel.clickDocument("btn-main");
-    const text = panel.sent.filter((entry) => entry.method === "ui/message")[0]?.params.content.text ?? "";
-    expect(text).toContain(PUBLIC_URL);
-    expect(text).not.toContain("evil.example.com");
+    const opened = String(
+      panel.sent.filter((entry) => entry.method === "ui/open-link")[0]?.params.url ?? "",
+    );
+    expect(opened).toContain(PUBLIC_URL);
+    expect(opened).not.toContain("evil.example.com");
 
     // null 来源必须放行：沙箱代理 / MessagePort 中转就是这样投递的（Codex 的 mcp-app-sandbox
     // 实测如此），挡掉它面板会静默收不到任何结果。
