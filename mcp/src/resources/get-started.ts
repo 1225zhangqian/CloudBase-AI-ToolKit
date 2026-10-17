@@ -515,6 +515,13 @@ pre {
     if (payload) { showRaw(JSON.stringify(payload, null, 2)); }
   }
   window.addEventListener("message", function (event) {
+    // Only the host may drive this view. Origin cannot be checked here (a sandboxed view has no
+    // comparable host origin, and the spec's own example posts with "*"), so the source window is
+    // checked instead. It has to accept how hosts actually deliver: from the parent frame, from
+    // this frame itself (a sandbox proxy that relays by posting here), and a null source (a
+    // MessagePort relay). Measured on Codex's mcp-app-sandbox: allowing the parent frame only
+    // dropped every result silently, which is why those two cases are allowed on purpose.
+    if (event.source && event.source !== window.parent && event.source !== window) { return; }
     var data = event.data;
     if (!data || typeof data !== "object") { return; }
     // The host sends the result of the tool call that rendered this view as a notification.
