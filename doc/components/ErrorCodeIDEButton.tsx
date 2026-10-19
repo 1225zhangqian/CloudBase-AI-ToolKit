@@ -5,37 +5,6 @@ import styles from './ErrorCodeIDEButton.module.css';
 import IDESelector from './IDESelector';
 import { reportEvent } from './analytics';
 
-// IDE list for icons (from IDESelector)
-const POPULAR_IDES = [
-    { id: 'openclaw', iconUrl: 'https://openclaw.ai/favicon.svg' },
-    { id: 'cursor', iconSlug: 'cursor' },
-    { id: 'codebuddy', iconUrl: 'https://codebuddy-1328495429.cos.accelerate.myqcloud.com/web/ide/logo.svg' },
-    { id: 'github-copilot', iconUrl: 'https://code.visualstudio.com/favicon.ico' },
-    { id: 'claude-code', iconSlug: 'claude' },
-    { id: 'windsurf', iconSlug: 'windsurf' },
-    { id: 'cline', iconSlug: 'cline' },
-];
-
-// Get icon URL helper (same as IDESelector)
-const iconsWithColor = new Set(['claude', 'gemini', 'baidu', 'alibaba', 'qwen', 'bytedance', 'tencent']);
-
-function getIconUrl(ide: { iconSlug?: string; iconUrl?: string }): string | null {
-    if (ide.iconUrl) return ide.iconUrl;
-    if (ide.iconSlug) {
-        const baseUrl = 'https://cdn.jsdelivr.net/npm/@lobehub/icons-static-png@latest/light';
-        if (iconsWithColor.has(ide.iconSlug)) {
-            return `${baseUrl}/${ide.iconSlug}-color.png`;
-        }
-        return `${baseUrl}/${ide.iconSlug}.png`;
-    }
-    return null;
-}
-
-interface ErrorCodeIDEButtonProps {
-    errorCode?: string;
-    pageUrl?: string;
-}
-
 // i18n translations
 const translations: Record<string, Record<string, string>> = {
     'zh-CN': {
