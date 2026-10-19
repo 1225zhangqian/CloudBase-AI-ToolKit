@@ -1,0 +1,141 @@
+import IDESelector from '../components/IDESelector';
+import RelatedResources from '../components/RelatedResources';
+
+# CodeBuddy Setup Guide
+
+CodeBuddy can install the CloudBase plugin (MCP + Skills) via the **plugin marketplace**, then use CloudBase CLI to complete environment login. After setup, you can operate CloudBase services directly from CodeBuddy's AI chat.
+
+**Examples:**
+
+- "Build a WeChat Mini Program ordering system with CloudBase" — AI scaffolds pages, creates the cloud database, writes cloud functions, and guides preview
+- "Build a reservation management system that lets users place orders and admins update status" — AI models it with CloudBase PostgreSQL, configures permissions, and wires up frontend and backend
+- "Add phone-number login to a Web app" — AI enables the auth method and integrates the CloudBase SDK
+
+No need to switch to the Cloud console — you can do everything in CodeBuddy with natural language.
+
+## Prerequisites
+
+Before you start, make sure you have:
+
+<details>
+<summary><strong>Node.js and a CloudBase environment ready</strong></summary>
+
+**Node.js:** Install Node.js v18.15.0 or later:
+
+```bash
+node --version
+```
+
+If you don't have it installed, download it from the [Node.js website](https://nodejs.org/en/download).
+
+**CloudBase environment:** See [Create a CloudBase environment](../../../quick-start/create-env). New users on the domestic site can start for free.
+
+</details>
+
+---
+
+## Option 1: Install via Plugin Marketplace (Recommended)
+
+The plugin marketplace installs both MCP tools and AI Skills in one step, giving you the full feature set.
+
+### 1. Add the CloudBase plugin marketplace
+
+1. Open the **Plugin Marketplace** page in CodeBuddy
+2. Select **Add Marketplace Source** (or the equivalent entry)
+3. Enter the marketplace URL:
+
+```text
+https://github.com/TencentCloudBase/CloudBase-AI-Toolkit
+```
+
+Once added, **Tencent CloudBase** will appear in the marketplace list.
+
+### 2. Install the CloudBase plugin
+
+Install and enable the `cloudbase` plugin from the newly added marketplace.
+
+If you are using **CodeBuddy Code (CLI)**, you can also complete the same steps via commands:
+
+```bash
+# Add the CloudBase plugin marketplace
+codebuddy plugin marketplace add TencentCloudBase/CloudBase-AI-Toolkit
+
+# Install the CloudBase plugin
+codebuddy plugin install cloudbase@tencent-cloudbase
+```
+
+After installation, open a new conversation or restart CodeBuddy to ensure the plugin, Skills, and MCP tools load completely.
+
+For the CLI version, see the [CodeBuddy Code Setup Guide](./codebuddy-code).
+
+---
+
+## Log in to CloudBase
+
+After installing the plugin, you still need to complete CloudBase environment authentication. Choose the method that matches your situation:
+
+### With a Tencent Cloud account (Recommended)
+
+No CLI pre-configuration needed. Start a conversation in CodeBuddy and the system will prompt you to complete **Device Login** (device code authorization) — just follow the on-screen instructions.
+
+> 🌏 **International site users**: when your environment is in the Tencent Cloud **international site**, declare the site first, otherwise login goes to the China-site authorization page. Add `"TCB_SITE": "intl"` to the MCP config `env` (or use the `--site intl` startup flag), restart CodeBuddy, then log in. See [Connection Modes - International site users](../connection-modes#international-site-users).
+
+### Without a Tencent Cloud account (API Key)
+
+If you only have an environment-level API Key (e.g. provided by a partner or admin), install CloudBase CLI first and then log in with the API Key:
+
+```bash
+# Install CloudBase CLI
+npm i -g @cloudbase/cli
+
+# International site users: run `tcb config set isIntl true` first (or set TCB_IS_INTL=true) to switch to the international-site path
+# Log in with an environment API Key (environment ID is also required)
+tcb login --cloudbase-api-key <cloudbaseApiKey> -e <cloudbaseEnvId>
+```
+
+> 💡 API Keys can be created and managed in the [CloudBase Console](https://tcb.cloud.tencent.com/dev) under environment settings (if you have admin permissions).
+>
+> ⚠️ API Keys have environment-level access. Keep them safe and never commit them to a code repository or share them in screenshots.
+
+Once logged in, you can start using CloudBase features in conversations.
+
+---
+
+## CodeBuddy IDE Built-in Integration
+
+**CodeBuddy IDE** users can also go to Settings / Integrations and click the **Tencent CloudBase** management button to authorize — this uses the built-in integration and requires no manual MCP configuration.
+
+See the [CodeBuddy BaaS Integration docs](https://www.codebuddy.ai/docs/zh/ide/User-guide/Integration) for details.
+
+---
+
+## Option 2: MCP Marketplace or Manual Configuration
+
+If you only need the MCP tool connection, you can also:
+
+1. Click the MCP button in the top-right corner of CodeBuddy
+2. Search for CloudBase in the MCP marketplace and install
+
+Or manually write the MCP configuration:
+
+<IDESelector defaultIDE="codebuddy" />
+
+---
+
+## FAQ
+
+**Q: Do I still need `tcb login --cloudbase-api-key` if I have a Tencent Cloud account?**
+A: No. Start a conversation and follow the prompts to complete Device Login. API Key login is mainly for users who don't have a Tencent Cloud account and only have an environment API Key.
+
+**Q: Plugin marketplace addition failed?**
+A: Confirm the marketplace URL is `https://github.com/TencentCloudBase/CloudBase-AI-Toolkit`, check that your network can access GitHub, and retry if needed — or use the built-in integration / MCP marketplace instead.
+
+**Q: MCP connection failed?**
+A: Check the MCP configuration format, restart CodeBuddy, confirm your network is working, and make sure you have completed Device Login or API Key login.
+
+**Q: Tool count shows 0?**
+A: See the [FAQ](../faq#mcp-shows-0-tools).
+
+More: [FAQ](../faq)
+
+<RelatedResources ideName="CodeBuddy" ideDocUrl="https://www.codebuddy.ai/docs/" />

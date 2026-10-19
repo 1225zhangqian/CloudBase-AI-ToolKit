@@ -1,0 +1,97 @@
+import IDESelector from './components/IDESelector';
+
+# CloudBase AI Plugins
+
+Plug CloudBase into your AI coding assistant in one step: it bundles the [MCP Server](/ai/cloudbase-ai-toolkit/getting-started) and [Agent Skills](/ai/cloudbase-ai-toolkit/prompts/how-to-use) together, so once installed you can query databases, manage cloud functions, deploy hosting, and more — no separate configuration needed.
+
+Compared with installing Skills alone, the plugin also ships Hooks and more, which makes **Skill activation more reliable**. Prefer the plugin.
+
+**Fastest start:** copy the AI prompt below and paste it into your AI IDE.
+
+```text
+Set up CloudBase for me, as follows:
+1. Open https://docs.cloudbase.net/skill.md and follow the instructions to connect.
+2. When you're done, tell me and suggest the most relevant next step.
+```
+
+## Installation
+
+### Option 1: one-line install (recommended)
+
+Install through the `plugins` CLI, which is compatible with the [Open Plugin Specification](https://open-plugins.com/plugin-builders/specification) and auto-detects the AI tools on your machine. **Prefer this path over hand-writing MCP JSON.**
+
+Defaults to `--scope user` (global):
+
+```bash
+npx plugins add TencentCloudBase/cloudbase-plugin -y --scope user
+
+# Sites plugin (optional)
+npx plugins add TencentCloudBase/cloudbase-sites-plugin -y --scope user
+```
+
+<details>
+<summary><strong>Supported AI IDEs (npx plugins targets)</strong></summary>
+
+| `--target` ID | AI IDE | Notes |
+|---------------|--------|------|
+| `claude-code` | Claude Code | `~/.claude` |
+| `cursor` | Cursor | `~/.cursor` |
+| `codex` | Codex | `~/.codex` |
+| `grok` | Grok Build | `~/.grok` (per-user only) |
+| `kimi` | Kimi Code | `~/.kimi-code` (per-user only) |
+| `github-copilot` | GitHub Copilot CLI | `~/.copilot` (the standalone `copilot` CLI, not `gh copilot`) |
+| `vscode` | Visual Studio Code | Agent plugins (Preview, per-user only) |
+
+Without `--target`, the plugin installs into **every detected** target above. To see what was detected:
+
+```bash
+npx plugins targets
+```
+
+To install for a single tool:
+
+```bash
+npx plugins add TencentCloudBase/cloudbase-plugin -y --scope user --target cursor
+```
+
+Restart / reload the tool after installing.
+
+</details>
+
+<details>
+<summary><strong>When GitHub is unreachable (CNB mirror)</strong></summary>
+
+The `owner/repo` short name always resolves to GitHub. If `git clone` against GitHub fails, use the **full CNB URL** instead (synced by CI from the OPS artifacts, without marketplace metadata):
+
+```bash
+npx plugins add https://cnb.cool/tencent/cloud/cloudbase/cloudbase-plugin.git -y --scope user
+
+# Sites plugin (optional)
+npx plugins add https://cnb.cool/tencent/cloud/cloudbase/cloudbase-sites-plugin.git -y --scope user
+```
+
+> Don't use the `CloudBase-AI-ToolKit` monorepo mirror for `npx plugins add`: its marketplace layout differs from the OPS-dedicated repo, and the CLI may fail to install from it.
+
+If the plugin still won't install, fall back to Skills via CNB or the npm MCP — see [skill.md](https://docs.cloudbase.net/skill.md).
+
+</details>
+
+### Option 2: install per client
+
+For tools not in the targets list above, pick yours here — use the plugin marketplace where one exists, otherwise connect via the MCP config:
+
+<IDESelector defaultIDE="codex-app" />
+
+## What's in the plugin
+
+| Capability | Description |
+|------|------|
+| **MCP Server** | Environments, databases, cloud functions, hosting, storage, cloud hosting, authentication, permissions, logs, and more — see [MCP tools](mcp-tools.md) |
+| **Agent Skills** | Domain knowledge for the platform, Web / Mini Programs, cloud functions, auth, databases, AI models, UI, and more — see [How to use Skills](prompts/how-to-use.mdx) |
+
+## Related docs
+
+- [Quick start](getting-started.mdx)
+- [How to use Skills](prompts/how-to-use.mdx)
+- [Connection modes](connection-modes.mdx)
+- [FAQ](faq.md)

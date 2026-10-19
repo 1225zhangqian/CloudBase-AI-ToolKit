@@ -1,0 +1,85 @@
+import PromptScenarios from '../components/PromptScenarios';
+
+# How to Use Skills
+
+CloudBase AI Skills are a set of "skill packages" that inject CloudBase professional knowledge into AI. **When used with MCP, MCP provides connections and tools, while Skills provide rules and best practices**.
+
+**Quick start:** Copy the AI prompt below and paste it into your AI IDE.
+
+```text
+Set up CloudBase for me, following the steps below:
+1. Open https://docs.cloudbase.net/skill.md and complete the integration as instructed.
+2. Tell me when it's done and suggest the most relevant next step.
+```
+
+**Fastest start:** Copy the AI Prompt below into your AI IDE.
+
+```text
+Help me get set up with CloudBase. Do the following:
+1. Open https://docs.cloudbase.net/skill.md and follow the instructions.
+2. When done, tell me you're ready and suggest the most relevant next steps.
+```
+
+---
+
+## Install Skills
+
+Install via the [Skills Open Specification](https://agentskills.io/), which supports Skills-capable tools such as Claude Code, Cursor, VS Code, GitHub Copilot, OpenCode, and more.
+
+Run the following in the project root:
+
+```bash
+npx skills add tencentcloudbase/cloudbase-skills
+```
+
+Then select your AI tool as prompted. You can also have your AI read the [Setup Skill](https://docs.cloudbase.net/skill.md) to self-guide the configuration.
+
+To install only a single Skill:
+
+```bash
+npx skills add https://github.com/tencentcloudbase/skills --skill auth-tool
+```
+
+Preview an example online: [cloudbase-platform](https://skills.sh/tencentcloudbase/skills/cloudbase-platform)
+
+### When GitHub is Unreachable (CNB Mirror)
+
+The short `owner/repo` form always uses GitHub. If the clone fails, use the full CNB URL:
+
+```bash
+npx skills add https://cnb.cool/tencent/cloud/cloudbase/cloudbase-skills.git -y
+```
+
+### Improve Activation Rate
+
+When Skills are installed individually, whether AI automatically picks them up depends on the model and tool and is not always reliable. For more stable activation, install the [CloudBase AI Plugin](../ai-agent-plugins) directly: a single installation gives you MCP, Skills, and Hooks at once.
+
+### Using with MCP
+
+We recommend configuring [CloudBase MCP](../getting-started) as well: MCP handles connecting to the environment and invoking tools, while Skills handle development standards. Using both together works best.
+
+---
+
+## Manual Copy (Optional)
+
+If you cannot use `npx skills add`, copy the rules or prompts into your project and reference them in conversations with `@` / `#`, for example:
+
+- Cursor: `.cursor/rules/` or `@Files`
+- Claude Code: `CLAUDE.md` / `AGENT.md`
+- GitHub Copilot: `#prompts/xxx.md`
+
+See the scenarios below for the full list, or visit the [CloudBase AI Toolkit](https://github.com/TencentCloudBase/CloudBase-AI-ToolKit) repository.
+
+---
+
+## Available Skill Scenarios
+
+<PromptScenarios />
+
+---
+
+## Related Documentation
+
+- [CloudBase AI Plugin](../ai-agent-plugins) — recommended installation method
+- [Getting Started](../getting-started) — MCP connection
+- [Getting Started Videos and Articles](../tutorials)

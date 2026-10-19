@@ -1,0 +1,71 @@
+import IDESelector from '../components/IDESelector';
+import RelatedResources from '../components/RelatedResources';
+
+# Claude Code Setup Guide
+
+Claude Code can install the CloudBase plugin from the **plugin marketplace** to get MCP tool connectivity and AI Skills in one go, or connect manually via **MCP configuration**. The plugin marketplace approach is recommended.
+
+After setup, you can operate CloudBase services directly from Claude Code’s chat.
+
+**Examples:**
+
+- "Build a WeChat Mini Program ordering system with CloudBase" — AI scaffolds pages, creates the cloud database, writes cloud functions, and guides preview
+- "Build a reservation management system that lets users place orders and admins update status" — AI models it with CloudBase PostgreSQL, configures permissions, and wires up frontend and backend
+- "Add phone-number login to a Web app" — AI enables the auth method and integrates the CloudBase SDK
+
+No need to switch to the Cloud console — you can do everything in Claude Code with natural language.
+
+## Prerequisites
+
+Before you start, make sure you have:
+
+<details>
+<summary><strong>Node.js and a CloudBase environment ready</strong></summary>
+
+**Node.js:** Install Node.js v18.15.0 or later:
+
+```bash
+node --version
+```
+
+If you don’t have it installed, download it from the [Node.js website](https://nodejs.org/en/download).
+
+**CloudBase environment:** See [Create a CloudBase environment](../../../quick-start/create-env). New users on the domestic site can start for free.
+
+</details>
+
+---
+
+## Method 1: Install via Plugin Marketplace (Recommended)
+
+The plugin marketplace installs both MCP tools and AI Skills — one installation provides full capabilities.
+
+Claude Code can install plugins from a marketplace. After installation, MCP connections and Skills are available automatically:
+
+```bash
+# Add the CloudBase plugin marketplace
+claude plugin marketplace add TencentCloudBase/CloudBase-MCP
+
+# Install the CloudBase plugin
+claude plugin install cloudbase@tencent-cloudbase
+```
+
+After installation, run `/reload-plugins` in Claude Code to activate the plugin. Default `--scope user` makes it globally available; use `--scope project` to share within a team.
+
+## Method 2: Connect via MCP Configuration
+
+If you only need MCP tool connectivity, you can also configure it manually:
+
+<IDESelector defaultIDE="claude-code" />
+
+## FAQ
+
+**Q: MCP connection failed?**
+A: Check your `.mcp.json` format, ensure `npx` is available, and restart Claude Code.
+
+**Q: Tool count shows 0?**
+A: See the [FAQ](../faq#mcp-shows-0-tools).
+
+More questions: [Full FAQ](../faq)
+
+<RelatedResources ideName="Claude Code" ideDocUrl="https://docs.anthropic.com/en/docs/claude-code/mcp#project-scope" />

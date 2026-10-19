@@ -1,0 +1,105 @@
+import IDESelector from '../components/IDESelector';
+import RelatedResources from '../components/RelatedResources';
+
+# ZCode Setup Guide
+
+[ZCode](https://zcode.z.ai/) is Zhipu AI’s coding client. It supports plugins, Skills, and MCP. This page explains how to enable CloudBase in ZCode (≥ 3.4.1).
+
+After setup, you can operate CloudBase services directly in ZCode AI conversations.
+
+**Examples:**
+
+- "Build a WeChat Mini Program ordering system with CloudBase" — AI scaffolds pages, creates the cloud database, writes cloud functions, and guides preview
+- "Build a reservation management system that lets users place orders and admins update status" — AI models it with CloudBase PostgreSQL, configures permissions, and wires up frontend and backend
+- "Add phone-number login to a Web app" — AI enables the auth method and integrates the CloudBase SDK
+
+No need to switch to the cloud console — everything can be done in ZCode with natural language.
+
+## Prerequisites
+
+Before you start, make sure the following are ready:
+
+<details>
+<summary><strong>Node.js and a CloudBase environment are ready</strong></summary>
+
+**ZCode version:** Use ZCode **3.4.1** or later.
+
+**Node.js:** Install Node.js v18.15.0 or later:
+
+```bash
+node --version
+```
+
+If it is not installed, download it from the [Node.js website](https://nodejs.org/en/download).
+
+**CloudBase environment:** See [Create a CloudBase environment](../../../quick-start/create-env). New users on the domestic site can start with a free trial.
+
+</details>
+
+---
+
+<IDESelector defaultIDE="zcode" />
+
+## Use the built-in plugin (recommended)
+
+ZCode ships with the CloudBase plugin (`cloudbase-skills`). Enable it in Settings:
+
+1. Open ZCode **Settings**
+2. Go to **Plugins** on the left
+3. Under **Developer Tools**, find **cloudbase-skills** (Tencent CloudBase skills and MCP integration)
+4. Enable the plugin
+
+After enabling, you can use CloudBase capabilities directly in chat.
+
+## Configure MCP manually (optional)
+
+If you are not using the built-in plugin, add a CloudBase MCP server in ZCode:
+
+1. Open ZCode **Settings** → **MCP Servers**
+2. Click **Add** → **New MCP Server**
+3. Fill in the form below, save, then return to the list
+
+### Form fields
+
+| Field | Value |
+|------|-----|
+| Name | `cloudbase` |
+| Scope | User |
+| Type | stdio (local command) |
+| Timeout (ms) | `30000` |
+| Command | `npx` |
+| Args (space-separated) | `-y @cloudbase/cloudbase-mcp@latest` |
+| Env (optional) | `INTEGRATION_IDE=ZCode` |
+
+### JSON configuration
+
+In JSON mode, you can use:
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "command": "npx",
+      "args": ["-y", "@cloudbase/cloudbase-mcp@latest"],
+      "env": {
+        "INTEGRATION_IDE": "ZCode"
+      }
+    }
+  }
+}
+```
+
+## FAQ
+
+**Q: I can't find cloudbase-skills in the plugin list?**
+A: Confirm ZCode ≥ 3.4.1, and look under **Plugins → Developer Tools**. You can also use manual MCP setup above.
+
+**Q: MCP connection failed?**
+A: Check the command and args, ensure Node.js works locally, restart ZCode, and verify network access.
+
+**Q: Tool count shows 0?**
+A: See [FAQ](../faq#mcp-shows-0-tools).
+
+More: [Full FAQ](../faq)
+
+<RelatedResources ideName="ZCode" ideDocUrl="https://zcode.z.ai/" />

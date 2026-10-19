@@ -1,0 +1,97 @@
+---
+title: Write WeChat Mini Programs with AI
+description: Use AI while coding to write, preview, and deploy WeChat Mini Programs (DevTools Nightly Skills)
+keywords:
+  - AI Mini Program development
+  - DevTools Skills
+  - WeChat DevTools Nightly
+  - CloudBase Skills
+  - WeChat CloudBase
+---
+
+import IDESelector from '../components/IDESelector';
+
+# Write WeChat Mini Programs with AI
+
+Use AI to **write Mini Program code, preview in the simulator, and set up cloud database / functions / storage**.
+
+This is not the same as “AI features inside a Mini Program for end users.” This page is about **your coding workflow**. For product AI capabilities, start at [AI overview](https://docs.cloudbase.net/ai/introduce).
+
+WeChat’s own guide (source of truth for menus and version requirements): [DevTools Skills](https://developers.weixin.qq.com/miniprogram/dev/devtools/Skills.html).
+
+## Before you start {#layers}
+
+1. **[WeChat Developer Tools Nightly](https://developers.weixin.qq.com/miniprogram/dev/devtools/nightly_backup.html)**  
+   This AI surface ships with Nightly; Stable often does not.  
+   Nightly affects local development only — it is **not** a different publishing channel. Version requirements follow WeChat’s [Skills doc](https://developers.weixin.qq.com/miniprogram/dev/devtools/Skills.html). Sign in with WeChat and keep DevTools open while coding.
+
+2. **An AI coding tool**  
+   Pick one path (finishing the selector alone does not mean Skills are connected):
+   - **Path A:** CloudBase AI inside DevTools (default in the selector below)
+   - **Path B:** CodeBuddy, Cursor, Claude Code, etc., then **import** the DevTools Skill into that Agent
+
+3. **A real Mini Program AppID**  
+   `appid` in the project must not be empty or `touristappid`, or the Agent cannot open the project window.
+
+4. **(Recommended) CloudBase skill pack** so the Agent writes CloudBase correctly:
+
+```bash
+npx skills add tencentcloudbase/cloudbase-skills -y
+```
+
+<details>
+<summary>Do I need CloudBase MCP?</summary>
+
+Only when you need advanced console-side work (permissions, data models, MySQL/PostgreSQL). See [Connect CloudBase MCP](../getting-started).
+
+</details>
+
+## Connect {#path}
+
+### 1. Install and sign in to Nightly
+
+Open the [Nightly download page](https://developers.weixin.qq.com/miniprogram/dev/devtools/nightly_backup.html), install, scan to sign in, keep DevTools running.
+
+### 2. Choose your AI tool
+
+<IDESelector
+  defaultIDE="wechat-devtools"
+  customPrompt="Check whether DevTools is signed in; then build a WeChat Mini Program sample with CloudBase login and a list page, and preview it"
+  collapsibleInstallSteps={true}
+/>
+
+### 3. External Agents only: import the DevTools Skill
+
+Path A (built-in DevTools AI): after step 2, go to step 4.
+
+Path B (CodeBuddy / Cursor / …): you must import the Skill, or the Agent cannot drive the simulator:
+
+1. Menu → **Export DevTools Skill** → import into your Agent (menu label follows the current WeChat build)  
+2. Or run `wechatide` and give the printed Skill path to the Agent  
+3. On **first** connect, DevTools shows an auth popup — you must allow it, or everything after fails
+
+### 4. Confirm the project can open
+
+Root folder has `project.config.json` with a real AppID for your account.
+
+### 5. One acceptance prompt
+
+> Check whether DevTools is signed in, then open this Mini Program and preview it.
+
+After preview works, describe features, e.g. “Build a Mini Program with login and a list page; store data in CloudBase.”
+
+## If it does not connect {#troubleshoot}
+
+Check in order — most failures are the first three:
+
+1. Nightly installed? Signed in? DevTools window open?  
+2. External Agent: Skill imported? First auth popup allowed?  
+3. Valid `appid` (not empty, not `touristappid`)?  
+4. Still stuck: paste the error to the Agent, or read WeChat’s [DevTools Skills](https://developers.weixin.qq.com/miniprogram/dev/devtools/Skills.html)
+
+## Next {#links}
+
+- [WeChat Mini Program quick start](https://docs.cloudbase.net/quick-start/frameworks/wechat-miniprogram) (project + `wx.cloud`)
+- [WeChat DevTools setup](../ide-setup/wechat-devtools)
+- [miniprogram-development Skill](../prompts/miniprogram-development)
+- [Connect CloudBase MCP](../getting-started) (advanced)

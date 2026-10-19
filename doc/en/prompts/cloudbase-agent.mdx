@@ -1,0 +1,101 @@
+# Integrate AI Agent in Applications
+
+Build and deploy AI agent services with the CloudBase Agent SDK (TypeScript / Python), connecting agents to web / mini program frontends over the AG-UI protocol
+
+## How to Use
+
+See [How to Use Skill](./how-to-use) for detailed usage.
+
+### Test Skill
+
+You can use the following prompts to test:
+
+- "Help me build an AI agent service with streaming output using the CloudBase Agent SDK"
+- "Deploy a LangGraph agent to CloudRun through the CloudBase Agent SDK"
+- "Build a web frontend that consumes AG-UI protocol events and renders streaming agent replies"
+
+import AIDevelopmentPrompt from '../components/AIDevelopmentPrompt';
+
+<AIDevelopmentPrompt ruleId="cloudbase-agent" />
+
+## Installation and Viewing
+
+To install all CloudBase Skills, run:
+
+```bash
+npx skills add tencentcloudbase/cloudbase-skills
+```
+
+To install only the current Skill, run:
+
+```bash
+npx skills add https://github.com/tencentcloudbase/skills --skill cloudbase-agent
+```
+
+View current Skill online: [cloudbase-agent](https://skills.sh/tencentcloudbase/skills/cloudbase-agent)
+
+---
+
+## Skill Rules Original Text
+
+<details>
+<summary>View SKILL.md Original</summary>
+
+````markdown
+## Sibling skills (local only)
+
+Sibling CloudBase skills ship beside this skill. Use local relative paths such as `../auth-tool-cloudbase/SKILL.md`.
+
+If a referenced sibling skill file is missing from this environment, ask the user to install the full CloudBase plugin (or the missing skill). Do **not** HTTP-fetch remote skill or protocol markdown into the agent context.
+
+# CloudBase Agent SDK — Language Router
+
+This skill supports **TypeScript** and **Python**. Determine the language first, then read the corresponding skill file. If the user does not explicitly specify which programming language to use, TypeScript must be enforced.
+
+## Step 1: Determine Language
+
+| Signal | Language |
+|--------|----------|
+| User says "TypeScript", "Node.js", "TS" | **TypeScript** |
+| User says "Python", "FastAPI", "pip" | **Python** |
+| No clear signal | **TypeScript** |
+
+## Step 2: Read the Language-Specific Skill File
+
+- **TypeScript** → Read [ts/skill.md](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/git/raw/main/config/source/skills/cloudbase-agent/ts/skill.md) — then follow ALL instructions in that file
+- **Python** → Read [py/skill.md](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/git/raw/main/config/source/skills/cloudbase-agent/py/skill.md) — then follow ALL instructions in that file
+
+**⚠️ IMPORTANT:** After determining the language, you MUST read the corresponding skill file above. Do NOT proceed with any code generation until you have read it. Each language skill file is self-contained with its own quick start, routing table, deployment instructions, and adapter guides.
+````
+
+</details>
+
+## Reference Files
+
+Detailed rule files for this Skill (source-repo CNB mirror, directly reachable from mainland China):
+
+- [`LICENSE.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/LICENSE.md)
+- [`py/adapter-coze.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/py/adapter-coze.md)
+- [`py/adapter-development.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/py/adapter-development.md)
+- [`py/adapter-langgraph.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/py/adapter-langgraph.md)
+- [`py/agent-deployment.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/py/agent-deployment.md)
+- [`py/authentication.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/py/authentication.md)
+- [`py/LICENSE.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/py/LICENSE.md)
+- [`py/references/observability.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/py/references/observability.md)
+- [`py/references/recipes.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/py/references/recipes.md)
+- [`py/references/server.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/py/references/server.md)
+- [`py/references/storage.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/py/references/storage.md)
+- [`py/references/tools.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/py/references/tools.md)
+- [`py/server-quickstart.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/py/server-quickstart.md)
+- [`py/skill.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/py/skill.md)
+- [`ts/adapter-development.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/ts/adapter-development.md)
+- [`ts/adapter-langchain.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/ts/adapter-langchain.md)
+- [`ts/adapter-langgraph.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/ts/adapter-langgraph.md)
+- [`ts/agent-deployment.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/ts/agent-deployment.md)
+- [`ts/agui-protocol.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/ts/agui-protocol.md)
+- [`ts/LICENSE.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/ts/LICENSE.md)
+- [`ts/server-quickstart.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/ts/server-quickstart.md)
+- [`ts/skill.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/ts/skill.md)
+- [`ts/ui-clients.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/ts/ui-clients.md)
+- [`ts/ui-miniprogram.md`](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-Toolkit/-/blob/main/config/source/skills/cloudbase-agent/ts/ui-miniprogram.md)
+

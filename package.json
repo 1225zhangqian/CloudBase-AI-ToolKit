@@ -47,7 +47,8 @@
     "internal:check-secrets": "bash scripts/internal-sync.sh check",
     "internal:prune-evidence": "bash scripts/internal-sync.sh prune-evidence",
     "prepare": "husky",
-    "test:hosted-mcp:e2e": "vitest run tests/hosted-mcp-e2e/"
+    "test:hosted-mcp:e2e": "vitest run tests/hosted-mcp-e2e/",
+    "check:doc-en": "node scripts/check-doc-en-parity.mjs"
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",

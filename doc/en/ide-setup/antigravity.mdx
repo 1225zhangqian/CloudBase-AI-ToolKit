@@ -1,0 +1,114 @@
+import IDESelector from '../components/IDESelector';
+import RelatedResources from '../components/RelatedResources';
+
+# Google Antigravity Setup Guide
+
+After setup, you can operate CloudBase services directly from Google Antigravity’s AI chat.
+
+**Examples:**
+
+- "Build a WeChat Mini Program ordering system with CloudBase" — AI scaffolds pages, creates the cloud database, writes cloud functions, and guides preview
+- "Build a reservation management system that lets users place orders and admins update status" — AI models it with CloudBase PostgreSQL, configures permissions, and wires up frontend and backend
+- "Add phone-number login to a Web app" — AI enables the auth method and integrates the CloudBase SDK
+
+No need to switch to the Cloud console — you can do everything in Antigravity with natural language.
+
+## Prerequisites
+
+Before you start, make sure you have:
+
+<details>
+<summary><strong>Node.js and a CloudBase environment ready</strong></summary>
+
+**Node.js:** Install Node.js v18.15.0 or later:
+
+```bash
+node --version
+```
+
+If you don’t have it installed, download it from the [Node.js website](https://nodejs.org/en/download).
+
+**CloudBase environment:** See [Create a CloudBase environment](../../../quick-start/create-env). New users on the domestic site can start for free.
+
+</details>
+
+---
+
+<IDESelector defaultIDE="antigravity" />
+
+## Setup
+
+### Option 1: Use the template (recommended)
+
+This automatically configures MCP and rule files:
+
+```bash
+npx @cloudbase/cloudbase-mcp downloadTemplate --template rules --ide antigravity
+```
+
+### Option 2: Configure manually
+
+1. **Create rules directory**
+
+   Create `.agent/rules/` under your project root:
+
+   ```bash
+   mkdir -p .agent/rules
+   ```
+
+2. **Configure MCP server**
+
+   Create `.mcp.json` under the project root and add:
+
+   ```json
+   {
+     "mcpServers": {
+       "cloudbase": {
+         "command": "npx",
+         "args": ["@cloudbase/cloudbase-mcp@latest"],
+         "env": {
+           "INTEGRATION_IDE": "Antigravity"
+         }
+       }
+     }
+   }
+   ```
+
+3. **Add rules**
+
+   Copy CloudBase rule files into `.agent/rules/`.
+
+   Rule activation methods:
+
+   - **Manual**: mention via `@` to load
+   - **Always On**: always apply
+   - **Model Decision**: model decides based on natural language
+   - **Glob**: apply rules when file path matches a glob (e.g. `.js`, `src/**/*.ts`)
+
+## Verify
+
+After setup, in Antigravity’s AI chat, type:
+
+```
+Check if CloudBase tools are available
+```
+
+If successful, the AI should be able to access and use CloudBase tools.
+
+## FAQ
+
+**Q: MCP connection failed?**
+
+A: Check the config format, restart Antigravity, and confirm your network.
+
+**Q: Rules don’t take effect?**
+
+A: Check rule activation settings and ensure files are under `.agent/rules/`.
+
+**Q: Tool count shows 0?**
+
+A: See the [FAQ](../faq#mcp-shows-0-tools).
+
+More: [FAQ](../faq)
+
+<RelatedResources ideName="Google Antigravity" ideDocUrl="https://antigravity.google/docs" />

@@ -1,0 +1,323 @@
+# WorkBuddy × CloudBase Hands-On: Build a Chinese Chess Two-Player App from Scratch
+
+> A tutorial that actually "ran through" — documenting our entire journey of building a complete application from scratch with WorkBuddy + CloudBase, including the pitfalls we encountered and the rules we established.
+
+---
+
+## 1. Background
+
+### What We Built
+
+Using WorkBuddy with CloudBase, we built a **Chinese Chess two-player web application** from scratch in about 30 minutes, featuring:
+
+- Phone number verification code login
+- Room creation / joining / sharing
+- Complete chess rule engine
+- Real-time game synchronization (NoSQL watch)
+- Deployment to a custom subdomain
+
+### Tech Stack
+
+| Layer | Choice |
+|---|---|
+| Frontend | Vite + React + TypeScript |
+| Auth | CloudBase phone verification code login |
+| Database | CloudBase NoSQL document database |
+| Deployment | CloudBase manageApps → custom subdomain |
+| AI Toolchain | WorkBuddy + CloudBase (28 tools) |
+
+---
+
+## 2. Infrastructure: Enable CloudBase
+
+Type `/cloudbase` in the WorkBuddy conversation to select the CloudBase Skill, or click the **Connect App** button at the bottom left of the conversation interface to enable the CloudBase connector (see the [configuration guide](../ide-setup/workbuddy)).
+
+Once enabled, WorkBuddy will automatically:
+
+1. Complete device code login via the `auth` tool
+2. Bind the target environment
+3. Execute all subsequent operations through CloudBase tools
+
+---
+
+## 3. Application Architecture
+
+### 3.1 Data Model
+
+```
+rooms collection (NoSQL)
+├── roomId        // 6-character room code (uppercase letters + digits)
+├── creatorId     // creator's uid
+├── player1Id     // red side uid
+├── player2Id     // black side uid (filled upon joining)
+├── status        // waiting → playing → finished
+├── boardState    // serialized board
+├── currentTurn   // red | black
+└── winner        // red | black | null
+```
+
+Board serialization format:
+
+```
+RK-AK-EK-HK-CK-AK-EK-HK-RK|--|--B--P-B--|S--S--S--S--S|...
+```
+
+Each cell is 2 characters: `RK`=Red King, `BK`=Black King, `RA`=Red Advisor, `B--`=empty.
+
+### 3.2 Component Structure
+
+```
+App
+├── LoginPage      → Phone input → Verification code → Login
+├── HomePage       → Create room / Join room
+└── GamePage
+    ├── PlayerInfo → Red/Black identity indicator
+    ├── ChessBoard → SVG grid + CSS pieces
+    └── ShareBtn   → Share room with friends
+```
+
+### 3.3 Game Synchronization Mechanism
+
+Key insight: No WebSocket needed — use CloudBase NoSQL's `watch()` API for real-time sync.
+
+```
+Player A makes a move:
+  1. Local GameEngine.makeMove()
+  2. updateGameState() → write to database
+
+Player B syncs:
+  1. watchRoom() receives snapshot
+  2. boardState changes → deserializeBoard()
+  3. engine.loadState() → UI updates
+```
+
+---
+
+## 4. Chess Engine Core
+
+### 4.1 Board Coordinate System
+
+```
+Column 0  1  2  3  4  5  6  7  8
++------------------------------+
+|  R  N  B  A  K  A  B  N  R  | row 0 (Black back rank)
+|                              |
+|     C               C        | row 2
+|  P     P     P     P     P   | row 3
+|------------------------------| ← River
+|  p     p     p     p     p   | row 6
+|     c               c        | row 7
+|                              |
+|  r  n  b  a  k  a  b  n  r  | row 9 (Red back rank)
++------------------------------+
+     0  1  2  3  4  5  6  7  8
+```
+
+### 4.2 Move Rules Implementation
+
+| Piece | Rule | Key Constraint |
+|---|---|---|
+| King | One step orthogonally within palace | Kings facing each other (flying general) |
+| Advisor | One step diagonally within palace | Cannot leave palace |
+| Elephant | Diagonal two steps, blocked by piece at eye | Cannot cross river |
+| Horse | L-shape, blocked leg prevents move | Straight first, then diagonal |
+| Chariot | Any number of squares orthogonally | Stops at first piece |
+| Cannon | Moves orthogonally, captures by jumping over one piece | Exactly one piece between to capture |
+| Pawn | Forward only before river, can also move sideways after | Cannot move backward |
+
+Core logic: **Calculate rawMoves first (without checking for check), then filter out moves that leave own king in check**.
+
+```typescript
+private getValidMoves(board, pos): Position[] {
+  const rawMoves = this.getRawMoves(board, pos);
+  return rawMoves.filter(move => {
+    const testBoard = cloneBoard(board);
+    testBoard[move.row][move.col] = testBoard[pos.row][pos.col];
+    testBoard[pos.row][pos.col] = null;
+    return !this.isInCheck(testBoard, piece.side);
+  });
+}
+```
+
+---
+
+## 5. CloudBase Integration
+
+### 5.1 Initialization
+
+```typescript
+import cloudbase from '@cloudbase/js-sdk';
+
+const app = cloudbase.init({
+  env: 'app-xxx',
+  region: 'ap-shanghai',
+  accessKey: PUBLISHABLE_KEY,  // Obtained via MCP's ensurePublishableKey
+});
+
+const auth = app.auth({ persistence: 'local' });
+const db = app.database();
+```
+
+### 5.2 Phone Number Login
+
+```
+In WorkBuddy: configure phone verification code login for me
+```
+
+The AI will automatically:
+1. Call `manageAppAuth(action="ensurePublishableKey")` to get the publishable key
+2. Generate login page code
+3. Call `manageAppAuth(action="getLoginConfig")` to verify login configuration
+
+**Prerequisite**: SMS signature + template must be configured in the CloudBase console.
+
+### 5.3 Database Real-time Sync
+
+```typescript
+export function watchRoom(docId, callback) {
+  return db.collection('rooms')
+    .doc(docId)
+    .watch({
+      onChange: snapshot => callback(snapshot.data),
+      onError: err => console.error(err),
+    });
+}
+```
+
+---
+
+## 6. Deployment: manageApps vs manageHosting
+
+### 6.1 Two Paths
+
+| | manageHosting | manageApps |
+|---|---|---|
+| Domain | `<envId>-<appId>.tcloudbaseapp.com` | `<serviceName>-<envId>.webapps.tcloudbase.com` |
+| Use case | Existing project maintenance | **New projects (preferred)** |
+| Version management | None | Supported |
+
+**First-time deployment of new projects must use `manageApps`. `manageHosting` is only for incremental updates to existing projects.**
+
+### 6.2 Deployment Command
+
+In WorkBuddy:
+
+```
+Deploy this project to CloudBase with a custom subdomain
+```
+
+The AI will automatically:
+1. Build the frontend project
+2. Call `manageApps(action="deployApp", ...)` to deploy to a custom subdomain
+3. Configure SPA routing
+4. Return a publicly accessible deployment URL
+
+### 6.3 Post-deployment Polling
+
+The AI automatically polls the deployment status:
+
+```
+queryApps(action="getAppVersion", serviceName="chinese-chess", buildId="...")
+```
+
+Status transitions from BUILDING → SUCCESS.
+
+---
+
+## 7. Pitfalls & Lessons
+
+### Pitfall 1: Used manageHosting Instead of manageApps
+
+**Symptom**: Used manageHosting for first deployment, later discovered manageApps is the recommended path for new projects.
+
+**Root Cause**: The skill documentation said "Deploy to CloudBase static hosting using hosting tools" — vague, no path specified.
+
+**Fix**: Updated the skill's Deployment Workflow to clearly distinguish new/existing projects.
+
+**Lesson**: AI reads documentation literally without prioritizing. Rules must be absolute.
+
+### Pitfall 2: No Persistent Deployment Method
+
+**Symptom**: On second deployment, the AI had to re-evaluate new/existing project status but didn't know which method was used first.
+
+**Fix**: Write `cloudbaserc.json` to record `deployment.method`, `serviceName`, `url` metadata.
+
+```json
+{
+  "envId": "app-xxx",
+  "deployment": {
+    "method": "manageApps",
+    "serviceName": "chinese-chess",
+    "url": "https://..."
+  }
+}
+```
+
+**Lesson**: AI sessions have no memory; cross-session state must be file-based.
+
+### Pitfall 3: Didn't Connect the App First
+
+**Symptom**: Started development in the conversation without enabling the CloudBase connector, leaving the AI without CloudBase tools.
+
+**Fix**: Use `/cloudbase` or click "Connect App" in WorkBuddy first.
+
+**Lesson**: **Enable the connector first** — only then can the AI call CloudBase capabilities.
+
+---
+
+## 8. WorkBuddy Tips
+
+### 8.1 Skills Are AI's Operating Manual
+
+Skill files are AI instruction manuals. The more precise, the fewer mistakes.
+
+Key points for writing skills:
+- **Use "forbidden" instead of "be careful"**. "Forbidden to use manageHosting" is far more effective than "prefer manageApps".
+- **Provide judgment criteria**. Don't say "it depends" — say "check queryApps list; if record exists it's an existing project, otherwise new".
+- **Fix mistakes immediately**. When you find an imprecise skill, fix it on the spot.
+
+### 8.2 Use cloudbaserc.json for Cross-Session Memory
+
+CloudBase's standard configuration file is naturally suited for storing deployment metadata. WorkBuddy updates it after each deployment, and subsequent sessions read it directly.
+
+---
+
+## 9. Full Workflow Review
+
+```
+1. Environment Setup
+   ├── Open WorkBuddy → type /cloudbase or click "Connect App"
+   ├── Device code login
+   └── Bind environment
+
+2. Resource Configuration
+   ├── Enable auth → manageAppAuth(ensurePublishableKey)
+   ├── Create collection → writeNoSqlDatabaseStructure(createCollection, "rooms")
+   └── Configure SPA routing
+
+3. Application Development
+   ├── Vite scaffolding
+   ├── Introduce CloudBase SDK
+   ├── Chess engine → GameEngine.ts (~200 lines of rule logic)
+   ├── Auth page → LoginPage.tsx
+   ├── Lobby page → HomePage.tsx
+   ├── Board component → ChessBoard.tsx
+   └── Game page → GamePage.tsx
+
+4. Deployment
+   ├── Build → npm run build
+   ├── Deploy → manageApps(deployApp)
+   ├── Poll → queryApps(getAppVersion) → SUCCESS
+   └── Record → cloudbaserc.json
+```
+
+---
+
+## 10. Source Code & Access
+
+- App URL: https://chinese-chess-app-0g00z1dr85125ec3.webapps.tcloudbase.com
+- Deployment method: CloudBase manageApps → custom subdomain
+
+---
+
+*This tutorial is not a "Hello World" — it's a real hands-on record that went from scratch to production, complete with lessons learned.*
