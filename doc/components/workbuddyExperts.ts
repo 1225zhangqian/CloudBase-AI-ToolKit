@@ -42,13 +42,9 @@ export interface WorkBuddyExpert {
 }
 
 /**
- * 头像在 WorkBuddy 的素材 CDN 上，走它的图片处理接口取缩略图：
- * 原图 512×512、两三百 KB，缩到 120×120 webp 后每张约 3KB。
- * 换头像时文件名会变，这里要跟着改。
+ * 头像随文档一起分发（doc/assets/avatars/），不打外部 CDN。
+ * 换头像时替换同名文件即可。
  */
-const AVATAR_BASE =
-  'https://codebuddy-platform-1258344699.cos.accelerate.myqcloud.com/public/0705ccd0-3283-42a0-a7c6-0379bd7c145a/avatar/expert/';
-const AVATAR_THUMB = '?imageMogr2/thumbnail/120x120/format/webp/quality/80';
 
 export const WORKBUDDY_EXPERTS: WorkBuddyExpert[] = [
   {
@@ -62,7 +58,7 @@ export const WORKBUDDY_EXPERTS: WorkBuddyExpert[] = [
       'https://www.workbuddy.cn/share/asset?shareCode=INWm8JffziaPUu03h45pN0&sig=hlwCkDQGN5r_KKLW',
     blogUrl:
       'https://www.workbuddy.cn/share/asset?shareCode=wM3m81MktOguDC9b5xWPnw&sig=lMtJBsGcAEMuNxKg',
-    avatarUrl: `${AVATAR_BASE}eza_dd300cec-f74.png${AVATAR_THUMB}`,
+    avatarUrl: require('../assets/avatars/eza_dd300cec-f74.png').default,
     tags: ['数据库', '业务系统', 'SaaS'],
     tagsEn: ['Database', 'Business apps', 'SaaS'],
   },
@@ -77,7 +73,7 @@ export const WORKBUDDY_EXPERTS: WorkBuddyExpert[] = [
       'https://www.workbuddy.cn/share/asset?shareCode=Qm1h3644twDogAMPR5teEt&sig=fnGdahbxTKljsQBG',
     blogUrl:
       'https://www.workbuddy.cn/share/asset?shareCode=GYWjuKdIhAsp512ZFKMJHT&sig=6tTh6UVxXyE21HoA',
-    avatarUrl: `${AVATAR_BASE}eza_3cdb547a-535.png${AVATAR_THUMB}`,
+    avatarUrl: require('../assets/avatars/eza_3cdb547a-535.png').default,
     tags: ['微信小程序', '后端开发', '虚拟支付'],
     tagsEn: ['Mini Program', 'Backend', 'Virtual payment'],
   },
@@ -92,7 +88,7 @@ export const WORKBUDDY_EXPERTS: WorkBuddyExpert[] = [
       'https://www.workbuddy.cn/share/asset?shareCode=WXYyw7eX488WAAB8RZD23L&sig=hDqX0Hhl2v7UlEXW',
     blogUrl:
       'https://www.workbuddy.cn/share/asset?shareCode=kA2Cqf4GPzoXKPfVwSAM7W&sig=ar4YYtGN_NqORm9L',
-    avatarUrl: `${AVATAR_BASE}eza_f89a0556-dbc.png${AVATAR_THUMB}`,
+    avatarUrl: require('../assets/avatars/eza_f89a0556-dbc.png').default,
     tags: ['工作台', '打卡', '清单'],
     tagsEn: ['Workbench', 'Check-ins', 'Checklists'],
   },
@@ -107,7 +103,7 @@ export const WORKBUDDY_EXPERTS: WorkBuddyExpert[] = [
       'https://www.workbuddy.cn/share/asset?shareCode=uFHTgXfFTyoc1KFoKTE9ZD&sig=0GfHH0Vp_pZHHJ2Q',
     blogUrl:
       'https://www.workbuddy.cn/share/asset?shareCode=vlYYLRZAmiz7UV9cFiMRwk&sig=FNTNKhCPFWGreiyR',
-    avatarUrl: `${AVATAR_BASE}eza_4094e4b2-c53.png${AVATAR_THUMB}`,
+    avatarUrl: require('../assets/avatars/eza_4094e4b2-c53.png').default,
     tags: ['表单', '收集表', '问卷'],
     tagsEn: ['Forms', 'Collection', 'Questionnaire'],
   },
