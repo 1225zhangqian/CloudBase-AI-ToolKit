@@ -23,6 +23,8 @@ categoryId: "02-Engineering"
 
 ## 无环境降级（连接器或环境不可用时）
 
+**先按 `references/local-first-declarative-deploy.md` 把项目建起来并在本地跑通**——本地有 PostgreSQL 和 Node 就够了，不需要连接器。本地跑通本身就是主要交付；上云只是最后一步。
+
 开发者要的是**拿走就能跑**的交付物，缺环境时仍按这个清单给全，并逐项标注「未在真实环境验证」：
 
 | 交付物 | 要求 |
@@ -53,7 +55,9 @@ categoryId: "02-Engineering"
 3. **补充（需要时调用）**
    - 文件上传下载 → `cloud-storage-web`
    - 服务内调大模型 → `ai-model-web`
-4. **场景模板（包内）** → `references/cloud-fullstack-playbook.md`：语言/形态 → 部署方式映射、Docker 上云流程、交付标准、常见坑
+4. **场景模板（包内）**
+   - `references/cloud-fullstack-playbook.md`：语言/形态 → 部署方式映射、Docker 上云流程、交付标准、常见坑
+   - **`references/local-first-declarative-deploy.md`：项目结构、`cloudbaserc.json` 模板、本地起 PG / 起 HTTP 函数 / 起前端、迁移写法、`tcb` 四步部署** —— 任何要落地的项目都按它组织，不依赖外部文档
 
 ## 步骤 0 — 先搞清"要跑什么"（每次会话先做）
 
@@ -84,10 +88,13 @@ categoryId: "02-Engineering"
 
 ### Phase 4 — 上云部署
 
+**先按 `references/local-first-declarative-deploy.md` 组织项目**：`cloudbaserc.json`（v2.1）+ `cloudbase/migrations/` + `functions/` + `web/`，本地验证通过后再部署。
+
+- 部署四步：`tcb validate` → `tcb app build` → `tcb deploy --dry-run` → `tcb deploy`
 - **容器**：按 playbook 第二节走（Dockerfile → 构建 → 配端口与环境变量 → 部署）
-- **函数**：配置入口、超时、内存、触发器
-- **前端**：静态托管部署
-- **数据库**：先给用户确认表结构（用大白话说"你每次存哪几样"）再建表
+- **函数**：配置入口、超时、内存、触发器；HTTP 函数本地就是 `PORT=<port> bash scf_bootstrap`
+- **前端**：静态托管部署，产物在 `web/dist`
+- **数据库**：迁移文件进 `cloudbase/migrations/`，文件名 14 位时间戳；先给用户确认表结构（用大白话说"你每次存哪几样"）
 - 密钥/连接串一律走平台配置，不进代码
 
 ### Phase 5 — 真实验证

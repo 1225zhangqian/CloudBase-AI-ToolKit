@@ -37,7 +37,9 @@ categoryId: "02-Engineering"
    - 材料照片上传（回执、作品、凭证）→ `cloud-storage-web`
    - 应用内调大模型（开放题自动归类总结）→ `ai-model-web`
    - 需要小程序端填写时 → `miniprogram-development-cloudbase`
-3. **场景模板（包内）** → `references/collect-form-playbook.md`：表单场景目录、防重复策略、二维码交付话术、汇总页设计要点
+3. **场景模板（包内）**
+   - `references/collect-form-playbook.md`：表单场景目录、防重复策略、二维码交付话术、汇总页设计要点
+   - **`references/local-first-build.md`：项目结构、`cloudbaserc.json` 模板、两张表的建表与 RLS 迁移、本地起 PG / 起函数 / 起前端、`tcb` 四步部署** —— 每次落地都按它组织，不依赖外部文档
 
 ## 步骤 0 —— 环境前置检查（每次会话先做，缺了先补再开工）
 
@@ -46,6 +48,8 @@ categoryId: "02-Engineering"
 3. 两项都就绪才进入 Phase 1；用户还没有 CloudBase 环境时，按 `cloudbase-platform` 的指引引导开通（有免费额度），不要用本地假数据替代真实后端。引导开通时一句话讲清门槛：需要腾讯云账号并完成实名认证（手机号 + 身份证，未实名会创建失败且报错不明显）、有免费额度、第一次约 15 分钟
 
 ## 无环境降级（连接器或环境不可用时）
+
+**先按 `references/local-first-build.md` 把应用建起来并在本地跑通**——本地 PostgreSQL + Node 就够，不需要连接器：建表迁移、提交接口、汇总查询都能在本地验完，上云只是最后一步。
 
 目标是**用户拿着这份东西就能自己落地**，不是一句「请先连接环境」就结束。缺环境时仍要交付下面四样，并逐项标注状态：
 
@@ -88,8 +92,12 @@ categoryId: "02-Engineering"
 
 ### Phase 4 — 建表（PG)
 
+**按 `references/local-first-build.md` 组织**：迁移文件放 `cloudbase/migrations/`（14 位时间戳命名），`cloudbaserc.json` 声明 `database.migrations`。
+
 - 提交数据一张表（submissions）+ 表单定义一张表（forms）；先给用户确认字段（说人话："每个人要填哪几样"）
+- 防重复落到**数据库唯一约束**（`form_id + dedup_key`），不只前端提示
 - 权限默认值：填写端对提交表只可插入（免登录写入），发起人对自己的表单可读写——RLS 按登录身份隔离，A 发起的表 B 看不到
+- 迁移要能在空库上一次跑完、且重复执行不报错（`IF NOT EXISTS`），本地 psql 验过再上云
 
 ### Phase 5 — 实现与登录
 
