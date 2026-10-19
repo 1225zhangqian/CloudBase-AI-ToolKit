@@ -178,6 +178,15 @@ tcb deploy --dry-run         # 看变更计划：字段级 from → to，确认�
 tcb deploy                   # 按 database → functions → app → hosting → gateway 顺序编排
 ```
 
+没装 CLI 时用 npx（`@cloudbase/cli` 提供 `tcb` / `cloudbase` 两个命令）：
+
+```bash
+npx -p @cloudbase/cli tcb validate
+npx -p @cloudbase/cli tcb deploy --dry-run
+```
+
+> `--dry-run` 是**部署变更预览**（terraform plan 那种），不是页面预览。页面预览靠本地 dev server（第三节 3.4）。
+
 补充规则：
 
 - `database` 失败**强制中断**整个部署（其余资源可能依赖新 Schema），所以 `--dry-run` 先看迁移计划。

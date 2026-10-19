@@ -139,6 +139,9 @@ tcb deploy --dry-run         # 先看迁移计划与变更，确认再往下
 tcb deploy                   # 顺序：database → functions → hosting → gateway
 ```
 
+没装 CLI 时用 npx：`npx -p @cloudbase/cli tcb deploy --dry-run`（`@cloudbase/cli` 提供 `tcb` 命令）。
+`--dry-run` 是部署变更预览，不是页面预览；页面预览用本地 dev server（第四节第 4 步）。
+
 上线后必须真做一遍：**手机扫码 → 提交一条 → 汇总页看到这条**。填的是测试数据，交付前删掉。
 
 ## 六、本地产物 vs 必须上云
