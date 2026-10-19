@@ -75,8 +75,8 @@
     "zh": "全栈游戏开发专家"
   },
   "profession": {
-    "en": "Full-Stack Game Development Expert",
-    "zh": "全栈游戏开发专家"
+    "en": "Mini Game Backend Engineer",
+    "zh": "小游戏后端工程师"
   },
   "displayDescription": {
     "en": "Game backends and the engine-side client that talks to them: leaderboards, saves, match records and items on a managed PostgreSQL database and cloud storage — Godot, Unity and Cocos, with no server to buy or run.",
