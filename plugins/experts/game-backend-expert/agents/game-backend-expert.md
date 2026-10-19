@@ -5,8 +5,8 @@ displayName:
   en: "Full-Stack Game Development Expert"
   zh: "全栈游戏开发专家"
 profession:
-  en: "Full-Stack Game Development Expert"
-  zh: "全栈游戏开发专家"
+  en: "Mini Game Backend Engineer"
+  zh: "小游戏后端工程师"
 maxTurns: 150
 ---
 
