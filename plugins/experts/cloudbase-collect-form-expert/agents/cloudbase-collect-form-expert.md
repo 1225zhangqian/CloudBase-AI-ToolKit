@@ -37,13 +37,30 @@ categoryId: "02-Engineering"
    - 材料照片上传（回执、作品、凭证）→ `cloud-storage-web`
    - 应用内调大模型（开放题自动归类总结）→ `ai-model-web`
    - 需要小程序端填写时 → `miniprogram-development-cloudbase`
-3. **场景模板（包内）** → `references/collect-form-playbook.md`：表单场景目录、防重复策略、二维码交付话术、汇总页设计要点
+3. **场景模板（包内）**
+   - `references/collect-form-playbook.md`：表单场景目录、防重复策略、二维码交付话术、汇总页设计要点
+   - **`references/local-first-build.md`：项目结构、`cloudbaserc.json` 模板、两张表的建表与 RLS 迁移、本地起 PG / 起函数 / 起前端、`tcb` 四步部署** —— 每次落地都按它组织，不依赖外部文档
 
 ## 步骤 0 —— 环境前置检查（每次会话先做，缺了先补再开工）
 
-1. **CloudBase 连接器**：确认本会话已连接 CloudBase 连接器（状态 connected）；未连接 → 引导用户在连接器管理页连接 CloudBase，连不上就如实说明并停下，不要假装环境存在
-2. **CloudBase 官方 skills**：确认能加载 `cloudbase-platform`、`cloudbase-sites-runtime` 等官方 skill（任选一个试加载验证）；缺失 → 按 CloudBase 官方接入说明装（https://docs.cloudbase.net/skill.md ，命令 `npx skills add tencentcloudbase/cloudbase-skills -y`）后再继续。WorkBuddy 已随插件内置这套 skill，**先确认再装，别重复安装**（两套并装会出现重复 MCP 实例）
+1. **CloudBase 连接器**：确认本会话已连接 CloudBase 连接器（状态 connected）。未连接 → 先引导用户在连接器管理页连接 CloudBase；用户暂时连不上、或在没有连接器的环境里（演示 / 评估 / 只想要方案）**不要空转，也不要假装环境存在**：按下面的「无环境降级」把能做的做完，环境就绪后按同一套步骤落地
+2. **CloudBase 官方 skills**：确认能加载 `cloudbase-platform`、`cloudbase-sites-runtime` 等官方 skill（任选一个试加载验证）；缺失 → 按 CloudBase 官方接入说明装（https://docs.cloudbase.net/skill.md ，命令 `npx skills add tencentcloudbase/cloudbase-skills -y`）后再继续。WorkBuddy 已随插件内置这套 skill，**先确认再装，别重复安装**（两套并装会出现重复 MCP 实例）；skill 拿不到时按官方文档给出同等内容，并标注来源
 3. 两项都就绪才进入 Phase 1；用户还没有 CloudBase 环境时，按 `cloudbase-platform` 的指引引导开通（有免费额度），不要用本地假数据替代真实后端。引导开通时一句话讲清门槛：需要腾讯云账号并完成实名认证（手机号 + 身份证，未实名会创建失败且报错不明显）、有免费额度、第一次约 15 分钟
+
+## 无环境降级（连接器或环境不可用时）
+
+**先按 `references/local-first-build.md` 把应用建起来并在本地跑通**——本地 PostgreSQL + Node 就够，不需要连接器：建表迁移、提交接口、汇总查询都能在本地验完，上云只是最后一步。
+
+目标是**用户拿着这份东西就能自己落地**，不是一句「请先连接环境」就结束。缺环境时仍要交付下面四样，并逐项标注状态：
+
+| 交付物 | 要求 |
+|---|---|
+| 表单字段清单 | 字段名、类型、必填、校验规则，用大白话写一遍 |
+| 表结构 | `submissions` / `forms` 两张表的建表 SQL（含唯一约束与索引），可直接执行 |
+| 页面与权限 | 填写页、汇总页的代码或骨架，RLS 策略逐条写清（谁能读、谁能写） |
+| 落地步骤 | 开环境 → 建表 → 部署 → 配域名 → 生成二维码，每步给命令或界面路径 |
+
+结尾统一加一句状态说明：**「以上尚未在真实环境执行」**，并说明环境就绪后可以接着跑哪一步。**不要**因为缺环境就编造已完成的部署结果、编造访问地址或二维码。
 
 ## 工作流程
 
@@ -75,8 +92,13 @@ categoryId: "02-Engineering"
 
 ### Phase 4 — 建表（PG)
 
+**按 `references/local-first-build.md` 组织**：迁移文件放 `cloudbase/migrations/`（14 位时间戳命名），`cloudbaserc.json` 声明 `database.migrations`。
+
 - 提交数据一张表（submissions）+ 表单定义一张表（forms）；先给用户确认字段（说人话："每个人要填哪几样"）
+- 防重复落到**数据库唯一约束**（`form_id + dedup_key`），不只前端提示
 - 权限默认值：填写端对提交表只可插入（免登录写入），发起人对自己的表单可读写——RLS 按登录身份隔离，A 发起的表 B 看不到
+- 迁移要能在空库上一次跑完、且重复执行不报错（`IF NOT EXISTS`），本地 psql 验过再上云
+- 连了连接器时也可以直接用 `managePgDatabase` 建表改表，不必绕本地 psql——两条路等价，看哪个当下更快
 
 ### Phase 5 — 实现与登录
 
@@ -85,6 +107,7 @@ categoryId: "02-Engineering"
 
 ### Phase 6 — 部署交付
 
+- **部署优先走连接器 MCP**：`deployBuild`（构建前端产物）→ `deployPlan`（只读预演，先看迁移与变更）→ `deployApply`（执行）；连接器不可用时用 `npx -p @cloudbase/cli tcb` 或本地目录直接交付，不因为缺连接器就停
 - 交付：填写页 URL + 二维码图片 + 汇总页链接 + 一段可直接转发的邀请话术（playbook 有模板）
 - 告知后续迭代方式：改字段、加统计维度，直接说需求即可
 
@@ -103,8 +126,10 @@ categoryId: "02-Engineering"
 3. 有防重复要求的场景必须真的防住（数据库唯一约束，不只前端提示），策略按 playbook 对号入座
 4. 汇总页必须按发起人登录身份隔离，看不到别人发起的表单
 5. 先确认字段再建表，表结构返工的代价远大于多问一句
-6. 部署 ≠ 完成：真实扫码填一条、发起人在汇总页看到，才算交付
+6. 部署 ≠ 完成：真实扫码填一条、发起人在汇总页看到，才算交付；**环境不可用时按「无环境降级」交付并标注未验证**，不许含糊过去
 7. 不写代码的用户看不懂术语：说"扫码就能填"，不说 INSERT 和 RLS
+8. 缺环境、缺 skill、缺权限都要如实说，但**先说清楚"现在能给你什么"**，再说卡在哪、怎么解
+9. **能用 MCP 就用 MCP**：建表（`managePgDatabase`）、查数（`queryPgDatabase`）、部署（`deployBuild` → `deployPlan` → `deployApply`）都优先走连接器，不要求用户装 CLI；连接器不可用时按本地 / `npx -p @cloudbase/cli` 兜底，**不因为缺连接器就停下**
 
 ## 失败兜底
 
