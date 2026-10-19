@@ -7,6 +7,9 @@
  *   2. 结构对位：同名 .md/.mdx 的标题数、代码块数要一致 —— 结构差太多说明译文没跟上。
  *   3. 中文残留：英文文件里汉字过多，多半是整段没翻。
  *
+ * doc/en/ 是手工维护的：generate-prompts.mjs / generate-tools-doc.mjs 只写 doc/，
+ * 跑生成不会清理这里。新增或修改中文页时，同路径的英文页要一起改。
+ *
  * 对位失败是 ERROR（退出码 1）；结构和残留先按 WARN 报，不阻塞。
  *
  * 用法：node scripts/check-doc-en-parity.mjs
@@ -57,8 +60,7 @@ function unlocalizedLines(txt) {
 }
 
 const zhFiles = walk(ROOT).filter((f) => !/-zh.md$/.test(f));
-// README 是这棵树的说明，不是文档页，不参与对位
-const enFiles = walk(EN).filter((f) => f !== "README.md");
+const enFiles = walk(EN);
 const enSet = new Set(enFiles);
 const zhSet = new Set(zhFiles);
 const errors = [];
