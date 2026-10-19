@@ -1,8 +1,10 @@
 # Connection Modes: Remote vs Local
 
-CloudBase MCP supports two connection modes: **Remote Mode** (the MCP server runs remotely and the IDE connects over HTTP) and **Local Mode** (the MCP server runs on your machine via `npx` and the IDE connects over stdio). Both modes use the same MCP server code and tool set. The differences are **where the service runs** and the resulting availability of local-file capabilities.
+CloudBase MCP supports two connection modes: **Remote Mode** (the server runs in the cloud and the IDE connects over HTTP) and **Local Mode** (the server runs on your machine via `npx`, with the IDE connecting over stdio). Both use the same code and the same tools. The difference is where the server runs, and which tools that take away — the ones that touch your local file system.
 
-If you are unsure, start with **Remote Mode**: enter one endpoint, and an OAuth-capable client will guide you through browser authorization.
+If you are unsure, start with **Remote Mode**: enter one endpoint, and an OAuth-capable client walks you through authorization.
+
+> ⚠️ **MCP hands the AI real write access** — deleting collections, functions, and stored files is within reach. Read [Dangerous Operations and Confirmation](#safety) before you connect. The confirmation prompt only appears in clients that support elicitation, and it is a guardrail, not a security boundary.
 
 ---
 
@@ -101,26 +103,15 @@ tcb config set isIntl true
 }
 ```
 
-### China-Site Singapore Users (Important Migration Guide)
+### Singapore Environments on the China Site
 
-The China site now supports the Singapore region. **Setting only `TCB_REGION=ap-singapore` defaults to International-site behavior** (login redirects to the International site and NoSQL tools are skipped). China-site Singapore users must set the site explicitly:
+The China site supports the Singapore region, but **setting only `TCB_REGION=ap-singapore` is treated as the international site** — login redirects there and NoSQL tools are skipped. Set the site too:
 
 ```json
-{
-  "mcpServers": {
-    "cloudbase": {
-      "command": "npx",
-      "args": ["@cloudbase/cloudbase-mcp@latest"],
-      "env": {
-        "TCB_SITE": "domestic",
-        "TCB_REGION": "ap-singapore"
-      }
-    }
-  }
-}
+"env": { "TCB_SITE": "domestic", "TCB_REGION": "ap-singapore" }
 ```
 
-You can also use a project-level `.cloudbase/project.json` file (a standalone file, not merged into `cloudbaserc.json`) so all sessions in the same directory automatically use the correct site:
+Or write it into the project-level `.cloudbase/project.json` (a separate file, not merged into `cloudbaserc.json`), and every session in that directory picks it up:
 
 ```json
 {
@@ -129,6 +120,9 @@ You can also use a project-level `.cloudbase/project.json` file (a standalone fi
   "envId": "your-env-id"
 }
 ```
+
+<details>
+<summary>Environment ID resolution order, and fallback for existing CLI projects</summary>
 
 The `envId` becomes the project's default environment. Resolution order:
 
@@ -150,6 +144,8 @@ Explicit cloudBaseOptions.envId
 
 Because this file lives in and can be committed with the repository, newly started MCP processes and every Git worktree of the same repository automatically use the same environment; you do not need to run `set_env` for each worktree. Different repositories read their own files, so bindings do not leak between projects.
 
+</details>
+
 ### Multi-Site Credential Coexistence
 
 Login credentials are stored in site-specific slots (`credential.domestic` / `credential.intl` in `~/.config/.cloudbase/auth.json`). China-site and International-site login sessions can coexist, and switching environments does not require signing in again. Legacy single-slot data is treated as `domestic` when read and is automatically upgraded to the site-specific format on the first write.
@@ -157,6 +153,28 @@ Login credentials are stored in site-specific slots (`credential.domestic` / `cr
 ---
 
 ## Remote Mode (Recommended) {#remote-mode}
+
+### Quick Start
+
+1. Add the endpoint to your client's MCP config (China site):
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "type": "http",
+      "url": "https://tcb-api.cloud.tencent.com/mcp/v1"
+    }
+  }
+}
+```
+
+2. On first connect the client opens a browser: sign in to Tencent Cloud and pick an environment to authorize.
+3. Ask the AI to look something up to confirm the connection, for example "list my cloud functions".
+
+For the international site, use `https://tcb-api.tencentcloud.com/mcp/v1`. **The site is determined by the domain** — there is no `site` parameter.
+
+Clients without OAuth support will get `403 Forbidden: Missing credentials` from the config above; use [static credentials](#remote-auth) instead.
 
 ### What It Means and When to Use It
 
@@ -332,7 +350,7 @@ CloudBase MCP provides layered protection for each deployment mode:
 - **Advantages**: the complete feature set, including upload, download, and template-installation capabilities that depend on the local filesystem.
 - **Requirements**: Node.js is installed and `npx` is available.
 
-### Configuration Example
+### Quick Start
 
 Add this to your IDE's MCP configuration (for example, Cursor or WindSurf):
 
@@ -450,6 +468,39 @@ Notes:
 - `TCB_AUTH_OAUTH_CUSTOM`: use `true` with a custom `TCB_AUTH_OAUTH_ENDPOINT`; it now defaults to `true` automatically when an endpoint is configured
 
 ---
+
+## Dangerous Operations and Confirmation {#safety}
+
+Destructive actions request confirmation before they run (MCP elicitation). Whether that prompt appears depends on the client — **it is not a security boundary**.
+
+### Actions that trigger confirmation
+
+| Resource | `tool.action` |
+|---|---|
+| Functions | `manageFunctions.deleteFunction`, `deleteFunctionTrigger`, `deleteLayerVersion` |
+| Database | `writeNoSqlDatabaseStructure.deleteCollection`, `writeNoSqlDatabaseContent.delete`, `manageMysqlDatabase.destroyMySQL` |
+| Storage and hosting | `manageStorage.delete`, `manageHosting.delete` |
+| CloudRun | `manageCloudRun.delete` |
+| Migrations | `managePgDatabase.execute`, `applyMigration` — judged by the **SQL statement**, not the action name |
+| Domains and routing | `envDomainManagement.delete`, `manageEnv.removeSecurityDomain`, `manageGateway.deleteRoute`, `deleteCustomDomain` |
+| Accounts and releases | `manageAgents.deleteAgent`, `manageAppAuth.deleteProvider`, `deleteApiKey`, `manageApps.deleteApp`, `deleteAppVersion` |
+
+### Boundaries
+
+| Client behaviour | Result |
+|---|---|
+| No elicitation support | No prompt; the call runs |
+| Supported but auto-answered (< 500ms) | Treated as not asked; the call runs |
+| User declines | Normal result, not an error — an error would make the model retry the same delete |
+
+> ⚠️ A guardrail, not a boundary. Do not rely on it in production: use read-only credentials, or narrow the plugin set with `enable_plugins`.
+
+### Switches
+
+| Variable | Effect |
+|---|---|
+| `CLOUDBASE_MCP_SKIP_ELICITATIONS` | Comma-separated skip list; `tool` or `tool.action`, case-sensitive, no wildcards |
+| `CLOUDBASE_MCP_ELICIT_AUTO_APPROVE=block` | Also block when the client answers automatically |
 
 ## Supported Plugins
 
