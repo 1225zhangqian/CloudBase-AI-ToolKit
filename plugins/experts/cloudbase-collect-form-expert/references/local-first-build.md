@@ -165,7 +165,7 @@ npx -p @cloudbase/cli tcb deploy
 | 建表 / 唯一约束 / 索引 | ✅ psql | 迁移冲突中断 |
 | 匿名插入 + RLS 隔离 | ✅ 本地 PG 同样支持 RLS | 平台鉴权上下文 |
 | 提交接口幂等、错误码 | ✅ curl | 网关路由 |
-| 页面与移动端适配 | ✅ dev / preview | 静态托管路径 |
+| 页面与移动端适配 | ✅ `npm run dev` / `vite preview` | 静态托管路径 |
 | 二维码 | ❌ 本地只有链接 | ✅ 域名 + 二维码 |
 | 真实并发与配额 | ❌ | ✅ |
 
