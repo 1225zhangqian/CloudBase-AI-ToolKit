@@ -20,7 +20,7 @@
 │   └── task-runner/              # Event 函数（定时/内部任务）
 │       └── index.js              # exports.main(event, context)
 ├── web/                          # 前端源码（hosting[].root）
-│   └── dist/                     # 构建产物，tcb app build 生成
+│   └── dist/                     # 构建产物，deployBuild 生成
 └── Dockerfile                    # 仅容器形态需要，放函数目录内
 ```
 
@@ -167,32 +167,41 @@ VITE_API_BASE=/api
 
 上线后走网关 `/api` 路由，前端代码不用改。
 
-## 四、上云（四步，顺序不能颠倒）
+## 四、上云（走 CloudBase 连接器的 MCP，不要求用户装 CLI）
 
-```bash
-tcb login                    # 首次
-tcb config init              # 可选：智能生成/校正 cloudbaserc.json
-tcb validate                 # 校验 schema 版本、envId、资源目录、引用一致性，退出码 0 才算过
-tcb app build                # 本地构建 hosting[] 产物到 outputDir（纯静态站点可跳过）
-tcb deploy --dry-run         # 看变更计划：字段级 from → to，确认后才部署
-tcb deploy                   # 按 database → functions → app → hosting → gateway 顺序编排
-```
+部署一律通过连接器提供的三个 MCP 工具完成，顺序固定：
 
-没装 CLI 时用 npx（`@cloudbase/cli` 提供 `tcb` / `cloudbase` 两个命令）：
+| 顺序 | 工具 | 作用 | 对应 CLI |
+|---|---|---|---|
+| 1 | `deployBuild` | 本地构建 `hosting[]` 产物到 `outputDir`（无 hosting 项会直接跳过） | `tcb app build` |
+| 2 | `deployPlan` | **只读预演**：输出字段级变更计划与迁移计划，不改云端 | `tcb deploy --dry-run` |
+| 3 | `deployApply` | 按 `database → functions → app → hosting → gateway` 编排执行 | `tcb deploy` |
+
+调用要点：
+
+- 三个工具都接受 `cwd`（项目根，= `cloudbaserc.json` 所在目录）与 `mode`（对应 `envOverrides` + `.env.<mode>`）；`deployPlan` / `deployApply` 还可传 `envId`、`only` / `skip`（`database` / `functions` / `app` / `hosting` / `gateway`）。
+- **必须先把 `cloudbaserc.json` 放到项目根**，配置不合法时 MCP 会直接返回校验错误，先用 `deployPlan` 把错误暴露出来。
+- `deployPlan` 是只读的，可以放心多跑几次；确认计划符合预期再 `deployApply`。
+- 已存在的函数默认要确认覆盖；自动化场景传 `yes`。`database` 失败会强制中断整个部署，所以计划里先看迁移。
+- 构建与部署分离：改了前端先 `deployBuild` 再 `deployApply`；只改函数可以直接 `deployApply --only functions`。
+
+连接器不可用（沙箱、离线）时的等价 CLI 命令，仅作兜底，不作为默认路径：
 
 ```bash
 npx -p @cloudbase/cli tcb validate
+npx -p @cloudbase/cli tcb app build
 npx -p @cloudbase/cli tcb deploy --dry-run
+npx -p @cloudbase/cli tcb deploy
 ```
 
-> `--dry-run` 是**部署变更预览**（terraform plan 那种），不是页面预览。页面预览靠本地 dev server（第三节 3.4）。
+> `deployPlan` / `--dry-run` 是**部署变更预览**（terraform plan 那种），不是页面预览。页面预览靠本地 dev server（第三节 3.4）。
 
 补充规则：
 
-- `database` 失败**强制中断**整个部署（其余资源可能依赖新 Schema），所以 `--dry-run` 先看迁移计划。
-- 已存在的函数默认要确认覆盖，CI / Agent 场景加 `--yes`。
-- 只改函数：`tcb deploy --only=functions`；只改前端：`tcb app build && tcb deploy --only=hosting`。
-- **CLI v3.8.2 起 `tcb deploy` 不再做静态托管的本地构建**：配了 `buildCommand` 但产物不存在会直接报错，必须先 `tcb app build`。
+- `database` 失败**强制中断**整个部署（其余资源可能依赖新 Schema），所以先 `deployPlan` 看迁移计划。
+- 配了 `buildCommand` 但产物不存在时，`deployApply` 会报错——先 `deployBuild`。
+- 只改前端：`deployBuild` → `deployApply { only: ["hosting"] }`；只改函数：`deployApply { only: ["functions"] }`。
+- 想确认网关路由字段是否合法，用 `deployPlan` 跑一遍，字段白名单错误在这一步就会暴露。
 
 ## 五、本地已验证 / 必须上云才能验（交付时说清）
 

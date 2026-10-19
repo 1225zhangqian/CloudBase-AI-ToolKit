@@ -129,18 +129,32 @@ curl -s -XPOST localhost:8787/submit -d '{"formId":1,"answers":{"name":"测试"}
 curl -s localhost:8788/summary?formId=1
 ```
 
-## 五、上云（四步）
+## 五、上云（走 CloudBase 连接器的 MCP）
+
+部署通过连接器的三个 MCP 工具完成，顺序固定：
+
+| 顺序 | 工具 | 作用 |
+|---|---|---|
+| 1 | `deployBuild` | 本地构建 `web/` 产物到 `web/dist`（配了 `buildCommand` 时必须先跑） |
+| 2 | `deployPlan` | **只读预演**：输出迁移计划与字段级变更，不改云端 |
+| 3 | `deployApply` | 按 `database → functions → hosting → gateway` 执行 |
+
+调用要点：
+
+- 三个工具都传 `cwd`（`cloudbaserc.json` 所在目录）；`deployPlan` / `deployApply` 可再传 `envId`、`only` / `skip`。
+- 迁移是本项目的风险点：先 `deployPlan` 确认「会新建哪几个表 / 哪个迁移冲突」，再 `deployApply`。`database` 失败会强制中断整个部署。
+- 只改函数（比如加了个字段校验）可以直接 `deployApply { only: ["functions"] }`，不必重建前端。
+
+连接器不可用（沙箱、离线）时的等价 CLI 命令，仅作兜底：
 
 ```bash
-tcb login
-tcb validate                 # 配置校验，退出码 0
-tcb app build                # 前端产物进 web/dist（纯静态可跳过）
-tcb deploy --dry-run         # 先看迁移计划与变更，确认再往下
-tcb deploy                   # 顺序：database → functions → hosting → gateway
+npx -p @cloudbase/cli tcb validate
+npx -p @cloudbase/cli tcb app build
+npx -p @cloudbase/cli tcb deploy --dry-run
+npx -p @cloudbase/cli tcb deploy
 ```
 
-没装 CLI 时用 npx：`npx -p @cloudbase/cli tcb deploy --dry-run`（`@cloudbase/cli` 提供 `tcb` 命令）。
-`--dry-run` 是部署变更预览，不是页面预览；页面预览用本地 dev server（第四节第 4 步）。
+`deployPlan` / `--dry-run` 是部署变更预览，不是页面预览；页面预览用本地 dev server（第四节第 4 步）。
 
 上线后必须真做一遍：**手机扫码 → 提交一条 → 汇总页看到这条**。填的是测试数据，交付前删掉。
 
@@ -165,7 +179,7 @@ tcb deploy                   # 顺序：database → functions → hosting → g
 4. **端口写死** → 云端注入的 `PORT` 被忽略，服务起来了但打不开。
 5. **汇总页把 `owner_id` 判断放在前端** → 改个参数就能看别人表单；必须进 RLS 或服务端校验。
 6. **`gateway.routes` 用非白名单字段**（如 `cdnType`）→ 配置校验失败，CDN 用 `accessType`。
-7. **CLI v3.8.2 起 `tcb deploy` 不构建静态托管** → 配了 `buildCommand` 必须先 `tcb app build`。
+7. **部署不代做静态托管构建** → 配了 `buildCommand` 必须先 `deployBuild`，否则 `deployApply` 报产物缺失。
 8. **连接串写进 cloudbaserc.json** → 入库即泄漏；用 `${DATABASE_URL}` 占位 + `.env`。
 
 ## 八、什么时候可以简化

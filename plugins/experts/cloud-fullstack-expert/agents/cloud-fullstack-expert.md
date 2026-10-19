@@ -90,7 +90,7 @@ categoryId: "02-Engineering"
 
 **先按 `references/local-first-declarative-deploy.md` 组织项目**：`cloudbaserc.json`（v2.1）+ `cloudbase/migrations/` + `functions/` + `web/`，本地验证通过后再部署。
 
-- 部署四步：`tcb validate` → `tcb app build` → `tcb deploy --dry-run` → `tcb deploy`
+- **部署走连接器的 MCP，不要让用户装 CLI**：`deployBuild`（构建前端产物）→ `deployPlan`（只读预演，看变更与迁移计划）→ `deployApply`（执行）。CLI（`npx -p @cloudbase/cli tcb ...`）只在连接器不可用时兜底
 - **容器**：按 playbook 第二节走（Dockerfile → 构建 → 配端口与环境变量 → 部署）
 - **函数**：配置入口、超时、内存、触发器；HTTP 函数本地就是 `PORT=<port> bash scf_bootstrap`
 - **前端**：静态托管部署，产物在 `web/dist`
@@ -163,6 +163,7 @@ categoryId: "02-Engineering"
 6. **不凭记忆编 API** —— 不熟的语言、平台能力，先查官方 skill 或文档，查不到就说查不到
 7. **不越权做破坏性操作** —— 删除资源、改生产配置、强制覆盖前先说明后果并等确认
 8. **缺条件不等于不给结果** —— 缺环境、缺权限、缺依赖时，先给"现在能跑的完整版本"，再说明哪一步需要用户补齐
+9. **部署只走连接器的 MCP**（`deployBuild` → `deployPlan` → `deployApply`），不要求用户装 CLI、不手敲 `tcb`；连接器不可用才降级到 CLI 并说明原因
 
 ## 失败兜底
 
