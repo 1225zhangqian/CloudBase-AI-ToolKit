@@ -1,8 +1,10 @@
 # 连接方式：远端模式与本地模式
 
-CloudBase MCP 有两种接法：**远端模式**（MCP 服务运行在服务端，IDE 通过 HTTP 连接）与**本地模式**（MCP 服务在你本机通过 `npx` 运行，IDE 以 stdio 连接）。两种方式使用同一份 MCP 服务代码与同一套工具，差别只在**服务跑在哪里**，以及由此带来的本地文件能力差异。
+CloudBase MCP 有两种接法：**远端模式**（服务跑在云端，IDE 通过 HTTP 连接）和**本地模式**（服务在你本机用 `npx` 启动，IDE 通过 stdio 连接）。两种用同一份代码、同一套工具，差别只在服务跑在哪，以及因此少了哪些依赖本地文件的能力。
 
-不确定就先用**远端模式**：只填一个地址，支持 OAuth 的客户端会在浏览器里带你完成登录授权。
+不确定就先用**远端模式**：填一个地址，支持 OAuth 的客户端会带你完成授权。
+
+> ⚠️ **MCP 给 AI 的是真实写权限** —— 删集合、删函数、删存储都在能力范围里。接之前先读[危险操作与二次确认](#safety)。二次确认只在支持 elicitation 的客户端里生效，而且它是护栏，不是安全边界。
 
 ---
 
@@ -101,26 +103,15 @@ tcb config set isIntl true
 }
 ```
 
-### 国内站新加坡用户（重要迁移指引）
+### 国内站的新加坡环境
 
-国内站现已支持新加坡地域。**只配置 `TCB_REGION=ap-singapore` 会被默认按国际站处理**（登录跳国际站、NoSQL 工具被跳过）。国内站新加坡用户必须显式配置站点：
+国内站支持新加坡地域，但**只配 `TCB_REGION=ap-singapore` 会被当成国际站** —— 登录跳国际站、NoSQL 工具被跳过。必须把站点也写上：
 
 ```json
-{
-  "mcpServers": {
-    "cloudbase": {
-      "command": "npx",
-      "args": ["@cloudbase/cloudbase-mcp@latest"],
-      "env": {
-        "TCB_SITE": "domestic",
-        "TCB_REGION": "ap-singapore"
-      }
-    }
-  }
-}
+"env": { "TCB_SITE": "domestic", "TCB_REGION": "ap-singapore" }
 ```
 
-也可以使用项目级配置 `.cloudbase/project.json`（独立文件，不并入 `cloudbaserc.json`），让同一目录下的所有会话自动带入正确的站点：
+也可以写进项目级 `.cloudbase/project.json`（独立文件，不并入 `cloudbaserc.json`），同一目录下的会话自动带入：
 
 ```json
 {
@@ -129,6 +120,9 @@ tcb config set isIntl true
   "envId": "your-env-id"
 }
 ```
+
+<details>
+<summary>环境 ID 的解析顺序、以及已有 CLI 项目的回退规则</summary>
 
 其中 `envId` 会作为该项目的默认环境，解析优先级：
 
@@ -150,6 +144,8 @@ tcb config set isIntl true
 
 因为该文件在仓库内且随仓库提交，所以新起的 MCP 进程、以及同一仓库的每个 Git worktree 都会自动命中同一环境，无需为每个 worktree 重新 `set_env`；不同仓库各读自己的文件，绑定不会互相串。
 
+</details>
+
 ### 多站点凭证并存
 
 登录凭证按站点分槽存储（`~/.config/.cloudbase/auth.json` 的 `credential` 升级为 `credential.domestic` / `credential.intl`），国内站与国际站可分别登录并存，切换环境无需重新登录。旧版单槽数据读取时自动视为 `domestic`，首次写回时自动升级为分槽格式。
@@ -157,6 +153,28 @@ tcb config set isIntl true
 ---
 
 ## 远端模式（推荐） {#remote-mode}
+
+### 快速开始
+
+1. 在客户端的 MCP 配置里加一条地址（国内站）：
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "type": "http",
+      "url": "https://tcb-api.cloud.tencent.com/mcp/v1"
+    }
+  }
+}
+```
+
+2. 首次连接时客户端会打开浏览器，登录腾讯云、选一个环境授权。
+3. 让 AI 查一次环境确认接通，比如「看下我环境里的云函数」。
+
+国际站把地址换成 `https://tcb-api.tencentcloud.com/mcp/v1`。**站点由域名决定**，没有 `site` 参数。
+
+不支持 OAuth 的客户端用上面这种写法会返回 `403 Forbidden: Missing credentials`，改用[静态凭证](#remote-auth)。
 
 ### 含义与适用场景
 
@@ -331,7 +349,7 @@ CloudBase MCP 针对不同部署场景提供分层安全保护：
 - **优点**：功能最全，包含上传/下载、模板安装等依赖本地文件系统的能力。
 - **要求**：本机已安装 Node.js，且能执行 `npx`。
 
-### 配置示例
+### 快速开始
 
 在 IDE 的 MCP 配置中添加（以 Cursor / WindSurf 等为例）：
 
@@ -449,6 +467,39 @@ TCB_AUTH_OAUTH_ENDPOINT=https://auth.your-domain.com/oauth
 - `TCB_AUTH_OAUTH_CUSTOM`：配置自定义 `TCB_AUTH_OAUTH_ENDPOINT` 时应按 `true` 使用；现在默认也会自动按 `true` 处理
 
 ---
+
+## 危险操作与二次确认 {#safety}
+
+破坏性动作在执行前会请求一次确认（MCP elicitation）。是否生效取决于客户端，**它不是安全边界**。
+
+### 会触发确认的动作
+
+| 资源 | `工具.action` |
+|---|---|
+| 云函数 | `manageFunctions.deleteFunction`、`deleteFunctionTrigger`、`deleteLayerVersion` |
+| 数据库 | `writeNoSqlDatabaseStructure.deleteCollection`、`writeNoSqlDatabaseContent.delete`、`manageMysqlDatabase.destroyMySQL` |
+| 存储与托管 | `manageStorage.delete`、`manageHosting.delete` |
+| 云托管 | `manageCloudRun.delete` |
+| 数据库迁移 | `managePgDatabase.execute`、`applyMigration` —— 按 **SQL 语句**判定，不看 action 名 |
+| 域名与路由 | `envDomainManagement.delete`、`manageEnv.removeSecurityDomain`、`manageGateway.deleteRoute`、`deleteCustomDomain` |
+| 账号与发布 | `manageAgents.deleteAgent`、`manageAppAuth.deleteProvider`、`deleteApiKey`、`manageApps.deleteApp`、`deleteAppVersion` |
+
+### 安全边界
+
+| 客户端行为 | 结果 |
+|---|---|
+| 不支持 elicitation | 不弹确认，直接执行 |
+| 支持，但自动应答（< 500ms） | 视为未询问，直接执行 |
+| 用户拒绝 | 返回正常结果，不标为错误（标错误会让模型重试同一删除） |
+
+> ⚠️ 护栏，不是安全边界。生产环境不要只靠它：用只读凭证，或用 `enable_plugins` 收窄可调用的插件范围。
+
+### 开关
+
+| 环境变量 | 作用 |
+|---|---|
+| `CLOUDBASE_MCP_SKIP_ELICITATIONS` | 跳过清单，逗号分隔，可写 `工具名` 或 `工具名.action`，区分大小写，不支持通配 |
+| `CLOUDBASE_MCP_ELICIT_AUTO_APPROVE=block` | 客户端自动应答时也拦下 |
 
 ## 支持的插件
 
