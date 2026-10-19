@@ -1,0 +1,45 @@
+import IDESelector from '../components/IDESelector';
+
+# [IDE Name] Setup Guide
+
+<IDESelector defaultIDE="[ide-id]" />
+
+## Install
+
+Create `[config-path]` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "command": "npx",
+      "args": ["npm-global-exec@latest", "@cloudbase/cloudbase-mcp@latest"],
+      "env": {
+        "INTEGRATION_IDE": "[IDE Name]"
+      }
+    }
+  }
+}
+```
+
+[IDE-specific configuration notes]
+
+## Verify
+
+After configuration, type in your AI chat:
+
+```
+Check if CloudBase tools are available
+```
+
+## FAQ
+
+**Q: MCP connection failed?**
+
+A: Check the config format, restart [IDE Name], and confirm your network is working.
+
+**Q: Tool count shows 0?**
+
+A: See the [FAQ](../faq#mcp-shows-0-tools).
+
+More: [FAQ](../faq)

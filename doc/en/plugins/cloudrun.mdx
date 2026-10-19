@@ -1,0 +1,168 @@
+# CloudRun Development & Deployment
+
+CloudBase AI ToolKit includes built-in support for CloudRun development and deployment. CloudRun lets you deploy and run various backend services easily, supporting long-lived connections, file uploads, and multiple languages.
+
+This plugin is enabled by default—you just need to describe what you want to do in natural language.
+
+## New: AI Agent Development
+
+You can now develop AI agents based on **function-mode CloudRun**, making it easy to create and deploy personalized AI applications.
+
+## When should you use CloudRun?
+
+Use CloudRun when you need:
+
+- **Real-time communication**: WebSocket, SSE, streaming responses
+- **Long-running tasks**: background processing
+- **Multiple languages**: Java, Go, PHP, Python, Node.js, etc.
+- **AI agents**: personalized AI application development
+
+## Which mode should you choose?
+
+**Function mode**: recommended for beginners. Supports Node.js, has built-in WebSocket support, supports local debugging, fixed port `3000`.
+
+**Container mode**: suitable for existing projects. Supports any language, requires a Dockerfile.
+
+## Quick Start
+
+### 1) List available templates
+
+```
+List available CloudRun templates
+```
+
+### 2) Create a new project
+
+```
+Create a project named my-service from the helloworld template
+```
+
+### 3) Run locally (function mode)
+
+```
+Run my-service locally on port 3000
+```
+
+### 4) Deploy to the cloud
+
+```
+Deploy my-service with public access, CPU 0.5 core, memory 1GB
+```
+
+### 5) Create an AI agent
+
+```
+Create an agent named my-agent for customer support chat
+```
+
+## Common Scenarios
+
+### Mini Program backend
+
+```
+Create a function-mode service with WebSocket support for Mini Program chat
+```
+
+### Java Spring Boot app
+
+```
+Deploy a Spring Boot app that provides REST APIs
+```
+
+### Go microservice
+
+```
+Create a high-performance Go microservice to handle user authentication
+```
+
+### Python data processing
+
+```
+Deploy a Python service to process data on a schedule and generate reports
+```
+
+### PHP Laravel app
+
+```
+Deploy a Laravel app and expose a full admin backend
+```
+
+### AI agent app
+
+```
+Create an agent to handle user inquiries and provide personalized services
+```
+
+## Access your service
+
+After deployment, you can access your service in these ways:
+
+**Call from WeChat Mini Program (recommended):**
+
+```js
+const res = await wx.cloud.callContainer({
+  config: { env: "your-env-id" },
+  path: "/api/data",
+  method: "POST",
+  header: { "X-WX-SERVICE": "my-service" }
+});
+```
+
+**Call from Web apps:**
+
+```js
+import cloudbase from "@cloudbase/js-sdk";
+
+const app = cloudbase.init({ env: "your-env-id" });
+
+const res = await app.callContainer({
+  name: "my-service",
+  method: "GET",
+  path: "/health"
+});
+```
+
+**Direct HTTP access:**
+
+```bash
+curl https://your-service-domain.com
+```
+
+## AI Agent Development
+
+### Create an agent
+
+```
+Create an agent named customer-service for customer support chat
+```
+
+### Run an agent locally
+
+```
+Run the customer-service agent locally on port 3000
+```
+
+### Call an agent
+
+```js
+// Call from a Web app
+const app = cloudbase.init({ env: "your-env-id" });
+const ai = app.ai();
+
+const res = await ai.bot.sendMessage({
+  botId: "ibot-customer-service-demo",
+  msg: "Hello, I need help"
+});
+
+for await (let x of res.textStream) {
+  console.log(x);
+}
+```
+
+```bash
+# CLI test
+curl 'http://127.0.0.1:3000/v1/aibot/bots/ibot-customer-service-demo/send-message' \
+  -H 'Accept: text/event-stream' \
+  -H 'Content-Type: application/json' \
+  --data-raw '{"msg":"Hello"}'
+```

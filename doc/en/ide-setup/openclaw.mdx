@@ -1,0 +1,49 @@
+import IDESelector from '../components/IDESelector';
+import RelatedResources from '../components/RelatedResources';
+
+# OpenClaw Setup Guide
+
+In OpenClaw, you don't need to manually maintain a project-level MCP config file. If you want to add CloudBase rules and workflows, you can have the AI read the official Setup Skill to self-bootstrap the configuration.
+
+Simply type in the chat:
+
+```text
+Read https://docs.cloudbase.net/skill.md and tell me what you can do
+```
+
+If you don't need additional rules/workflows, you can also start coding by describing your requirements directly.
+
+## Prerequisites
+
+Before you start, make sure you have:
+
+<details>
+<summary><strong>Node.js and a CloudBase environment ready</strong></summary>
+
+**Node.js:** Install Node.js v18.15.0 or later:
+
+```bash
+node --version
+```
+
+If you don't have it installed, download it from the [Node.js website](https://nodejs.org/en/download).
+
+**CloudBase environment:** See [Create a CloudBase environment](../../../quick-start/create-env). New users on the domestic site can start for free.
+
+</details>
+
+---
+
+<IDESelector defaultIDE="openclaw" />
+
+## FAQ
+
+**Q: Do I need to create a separate `.mcp.json` for OpenClaw?**
+A: No. OpenClaw uses the CloudBase Skills workflow by default and doesn't require maintaining a project-level MCP config.
+
+**Q: Do I need to install CloudBase Skills first?**
+A: Not manually. You can have the AI read the [Setup Skill](https://docs.cloudbase.net/skill.md) to self-bootstrap the configuration; or skip it and start coding if you don't need extra rules.
+
+More: [FAQ](../faq)
+
+<RelatedResources />

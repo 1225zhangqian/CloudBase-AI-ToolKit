@@ -1,0 +1,111 @@
+import IDEIconGrid from './components/IDEIconGrid';
+import PromptScenarios from './components/PromptScenarios';
+import TutorialsGrid from './components/TutorialsGrid';
+import AIDevelopmentPrompt from './components/AIDevelopmentPrompt';
+
+
+# AI-Native Development
+
+Connect your AI development tools (such as OpenClaw, Cursor, CodeBuddy) with CloudBase for an AI-native development workflow.
+
+**Fastest start:** Copy the AI Prompt below into your AI IDE. The agent will follow [`skill.md`](/skill.md).
+
+```text
+Help me get set up with CloudBase. Do the following:
+1. Open https://docs.cloudbase.net/skill.md and follow the instructions.
+2. When done, tell me you're ready and suggest the most relevant next steps.
+```
+
+**AI-native development means:**
+
+- Describe requirements in natural language, and AI completes the full workflow from code generation to deployment
+- Operate cloud services directly in chat: create databases, deploy cloud functions, configure static hosting—no manual console work
+- Fix issues based on error logs, making development smoother
+
+AI handles code generation and troubleshooting; CloudBase provides the runtime. Together, you can focus on business logic instead of infrastructure.
+
+## Step 1: Connect CloudBase (plugin recommended)
+
+Prefer the [one-click plugin](./ai-agent-plugins) (MCP + Skills + Hooks). You can also [configure MCP manually](./getting-started), or install [Skills only](./prompts/how-to-use). Full decision tree: [`skill.md`](/skill.md).
+
+Select your AI development tool. **Click an icon below for the matching install guide.**
+
+> Click the icons below to connect the corresponding tool
+
+<IDEIconGrid />
+
+## Step 2: Install CloudBase AI Skills as Needed (Optional)
+
+If you already installed the plugin, you usually do not need Skills separately. Skills-only:
+
+```bash
+npx skills add tencentcloudbase/cloudbase-skills
+```
+
+You can also have the AI read [Setup Skill](https://docs.cloudbase.net/skill.md) to self-guide through the configuration.
+
+See [How to Use Skills](./prompts/how-to-use) for details.
+
+## Step 3: Start AI-Native Development
+
+After setup is ready, choose a prompt to get started.
+
+<AIDevelopmentPrompt />
+
+<PromptScenarios />
+
+## Core Capabilities
+
+After connecting, your AI IDE gains these capabilities:
+
+- **Database development**: create tables/collections and generate CRUD code
+- **Cloud function development**: generate function code and deploy
+- **Intelligent fixing**: analyze logs and generate patches
+- **Domain knowledge**: built-in CloudBase, WeChat Mini Program, and other specialized knowledge bases
+
+<div align="center">
+  <img src="https://qcloudimg.tencent-cloud.cn/trisys/assets/product/images/b2stRRUcgnd92FdD_5NMQ.gif" alt="CloudBase AI Toolkit demo" style={{maxWidth: 'min(800px, 100%)'}} />
+</div>
+
+## Video Tutorials
+
+Want to learn CloudBase AI ToolKit through videos? See our tutorials and hands-on cases:
+
+<TutorialsGrid />
+
+## How It Works
+
+```mermaid
+graph TD
+    A[Developer] --> B[AI IDE]
+    B -->|Uses| C[CloudBase AI Rules]
+    C --> D[Generate Code]
+    B -->|Calls| E[CloudBase MCP]
+    E --> F{Detect Deployment}
+    F -->|Success| G[CloudBase Platform]
+    F -->|Failure| H[Return Logs]
+    H --> I[AI Fix]
+    I --> E
+    G --> J[Online Application]
+    J --> K[Web / Mini Program / API]
+```
+
+## Open Source
+
+[![GitHub Stars](https://img.shields.io/github/stars/TencentCloudBase/CloudBase-AI-ToolKit?color=F59E0B&label=stars&logo=github&style=flat-square)](https://github.com/TencentCloudBase/CloudBase-AI-ToolKit/stargazers)
+[![CNB](https://img.shields.io/badge/CNB-CloudBase--AI--ToolKit-3B82F6?logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHZpZXdCb3g9IjAgMCAxMiAxMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTIiIGhlaWdodD0iMTIiIHJ4PSIyIiBmaWxsPSIjM0I4MkY2Ii8+PHBhdGggZD0iTTUgM0g3VjVINSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIxLjUiLz48cGF0aCBkPSJNNSA3SDdWOUg1IiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjEuNSIvPjwvc3ZnPg==&style=flat-square)](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-ToolKit)
+
+**Repositories:**
+
+- **GitHub**: [https://github.com/TencentCloudBase/CloudBase-AI-ToolKit](https://github.com/TencentCloudBase/CloudBase-AI-ToolKit)
+- **CNB**: [https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-ToolKit](https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-ToolKit)
+
+## Community
+
+### CloudBase AI Coding WeChat Group
+
+<div align="center">
+<img src="https://7463-tcb-advanced-a656fc-1257967285.tcb.qcloud.la/mcp/toolkit-qrcode.png" width="200" alt="WeChat group QR code"/>
+<br/>
+<i>Scan to join the CloudBase AI Coding WeChat group</i>
+</div>

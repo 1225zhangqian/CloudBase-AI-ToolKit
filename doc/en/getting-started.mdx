@@ -1,0 +1,98 @@
+import IDESelector from './components/IDESelector';
+import PromptScenarios from './components/PromptScenarios';
+
+# Connect to CloudBase MCP
+
+After connecting via the Model Context Protocol (MCP), you can operate CloudBase services directly in your AI chat—no need to switch between your IDE and the console.
+
+CloudBase MCP supports **Remote Mode** (recommended: your IDE connects to the cloud over HTTP, with no local Node.js dependency) and **Local Mode** (run via `npx` on your machine, including local-file capabilities). Both modes distinguish between the China site and the International site, so confirm where your environment was created before connecting.
+
+See [Connection Modes: Remote vs Local](/ai/cloudbase-ai-toolkit/connection-modes).
+
+**Fastest start:** Copy the AI Prompt below into your AI IDE.
+
+```text
+Help me get set up with CloudBase. Do the following:
+1. Open https://docs.cloudbase.net/skill.md and follow the instructions.
+2. When done, tell me you're ready and suggest the most relevant next steps.
+```
+
+## Prerequisites
+
+Before you start, make sure you have:
+
+<details>
+<summary><strong>A CloudBase environment ready (plus Node.js for Local Mode)</strong></summary>
+
+**CloudBase environment:** Follow the doc [Create a CloudBase environment](../../quick-start/create-env). New users can start for free.
+
+**Node.js (Local Mode only):** Remote Mode does not depend on local Node.js, so you can skip this requirement. For Local Mode, install Node.js v18.15.0 or later:
+
+```bash
+node --version
+```
+
+If you don’t have it installed, download it from the [Node.js website](https://nodejs.org/en/download).
+
+</details>
+
+## Connect Your AI Tool
+
+Pick your AI development tool and follow the setup guide:
+
+<IDESelector />
+
+## Manually Confirm Tool Calls
+
+Most MCP clients (e.g. Cursor) will ask you to manually confirm every tool call. We recommend keeping this enabled and carefully reviewing the tool call details before execution.
+
+## Start Using It
+
+After setup, type in your AI chat:
+
+```
+Log in to CloudBase
+```
+
+Your AI will guide you through login and environment selection. Then you can start describing requirements in natural language and let the AI build your app.
+
+> 🌏 **Choose the correct site**: the China site and the International site use separate account systems, endpoints, and login states. The typical symptom of choosing the wrong site is **“login succeeded, but my environment is missing”**, not an explicit error.
+>
+> - **Remote Mode**: the hostname determines the site — use `https://tcb-api.cloud.tencent.com/mcp/v1` for the China site and `https://tcb-api.tencentcloud.com/mcp/v1` for the International site.
+> - **Local Mode**: there is no hostname to infer the site from, so International-site users must explicitly set `TCB_SITE=intl`; otherwise login uses the China-site flow and the International-site environment is not visible. For all configuration methods (MCP `env`, `--site` startup flag, conversation-level selection, and CLI), see [Connection Modes - International site users](./connection-modes#international-site-users).
+>
+> For the case where a China-site environment in the `ap-singapore` region is misdetected as international, see [FAQ](./faq#china-site-singapore-detected-as-international).
+
+## Examples
+
+**End-to-end example:**
+
+```
+Build a todo app with phone-number login using CloudBase, and deploy it
+```
+
+The AI can automatically: generate frontend and backend code, configure auth and the database, deploy cloud functions and static hosting, and return an access link.
+
+**Step-by-step examples:**
+
+- "Build a WeChat Mini Program ordering system with CloudBase" — AI scaffolds pages, creates the cloud database, writes cloud functions, and guides preview
+- "Build a reservation management system that lets users place orders and admins update status" — AI models it with CloudBase PostgreSQL, configures permissions, and wires up frontend and backend
+- "Add phone-number login to a Web app" — AI enables the auth method and integrates the CloudBase SDK
+
+**Detailed requirement example:**
+
+```
+Build a coffee reservation Mini Program with CloudBase that includes:
+- Menu browsing and ordering
+- Writing orders to the cloud database
+- Cloud functions to handle order status
+- Preview in WeChat DevTools
+```
+
+## AI Skill Scenarios
+
+<PromptScenarios />
+
+## Video Tutorials
+
+Want to learn CloudBase MCP via videos? See [tutorials and practical cases](/ai/cloudbase-ai-toolkit/tutorials).

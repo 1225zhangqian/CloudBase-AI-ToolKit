@@ -1,0 +1,104 @@
+import IDESelector from '../components/IDESelector';
+import RelatedResources from '../components/RelatedResources';
+
+# Qoder Setup Guide
+
+After setup, you can operate CloudBase services directly from Qoder’s AI chat.
+
+**Examples:**
+
+- "Build a WeChat Mini Program ordering system with CloudBase" — AI scaffolds pages, creates the cloud database, writes cloud functions, and guides preview
+- "Build a reservation management system that lets users place orders and admins update status" — AI models it with CloudBase PostgreSQL, configures permissions, and wires up frontend and backend
+- "Add phone-number login to a Web app" — AI enables the auth method and integrates the CloudBase SDK
+
+No need to switch to the Cloud console — you can do everything in Qoder with natural language.
+
+## Prerequisites
+
+Before you start, make sure you have:
+
+<details>
+<summary><strong>Node.js and a CloudBase environment ready</strong></summary>
+
+**Node.js:** Install Node.js v18.15.0 or later:
+
+```bash
+node --version
+```
+
+If you don’t have it installed, download it from the [Node.js website](https://nodejs.org/en/download).
+
+**CloudBase environment:** See [Create a CloudBase environment](../../../quick-start/create-env). New users on the domestic site can start for free.
+
+</details>
+
+---
+
+<IDESelector defaultIDE="qoder" />
+
+## Setup
+
+### Option 1: Configure MCP manually
+
+1. In Qoder IDE, click the user icon in the top-right corner, or use the shortcut (`⌘` `⇧` `,` on macOS / `Ctrl` `Shift` `,` on Windows), then open **Qoder Settings**.
+2. In the left navigation, click **MCP**.
+3. In the **My Servers** tab, click **+ Add**.
+4. In the JSON config, add:
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "command": "npx",
+      "args": ["@cloudbase/cloudbase-mcp@latest"],
+      "env": {
+        "INTEGRATION_IDE": "Qoder"
+      }
+    }
+  }
+}
+```
+
+5. Close the file and click **Save** when prompted.
+
+After saving, the new server will appear in your list. A link icon indicates the connection is successful. Expand the item to view available tools.
+
+> **Note:** If the server fails to start due to missing dependencies, click **Quick Fix**. If the issue persists, install dependencies manually. See Qoder MCP troubleshooting docs.
+
+### Option 2: Install via MCP Square (optional)
+
+1. In the **MCP** page, open the **MCP Square** tab.
+2. Find CloudBase MCP and click **Install**.
+3. Go back to **My Servers** to confirm and view the tool list.
+
+## Verify
+
+After configuration, in Qoder Agent mode, type:
+
+```
+Check if CloudBase tools are available
+```
+
+> **Important:** MCP servers are only supported in **Agent mode**. In the AI Chat panel, ensure you switched to Agent mode.
+
+## FAQ
+
+**Q: MCP connection failed?**
+
+A: Check the config format, restart Qoder, and confirm your network. If the server fails due to missing dependencies, use Quick Fix or install them manually.
+
+**Q: Tool count shows 0?**
+
+A: See the [FAQ](../faq#mcp-shows-0-tools).
+
+**Q: Where can I use MCP in Qoder?**
+
+A: MCP is only supported in **Agent mode**. Switch to Agent mode in the AI Chat panel. Up to 10 MCP servers can be used simultaneously.
+
+**Q: How do I call MCP tools?**
+
+A: Qoder selects tools automatically based on your prompt and tool names, and asks for confirmation before running. Use `⌘` `⏎` (macOS) or `Ctrl` `Enter` (Windows) to execute. You can also enable auto-run for subsequent calls.
+
+More: [FAQ](../faq)
+
+<RelatedResources ideName="Qoder" ideDocUrl="https://docs.qoder.com/" />
