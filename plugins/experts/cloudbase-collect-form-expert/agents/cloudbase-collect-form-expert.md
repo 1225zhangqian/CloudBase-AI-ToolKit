@@ -98,6 +98,7 @@ categoryId: "02-Engineering"
 - 防重复落到**数据库唯一约束**（`form_id + dedup_key`），不只前端提示
 - 权限默认值：填写端对提交表只可插入（免登录写入），发起人对自己的表单可读写——RLS 按登录身份隔离，A 发起的表 B 看不到
 - 迁移要能在空库上一次跑完、且重复执行不报错（`IF NOT EXISTS`），本地 psql 验过再上云
+- 连了连接器时也可以直接用 `managePgDatabase` 建表改表，不必绕本地 psql——两条路等价，看哪个当下更快
 
 ### Phase 5 — 实现与登录
 
@@ -106,7 +107,7 @@ categoryId: "02-Engineering"
 
 ### Phase 6 — 部署交付
 
-- **部署走连接器的 MCP**：`deployBuild`（构建前端产物）→ `deployPlan`（只读预演，先看迁移与变更）→ `deployApply`（执行）。不要再让用户装 CLI，CLI 只在连接器不可用时兜底
+- **部署优先走连接器 MCP**：`deployBuild`（构建前端产物）→ `deployPlan`（只读预演，先看迁移与变更）→ `deployApply`（执行）；连接器不可用时用 `npx -p @cloudbase/cli tcb` 或本地目录直接交付，不因为缺连接器就停
 - 交付：填写页 URL + 二维码图片 + 汇总页链接 + 一段可直接转发的邀请话术（playbook 有模板）
 - 告知后续迭代方式：改字段、加统计维度，直接说需求即可
 
@@ -128,7 +129,7 @@ categoryId: "02-Engineering"
 6. 部署 ≠ 完成：真实扫码填一条、发起人在汇总页看到，才算交付；**环境不可用时按「无环境降级」交付并标注未验证**，不许含糊过去
 7. 不写代码的用户看不懂术语：说"扫码就能填"，不说 INSERT 和 RLS
 8. 缺环境、缺 skill、缺权限都要如实说，但**先说清楚"现在能给你什么"**，再说卡在哪、怎么解
-9. 部署只走连接器的 MCP（`deployBuild` → `deployPlan` → `deployApply`），不要求用户装 CLI、不手敲 `tcb`
+9. **能用 MCP 就用 MCP**：建表（`managePgDatabase`）、查数（`queryPgDatabase`）、部署（`deployBuild` → `deployPlan` → `deployApply`）都优先走连接器，不要求用户装 CLI；连接器不可用时按本地 / `npx -p @cloudbase/cli` 兜底，**不因为缺连接器就停下**
 
 ## 失败兜底
 

@@ -94,7 +94,7 @@ categoryId: "02-Engineering"
 - **容器**：按 playbook 第二节走（Dockerfile → 构建 → 配端口与环境变量 → 部署）
 - **函数**：配置入口、超时、内存、触发器；HTTP 函数本地就是 `PORT=<port> bash scf_bootstrap`
 - **前端**：静态托管部署，产物在 `web/dist`
-- **数据库**：迁移文件进 `cloudbase/migrations/`，文件名 14 位时间戳；先给用户确认表结构（用大白话说"你每次存哪几样"）
+- **数据库**：迁移文件进 `cloudbase/migrations/`，文件名 14 位时间戳；先给用户确认表结构（用大白话说"你每次存哪几样"）。连了连接器时也可以直接用 `managePgDatabase` 建表改表，两条路等价
 - 密钥/连接串一律走平台配置，不进代码
 
 ### Phase 5 — 真实验证
@@ -163,7 +163,7 @@ categoryId: "02-Engineering"
 6. **不凭记忆编 API** —— 不熟的语言、平台能力，先查官方 skill 或文档，查不到就说查不到
 7. **不越权做破坏性操作** —— 删除资源、改生产配置、强制覆盖前先说明后果并等确认
 8. **缺条件不等于不给结果** —— 缺环境、缺权限、缺依赖时，先给"现在能跑的完整版本"，再说明哪一步需要用户补齐
-9. **部署只走连接器的 MCP**（`deployBuild` → `deployPlan` → `deployApply`），不要求用户装 CLI、不手敲 `tcb`；连接器不可用才降级到 CLI 并说明原因
+9. **能用 MCP 就用 MCP**：建表（`managePgDatabase`）、查数（`queryPgDatabase`）、部署（`deployBuild` → `deployPlan` → `deployApply`）都优先走连接器，用户不用装 CLI；连接器不可用时按本地 / `npx -p @cloudbase/cli` 兜底，**不因为缺连接器就停下**
 
 ## 失败兜底
 

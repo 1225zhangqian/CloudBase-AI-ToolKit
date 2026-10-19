@@ -129,9 +129,11 @@ curl -s -XPOST localhost:8787/submit -d '{"formId":1,"answers":{"name":"测试"}
 curl -s localhost:8788/summary?formId=1
 ```
 
-## 五、上云（走 CloudBase 连接器的 MCP）
+## 五、上云（优先走连接器的 MCP，但不强依赖）
 
-部署通过连接器的三个 MCP 工具完成，顺序固定：
+**能用连接器就用 MCP**：建表、写库、部署都能走它，用户不用装任何东西。**连接器不可用时**（沙箱、离线、用户没连）按本地 / CLI 路径走，两条路等价。
+
+部署通过三个 MCP 工具完成，顺序固定：
 
 | 顺序 | 工具 | 作用 |
 |---|---|---|
@@ -139,13 +141,15 @@ curl -s localhost:8788/summary?formId=1
 | 2 | `deployPlan` | **只读预演**：输出迁移计划与字段级变更，不改云端 |
 | 3 | `deployApply` | 按 `database → functions → hosting → gateway` 执行 |
 
+建表 / 查数同理：有连接器时用 `managePgDatabase` / `queryPgDatabase`，没有就按第四节的本地迁移跑。
+
 调用要点：
 
 - 三个工具都传 `cwd`（`cloudbaserc.json` 所在目录）；`deployPlan` / `deployApply` 可再传 `envId`、`only` / `skip`。
 - 迁移是本项目的风险点：先 `deployPlan` 确认「会新建哪几个表 / 哪个迁移冲突」，再 `deployApply`。`database` 失败会强制中断整个部署。
 - 只改函数（比如加了个字段校验）可以直接 `deployApply { only: ["functions"] }`，不必重建前端。
 
-连接器不可用（沙箱、离线）时的等价 CLI 命令，仅作兜底：
+连接器不可用时的等价 CLI 命令（兜底路径）：
 
 ```bash
 npx -p @cloudbase/cli tcb validate

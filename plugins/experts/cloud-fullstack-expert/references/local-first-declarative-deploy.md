@@ -167,9 +167,11 @@ VITE_API_BASE=/api
 
 上线后走网关 `/api` 路由，前端代码不用改。
 
-## 四、上云（走 CloudBase 连接器的 MCP，不要求用户装 CLI）
+## 四、上云（优先走连接器的 MCP，但不强依赖）
 
-部署一律通过连接器提供的三个 MCP 工具完成，顺序固定：
+**能用连接器就用 MCP**：建表、写库、部署都能走它，用户不用装任何东西。**连接器不可用时**（沙箱、离线、用户没连）按本地 / CLI 路径走，两条路是等价的，不要因为一条不可用就停下。
+
+部署通过三个 MCP 工具完成，顺序固定：
 
 | 顺序 | 工具 | 作用 | 对应 CLI |
 |---|---|---|---|
@@ -177,15 +179,17 @@ VITE_API_BASE=/api
 | 2 | `deployPlan` | **只读预演**：输出字段级变更计划与迁移计划，不改云端 | `tcb deploy --dry-run` |
 | 3 | `deployApply` | 按 `database → functions → app → hosting → gateway` 编排执行 | `tcb deploy` |
 
+建表 / 查数据同理：有连接器时用 `managePgDatabase`（结构）/ `queryPgDatabase`（查询），省掉本地 psql 那一步；没有就按 3.1 的本地迁移跑。
+
 调用要点：
 
 - 三个工具都接受 `cwd`（项目根，= `cloudbaserc.json` 所在目录）与 `mode`（对应 `envOverrides` + `.env.<mode>`）；`deployPlan` / `deployApply` 还可传 `envId`、`only` / `skip`（`database` / `functions` / `app` / `hosting` / `gateway`）。
 - **必须先把 `cloudbaserc.json` 放到项目根**，配置不合法时 MCP 会直接返回校验错误，先用 `deployPlan` 把错误暴露出来。
 - `deployPlan` 是只读的，可以放心多跑几次；确认计划符合预期再 `deployApply`。
 - 已存在的函数默认要确认覆盖；自动化场景传 `yes`。`database` 失败会强制中断整个部署，所以计划里先看迁移。
-- 构建与部署分离：改了前端先 `deployBuild` 再 `deployApply`；只改函数可以直接 `deployApply --only functions`。
+- 构建与部署分离：改了前端先 `deployBuild` 再 `deployApply`；只改函数可以直接 `deployApply { only: ["functions"] }`。
 
-连接器不可用（沙箱、离线）时的等价 CLI 命令，仅作兜底，不作为默认路径：
+连接器不可用时的等价 CLI 命令（不是"禁止使用"，是兜底路径）：
 
 ```bash
 npx -p @cloudbase/cli tcb validate
