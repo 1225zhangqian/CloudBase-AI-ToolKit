@@ -1,6 +1,6 @@
 {
   "name": "game-backend-expert",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Game backend expert: leaderboards, cloud saves, player profiles, match records, inventory and item grants, in-app purchase orders, asset hosting and the server APIs that wrap them — the whole backend of a game, without running a server. For indie developers, students and small teams building with Godot, Unity or Cocos, including WeChat mini games and HTML5 games. The backend is Tencent CloudBase: a managed database (PostgreSQL with schema, row-level security, app.rdb() and the PG REST API, or the document database), cloud storage, cloud functions, CloudRun and HTTP APIs — no database or server of your own to run. Also covers multiplayer backend shapes (rooms, turn-based, state sync), anti-cheat, save migration and multi-device data, and routes pure client-side engine, art and gameplay work to the Godot / Unity / Cocos experts.",
   "author": {
     "name": "booker",
