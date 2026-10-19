@@ -1006,7 +1006,7 @@ export default function IDESelector({
     }
   };
 
-  const [selectedIDE, setSelectedIDE] = useState<string>(defaultIDE || 'cursor');
+  const [selectedIDE, setSelectedIDE] = useState<string>(defaultIDE || 'workbuddy');
   const [mode, setMode] = useState<ConnectionMode>(defaultMode);
   const [site, setSite] = useState<SiteId>(defaultSite);
   const [isOpen, setIsOpen] = useState(false);
