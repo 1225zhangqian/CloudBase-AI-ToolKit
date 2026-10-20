@@ -1460,7 +1460,12 @@ export default function IDESelector({
         {t.configureDescription}
         {isEnglish ? '. ' : ' '}
         {t.connectionModesHint}
-        <a href={resolveDocHref('/ai/cloudbase-ai-toolkit/connection-modes')} className={styles.templateLink}>
+        <a
+          href={resolveDocHref('/ai/cloudbase-ai-toolkit/connection-modes')}
+          className={styles.templateLink}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           {t.connectionModesLink}
         </a>
         {t.connectionModesSuffix}
