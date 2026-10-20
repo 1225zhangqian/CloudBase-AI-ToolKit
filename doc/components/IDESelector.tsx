@@ -58,7 +58,10 @@ interface IDE {
 }
 
 /** installCommandDocs 里允许写 `[文案](链接)`：这段文本不走 markdown 解析，所以在这里把链接挑出来渲染成 <a>。 */
-function renderInlineLinks(text: string): React.ReactNode {
+function renderInlineLinks(
+  text: string,
+  resolveHref: (href: string) => string
+): React.ReactNode {
   const parts = text.split(/\[([^\]]+)\]\(([^)]+)\)/g);
   if (parts.length === 1) {
     return text;
@@ -68,7 +71,7 @@ function renderInlineLinks(text: string): React.ReactNode {
     if (parts[i]) {
       nodes.push(parts[i]);
     }
-    const href = parts[i + 2];
+    const href = resolveHref(parts[i + 2]);
     nodes.push(
       <a
         key={`inline-link-${i}`}
@@ -970,10 +973,23 @@ export default function IDESelector({
   defaultSite = 'domestic',
   expertChannel = 'docs',
 }: IDESelectorProps) {
-  const { i18n } = useDocusaurusContext();
+  const { i18n, siteConfig } = useDocusaurusContext();
   // docUrl 里混着站内路径与外部文档站链接。站内路径要过 withBaseUrl，
   // 否则英文站会跳到中文版；外链原样返回。
   const { withBaseUrl } = useBaseUrlUtils();
+  // 这个组件既被文档站使用，也被博客（另一个站点）直接 import。
+  // 根相对路径在博客里会落到博客域名下，变成死链，所以非文档站一律补成文档站绝对地址。
+  const DOCS_ORIGIN = 'https://docs.cloudbase.net';
+  const onDocsSite = (siteConfig?.url || '').includes('docs.cloudbase.net');
+  const resolveDocHref = (target?: string): string => {
+    if (!target) return '';
+    if (/^(https?:)?\/\//.test(target) || target.startsWith('#') || target.startsWith('mailto:')) {
+      return target;
+    }
+    const path = target.startsWith('/') ? target : `/${target}`;
+    if (onDocsSite) return withBaseUrl(path);
+    return `${DOCS_ORIGIN}${isEnglish ? '/en' : ''}${path}`;
+  };
   // Normalize locale: zh-Hans -> zh-CN, en -> en
   const rawLocale = i18n?.currentLocale || i18n?.defaultLocale || 'zh-CN';
   const locale = rawLocale === 'zh-Hans' ? 'zh-CN' : (rawLocale === 'en' ? 'en' : 'zh-CN');
@@ -1444,7 +1460,7 @@ export default function IDESelector({
         {t.configureDescription}
         {isEnglish ? '. ' : ' '}
         {t.connectionModesHint}
-        <a href="/ai/cloudbase-ai-toolkit/connection-modes" className={styles.templateLink}>
+        <a href={resolveDocHref('/ai/cloudbase-ai-toolkit/connection-modes')} className={styles.templateLink}>
           {t.connectionModesLink}
         </a>
         {t.connectionModesSuffix}
@@ -1521,7 +1537,7 @@ export default function IDESelector({
                 )}
                 {ide.docUrl && (
                   <a
-                    href={withBaseUrl(ide.docUrl)}
+                    href={resolveDocHref(ide.docUrl)}
                     className={styles.templateLink}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -1644,7 +1660,7 @@ export default function IDESelector({
                               return (
                                 <p key={idx} className={styles.installCommandText}>
                                   {section.split(/\*\*([^*]+)\*\*/).map((part, i) =>
-                                    i % 2 === 1 ? <strong key={i}>{part}</strong> : <React.Fragment key={`p-${i}`}>{renderInlineLinks(part)}</React.Fragment>
+                                    i % 2 === 1 ? <strong key={i}>{part}</strong> : <React.Fragment key={`p-${i}`}>{renderInlineLinks(part, resolveDocHref)}</React.Fragment>
                                   )}
                                 </p>
                               );
@@ -1785,7 +1801,7 @@ export default function IDESelector({
                         return (
                           <p key={idx} className={styles.installCommandText}>
                             {section.split(/\*\*([^*]+)\*\*/).map((part, i) =>
-                              i % 2 === 1 ? <strong key={i}>{part}</strong> : <React.Fragment key={`p-${i}`}>{renderInlineLinks(part)}</React.Fragment>
+                              i % 2 === 1 ? <strong key={i}>{part}</strong> : <React.Fragment key={`p-${i}`}>{renderInlineLinks(part, resolveDocHref)}</React.Fragment>
                             )}
                           </p>
                         );
@@ -1876,7 +1892,7 @@ export default function IDESelector({
               <div className={styles.helpSection}>
                 <span className={styles.helpText}>{t.needHelp}</span>
                 <a
-                  href={withBaseUrl(ide.docUrl)}
+                  href={resolveDocHref(ide.docUrl)}
                   className={styles.helpLink}
                   target="_blank"
                   rel="noopener noreferrer"
