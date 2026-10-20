@@ -131,6 +131,25 @@ function resolveSkillDir(skill, skillsDirs) {
   return null;
 }
 
+/**
+ * Preflight over every expert: a declared skill must resolve to an in-repo
+ * plugin directory before we start zipping.
+ *
+ * Reports all packs at once rather than throwing on the first one — a per-pack
+ * throw makes the operator fix one expert, re-run, and only then discover the
+ * next, and `release: published` gives you exactly one shot at it.
+ */
+function collectMissingSkills(experts, skillsDirs) {
+  const problems = [];
+  for (const name of experts) {
+    const missing = readBundledSkills(path.join(EXPERTS_DIR, name)).filter(
+      (skill) => resolveSkillDir(skill, skillsDirs) === null
+    );
+    if (missing.length > 0) problems.push({ expert: name, missing });
+  }
+  return problems;
+}
+
 function packExpert(name, outDir, skillsDirs) {
   const expertDir = path.join(EXPERTS_DIR, name);
   const outPath = path.join(outDir, `${name}.zip`);
@@ -204,6 +223,21 @@ Usage:
   const skillsDirs = args.skillsDir
     ? [path.resolve(args.skillsDir), ...DEFAULT_SKILLS_DIRS]
     : DEFAULT_SKILLS_DIRS;
+
+  const problems = collectMissingSkills(experts, skillsDirs);
+  if (problems.length > 0) {
+    const detail = problems
+      .map(({ expert, missing }) => `  ${expert}: ${missing.join(", ")}`)
+      .join("\n");
+    throw new Error(
+      `Bundled skill(s) not found in ${skillsDirs.join(", ")}:\n${detail}\n\n` +
+        `Expert packs may only bundle skills that live in this repo ` +
+        `(plugin/cloudbase/skills, plugin/cloudbase-sites/skills). Skills published ` +
+        `elsewhere (e.g. SkillHub) are installed by the user at run time — they do not ` +
+        `belong in expert-skills.json.`
+    );
+  }
+
   fs.mkdirSync(outDir, { recursive: true });
 
   console.log(`Experts: ${experts.join(", ")}`);

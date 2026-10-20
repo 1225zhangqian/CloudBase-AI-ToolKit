@@ -14,6 +14,8 @@ on:
       - 'scripts/check-plugin-quality.mjs'
       - 'scripts/pack-agent-plugins.mjs'
       - 'scripts/pack-claude-plugin.mjs'
+      - 'scripts/pack-experts.mjs'
+      - 'plugins/experts/**'
       - '.github/workflows/open-plugin-spec-check.yml'
   push:
     branches:
@@ -30,6 +32,8 @@ on:
       - 'scripts/check-plugin-quality.mjs'
       - 'scripts/pack-agent-plugins.mjs'
       - 'scripts/pack-claude-plugin.mjs'
+      - 'scripts/pack-experts.mjs'
+      - 'plugins/experts/**'
       - '.github/workflows/open-plugin-spec-check.yml'
 
 jobs:
@@ -65,3 +69,16 @@ jobs:
         run: |
           node scripts/pack-claude-plugin.mjs --out-dir /tmp/release-zips
           node scripts/pack-agent-plugins.mjs --out-dir /tmp/release-zips
+
+      # Expert packs only ship on `release: published`, which is the worst place
+      # to discover a broken packer: the tag exists, the assets don't. Running the
+      # real packer here keeps this check and the release step on one code path.
+      - name: Verify expert package zips can be built
+        run: |
+          node scripts/pack-experts.mjs --out-dir /tmp/release-zips
+          for z in /tmp/release-zips/*-expert.zip; do
+            unzip -l "$z" | grep -q '/skills/' || {
+              echo "::error::$z has no bundled skills/ directory"
+              exit 1
+            }
+          done
