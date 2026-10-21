@@ -2,7 +2,7 @@
 
 > - 数据源：[API 概览](https://cloud.tencent.com/document/api/876/34809) · [依赖产品接口指引](https://cloud.tencent.com/document/api/876/34808)
 > - 所有接口均为腾讯云 API 3.0 管控面接口，支持各语言官方 SDK 调用；也可通过 CloudBase MCP 的 `callCloudApi` 工具或 [API Explorer](https://console.cloud.tencent.com/api/explorer) 直接调用
-> - 最近同步：2026-10-20
+> - 最近同步：2026-10-21
 
 ## API 概览
 
@@ -143,6 +143,7 @@
 | [DescribeAIModels](https://cloud.tencent.com/document/api/876/131318) | 查询AI模型列表 | 20 |
 | [DescribeManagedAIModelList](https://cloud.tencent.com/document/api/876/131317) | 查询托管类型AI模型列表 | 20 |
 | [UpdateAIModel](https://cloud.tencent.com/document/api/876/131316) | 更新AI模型 | 20 |
+| [ModifyAIModelStatus](https://cloud.tencent.com/document/api/876/139677) | 启停AI模型 | 20 |
 
 ### 日志监控相关接口
 
