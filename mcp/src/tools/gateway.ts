@@ -1292,20 +1292,53 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
   };
 
   /** CDN vs EO is decided by the domain's access type; default to CDN. */
+  /**
+   * 缓存层由域名的接入方式决定，不能猜。
+   *
+   * - EO / CDN → 对应缓存层
+   * - DIRECT / CUSTOM / NONE → CloudBase 侧没有托管缓存，刷新不适用。
+   *   实测（2026-10-21）对 DIRECT 域发 CDN 刷新，PurgeHTTPServiceCache 会「成功」登记
+   *   一个任务，而 DescribeHTTPServiceCachePurgeTask 随后抛 Third Service Error ——
+   *   即后端对 DIRECT 域缺校验、返回不可读错误。这里提前拦住并说明原因。
+   */
   const resolveDomainCacheType = async (
     domain: string,
     preferred?: CacheType,
   ): Promise<CacheType> => {
-    if (preferred) {
-      return preferred;
+    const findDomain = (result: { Domains?: Array<{ Domain?: string }> }) =>
+      (result.Domains ?? []).find((item) => item.Domain === domain);
+    let record = findDomain(await listHttpServiceRoutes({ domain }));
+    if (!record) {
+      // 域名下暂时没有路由时，筛 Domain 可能查不到，退回全量再找一次。
+      record = findDomain(await listHttpServiceRoutes());
     }
-    try {
-      const result = await listHttpServiceRoutes({ domain });
-      const record = (result.Domains ?? []).find((item) => item.Domain === domain);
-      return record?.AccessType === "EO" ? "EO" : "CDN";
-    } catch {
-      return "CDN";
+    if (!record) {
+      throw new Error(t("gateway.cache.domainNotFound", { domain }));
     }
+
+    const accessType = String(
+      (record as { AccessType?: string }).AccessType ?? "",
+    );
+    const boundCacheType: CacheType | undefined =
+      accessType === "EO" ? "EO" : accessType === "CDN" ? "CDN" : undefined;
+    if (!boundCacheType) {
+      throw new Error(
+        t("gateway.cache.notManaged", {
+          domain,
+          accessType: accessType || "UNKNOWN",
+        }),
+      );
+    }
+    if (preferred && preferred !== boundCacheType) {
+      throw new Error(
+        t("gateway.cache.typeMismatch", {
+          domain,
+          accessType: boundCacheType,
+          requested: preferred,
+        }),
+      );
+    }
+    return boundCacheType;
   };
 
   const routeMutationNextActions = (

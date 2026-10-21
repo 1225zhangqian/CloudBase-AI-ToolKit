@@ -147,6 +147,12 @@ export const gateway = defineModule(
     "query.cachePurgeTask": "已获取 {count} 条缓存清除任务记录",
     "query.cachePurgeTaskDomainRequired":
       "action=cachePurgeTask 时必须提供 domain",
+    "cache.domainNotFound":
+      "未找到域名 {domain} 的接入配置，无法确定缓存层。请先用 queryGateway(action=\"listRoutes\") 确认域名。",
+    "cache.notManaged":
+      "域名 {domain} 的接入方式是 {accessType}，CloudBase 侧没有该域名的 CDN/EO 缓存，缓存刷新不适用（DIRECT 直连与 CUSTOM 自有 CDN 的缓存不由平台托管）。如需刷新，请先把域名切到 CDN 或 EO 接入。",
+    "cache.typeMismatch":
+      "域名 {domain} 的接入方式是 {accessType}，不能按 cacheType={requested} 刷新。省略 cacheType 就会按接入方式自动匹配。",
     // Input schema parameter descriptions
     "schema.query.action":
       "只读操作类型：listRoutes、getRoute、listCustomDomains、getPrivilege、cachePurgeTask。" +
@@ -159,7 +165,8 @@ export const gateway = defineModule(
     "schema.query.path": "路由路径。getRoute / listRoutes 过滤时可选",
     "schema.query.domain": "域名。getRoute / listRoutes 过滤时可选；cachePurgeTask 时必填",
     "schema.query.cacheType":
-      "缓存层（仅 cachePurgeTask）：CDN 或 EO。省略时按域名 AccessType 自动判定（EO→EO，其余→CDN）。",
+      "缓存层（仅 cachePurgeTask）：CDN 或 EO。省略时按域名接入方式自动匹配（EO→EO、CDN→CDN）；" +
+      "DIRECT / CUSTOM / NONE 的域没有 CloudBase 托管的缓存，会直接拒绝并说明原因。",
     "schema.query.taskId": "缓存清除任务 ID（仅 cachePurgeTask，可选过滤）",
     "schema.query.purgeType":
       "清除方式过滤（仅 cachePurgeTask）：PURGE_URL=按 URL、PURGE_PREFIX=按前缀、PURGE_HOST=整站",
@@ -284,7 +291,8 @@ export const gateway = defineModule(
       "也可用专用 action enableRoute/disableRoute）。" +
       "省略或非布尔值在 enableService/authSwitch 会返回参数错误。",
     "schema.manage.cacheType":
-      "缓存层（仅 purgeCache）：CDN 或 EO。省略时按域名 AccessType 自动判定（EO→EO，其余→CDN）。",
+      "缓存层（仅 purgeCache）：CDN 或 EO。省略时按域名接入方式自动匹配（EO→EO、CDN→CDN）；" +
+      "DIRECT / CUSTOM / NONE 的域没有 CloudBase 托管的缓存，会直接拒绝并说明原因。",
     "schema.manage.purgeType":
       "清除方式（仅 purgeCache，默认 PURGE_URL）：PURGE_URL=按完整 URL、PURGE_PREFIX=按路径前缀、PURGE_HOST=整个域名",
     "schema.manage.targets":
@@ -444,6 +452,12 @@ export const gateway = defineModule(
     "query.cachePurgeTask": "Retrieved {count} cache purge task record(s)",
     "query.cachePurgeTaskDomainRequired":
       "domain is required for action=cachePurgeTask",
+    "cache.domainNotFound":
+      "No access configuration found for domain {domain}, so the cache layer is undetermined. Confirm the domain with queryGateway(action=\"listRoutes\") first.",
+    "cache.notManaged":
+      "Domain {domain} uses access type {accessType}; CloudBase does not host a CDN/EO cache for it, so cache purging does not apply (DIRECT and CUSTOM own-CDN caches are not managed by the platform). Switch the domain to CDN or EO access first.",
+    "cache.typeMismatch":
+      "Domain {domain} uses access type {accessType} and cannot be purged with cacheType={requested}. Omit cacheType to match the access type automatically.",
     // Input schema parameter descriptions
     "schema.query.action":
       "Read-only action: listRoutes, getRoute, listCustomDomains, getPrivilege, cachePurgeTask. " +
@@ -457,7 +471,8 @@ export const gateway = defineModule(
     "schema.query.domain":
       "Domain. Optional as a getRoute / listRoutes filter; required for cachePurgeTask",
     "schema.query.cacheType":
-      "Cache layer (cachePurgeTask only): CDN or EO. When omitted it is derived from the domain AccessType (EO→EO, otherwise→CDN).",
+      "Cache layer (cachePurgeTask only): CDN or EO. When omitted it is matched from the domain access type (EO→EO, CDN→CDN); " +
+      "DIRECT / CUSTOM / NONE domains have no CloudBase-hosted cache and are rejected with an explanation.",
     "schema.query.taskId": "Cache purge task ID (cachePurgeTask only, optional filter)",
     "schema.query.purgeType":
       "Purge type filter (cachePurgeTask only): PURGE_URL=by URL, PURGE_PREFIX=by path prefix, PURGE_HOST=whole domain",
@@ -583,7 +598,8 @@ export const gateway = defineModule(
       "the dedicated actions enableRoute/disableRoute are available too). " +
       "Omitting it or passing a non-boolean returns a parameter error for enableService/authSwitch.",
     "schema.manage.cacheType":
-      "Cache layer (purgeCache only): CDN or EO. When omitted it is derived from the domain AccessType (EO→EO, otherwise→CDN).",
+      "Cache layer (purgeCache only): CDN or EO. When omitted it is matched from the domain access type (EO→EO, CDN→CDN); " +
+      "DIRECT / CUSTOM / NONE domains have no CloudBase-hosted cache and are rejected with an explanation.",
     "schema.manage.purgeType":
       "Purge type (purgeCache only, default PURGE_URL): PURGE_URL=by full URL, PURGE_PREFIX=by path prefix, PURGE_HOST=whole domain",
     "schema.manage.targets":
