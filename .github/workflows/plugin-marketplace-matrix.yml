@@ -1,0 +1,84 @@
+name: Plugin Marketplace Matrix
+
+# The marketplace matrix lives in `specs/plugin-marketplace-listing/`, which is
+# internal-only (it is a BD ledger: who declined us, what is stuck, who owes a
+# reply). In a public checkout that data file is absent by design.
+#
+# So this workflow guards the *tooling*: the analyzer must not crash when the
+# matrix is missing, and the pure-logic tests must still pass. When the matrix IS
+# present (private mirror, or deliberately mounted), it also runs the strict
+# evidence gate.
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/analyze-plugin-marketplace.mjs'
+      - 'scripts/lib/plugin-marketplace-*.mjs'
+      - 'tests/plugin-marketplace-listing.test.js'
+      - '.github/workflows/plugin-marketplace-matrix.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/analyze-plugin-marketplace.mjs'
+      - 'scripts/lib/plugin-marketplace-*.mjs'
+      - 'tests/plugin-marketplace-listing.test.js'
+      - '.github/workflows/plugin-marketplace-matrix.yml'
+  workflow_dispatch:
+
+jobs:
+  matrix-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.2.2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile --ignore-scripts
+
+      # Deciding here keeps the gate honest: data being absent is expected; the
+      # tooling being unable to handle that absence is the actual regression.
+      - name: Check whether the internal matrix is present
+        id: matrix
+        run: |
+          if [ -f specs/plugin-marketplace-listing/markets.yaml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::matrix is internal-only and absent here — running tooling checks only"
+          fi
+
+      - name: Analyzer must not crash without a matrix
+        run: |
+          node scripts/analyze-plugin-marketplace.mjs --out /tmp/marketplace-report
+
+      - name: Validate matrix and local evidence (strict)
+        if: steps.matrix.outputs.present == 'true'
+        run: |
+          node scripts/analyze-plugin-marketplace.mjs --strict --out /tmp/marketplace-report
+
+      - name: Unit tests
+        run: |
+          npx vitest run tests/plugin-marketplace-listing.test.js
+
+      # A silently-empty or unparsable report is the failure mode we care about,
+      # so assert the report actually carries market rows when data exists.
+      - name: Report sanity check
+        if: steps.matrix.outputs.present == 'true'
+        run: |
+          node -e "
+            const r = require('/tmp/marketplace-report/latest.json');
+            if (!r.total_markets || r.total_markets < 20) {
+              console.error('report has too few markets:', r.total_markets);
+              process.exit(1);
+            }
+            const listed = r.markets.filter((m) => m.priority === 'listed').length;
+            console.log('markets:', r.total_markets, 'listed:', listed);
+          "

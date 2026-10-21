@@ -113,8 +113,13 @@ dist/
 
 # Specs: internal requirement / design / task docs (git 历史之外不再入库，私有归档另存)
 specs/*
-!specs/plugin-marketplace-listing/
 !specs/npm-supply-chain-security-hardening/
+
+# plugin-marketplace-listing 整体退出公开仓（2026-10-21）：
+# 它是渠道 BD 的工作台账 —— 谁拒了我们、申请卡在哪、等谁回、自己哪里没做到。
+# 这类内容维护者会看，但不该对外。数据与报告一并走私有归档，
+# analyze-plugin-marketplace 仍可在本地跑（读到就分析，读不到就跳过）。
+specs/plugin-marketplace-listing/
 
 # docs/: 只放对外文档（集成指南、公开调研）。内部工作件 —— 门禁报告、spec、
 # 能力对齐表 —— 含真实环境 ID、内部任务号与责任人，本地保留、不入库。
