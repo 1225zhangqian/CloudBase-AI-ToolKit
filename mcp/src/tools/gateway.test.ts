@@ -100,6 +100,7 @@ describe("gateway tools", () => {
         {
           Domain: "api.example.com",
           DomainType: "CUSTOM",
+          AccessType: "CDN",
           IsDefault: false,
           Enable: true,
           Status: "SUCCESS",
@@ -1959,6 +1960,94 @@ describe("gateway tools", () => {
 
     expect(payload.success).toBe(false);
     expect(payload.message).toContain("domain");
+  });
+
+  /** 用指定的域名 + 接入方式替换域名列表，供缓存层判定用例使用。 */
+  const stubDomains = (
+    ...domains: Array<{ Domain: string; AccessType: string }>
+  ) =>
+    mockDescribeHttpServiceRoute.mockResolvedValue({
+      OriginDomain: "origin.service.tcloudbase.com",
+      TotalCount: domains.length,
+      Domains: domains.map((item) => ({
+        DomainType: "HTTPSERVICE",
+        IsDefault: false,
+        Enable: true,
+        Status: "SUCCESS",
+        Routes: [],
+        ...item,
+      })),
+      RequestId: "req-domain-list",
+    });
+
+  it("manageGateway(action=purgeCache) should reject a DIRECT domain instead of guessing CDN", async () => {
+    stubDomains({ Domain: "direct.example.com", AccessType: "DIRECT" });
+
+    const result = await tools.manageGateway.handler({
+      action: "purgeCache",
+      domain: "direct.example.com",
+      purgeType: "PURGE_URL",
+      targets: ["https://direct.example.com/a.js"],
+    });
+
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.success).toBe(false);
+    expect(payload.message).toContain("DIRECT");
+    expect(payload.message).toContain("CDN");
+    expect(mockPurgeHttpServiceCache).not.toHaveBeenCalled();
+  });
+
+  it("queryGateway(action=cachePurgeTask) should reject a DIRECT domain", async () => {
+    stubDomains({ Domain: "direct.example.com", AccessType: "DIRECT" });
+
+    const result = await tools.queryGateway.handler({
+      action: "cachePurgeTask",
+      domain: "direct.example.com",
+    });
+
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.success).toBe(false);
+    expect(payload.message).toContain("DIRECT");
+    expect(mockDescribeCachePurgeTask).not.toHaveBeenCalled();
+  });
+
+  it("manageGateway(action=purgeCache) should pick EO from the domain access type", async () => {
+    stubDomains({ Domain: "eo.example.com", AccessType: "EO" });
+
+    await tools.manageGateway.handler({
+      action: "purgeCache",
+      domain: "eo.example.com",
+      purgeType: "PURGE_PREFIX",
+      targets: ["/static/"],
+    });
+
+    expect(mockPurgeHttpServiceCache).toHaveBeenCalledWith(
+      expect.objectContaining({
+        Domain: "eo.example.com",
+        CacheType: "EO",
+      }),
+    );
+  });
+
+  it("manageGateway(action=purgeCache) should reject a cacheType that contradicts the access type", async () => {
+    stubDomains({ Domain: "eo.example.com", AccessType: "EO" });
+
+    const result = await tools.manageGateway.handler({
+      action: "purgeCache",
+      domain: "eo.example.com",
+      cacheType: "CDN",
+      purgeType: "PURGE_HOST",
+      targets: ["eo.example.com"],
+    });
+
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.success).toBe(false);
+    expect(payload.message).toContain("EO");
+    expect(payload.message).toContain("CDN");
+    expect(mockPurgeHttpServiceCache).not.toHaveBeenCalled();
   });
 
   it("manageGateway(action=bindCustomDomain) should pass domain protocol", async () => {

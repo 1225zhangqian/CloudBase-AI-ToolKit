@@ -7,14 +7,16 @@
  *   2. 路由级 EnableSafeDomain / PathRewrite / QPSPolicy 真实落库
  *   3. updateRoute 只改一个字段时，未传字段从线上记录带回（不被静默重置）
  *   4. disableRoute / enableRoute 重写整条路由时同样保留上述字段
- *   5. purgeCache（CDN 缓存刷新）能提交并返回 TaskId
+ *   5. 缓存刷新：DIRECT 接入的域名被本地拒绝（不再发出假成功的刷新请求）
  *   6. 反向断言：改一条路由不会动同域名下的其它路由
  *
- * 实测发现的两条平台约束（脚本会断言，不是 MCP 缺陷）：
+ * 实测的两条平台约束（脚本会断言，不是 MCP 缺陷）：
  *   - 默认域（*.{region}.app.tcloudbase.com）拒绝自定义响应头：
  *     "default domain ... does not support custom header settings"
- *   - DescribeHTTPServiceCachePurgeTask 在该环境返回 "Third Service Error"（裸 API 同样报错），
- *     cachePurgeTask 查询这一项记为跳过
+ *   - 默认域是 DIRECT 接入，没有 CloudBase 托管的 CDN/EO 缓存：原样透传时
+ *     PurgeHTTPServiceCache 会「成功」返回假 TaskId，DescribeHTTPServiceCachePurgeTask
+ *     随后抛 "Third Service Error"。因此 MCP 侧按域名接入方式前置校验，直接拒绝。
+ *     CDN/EO 域名的成功路径需要另找一台绑了 CDN 的环境验证。
  *
  * 前置：
  *   - mcp 已构建（dist/cli.cjs）
@@ -252,36 +254,29 @@ async function main() {
       `同域名其它路由未被删（基线 ${baselineCount} + 新增 1 = ${baselineCount + 1}，实际 ${totalAfter}）`,
     );
 
-    // ---- 7. 缓存刷新 ----
+    // ---- 7. 缓存刷新：默认域是 DIRECT 接入，没有 CDN/EO 缓存，必须被本地拒绝 ----
+    // 反向判据：不拦的话 PurgeHTTPServiceCache 会「成功」返回一个假 TaskId，
+    // 随后 DescribeHTTPServiceCachePurgeTask 抛 Third Service Error。
     const purge = await callTool(client, "manageGateway", {
       action: "purgeCache",
       domain,
       purgeType: "PURGE_URL",
       targets: [`https://${domain}${testPath}/probe.txt`],
     });
-    assert(purge.success === true, `purgeCache 成功：${purge.message?.slice(0, 80)}`);
-    assert(Boolean(purge.data?.taskId), `返回 TaskId（${purge.data?.taskId}）`);
+    assert(
+      purge.success === false && /CDN/i.test(String(purge.message ?? "")),
+      `DIRECT 域拒绝缓存刷新并说明原因：${String(purge.message).split("\n")[0].slice(0, 80)}`,
+    );
+    assert(!purge.data?.taskId, "DIRECT 域不会返回假的 TaskId");
 
     const tasks = await callTool(client, "queryGateway", {
       action: "cachePurgeTask",
       domain,
-      ...(purge.data?.taskId ? { taskId: purge.data.taskId } : {}),
     });
-    if (tasks.success === true) {
-      assert(
-        Array.isArray(tasks.data?.tasks) && tasks.data.tasks.length > 0,
-        `能查到刷新任务记录（${tasks.data?.tasks?.length ?? 0} 条）`,
-      );
-    } else if (/Third Service Error/i.test(String(tasks.message ?? ""))) {
-      // 后端依赖故障：裸 API（callCloudApi → DescribeHTTPServiceCachePurgeTask）同样报这条，
-      // 与本仓库的参数映射无关。记一条跳过，不判失败。
-      skipped.push(
-        `cachePurgeTask 查询：后端返回 Third Service Error（裸 API 同样报错，属平台侧问题），未验证`,
-      );
-      console.warn(`  ⚠ 跳过 cachePurgeTask 查询：平台侧 Third Service Error`);
-    } else {
-      assert(false, `cachePurgeTask 查询失败：${String(tasks.message).split("\n")[0]}`);
-    }
+    assert(
+      tasks.success === false && /CDN/i.test(String(tasks.message ?? "")),
+      `DIRECT 域拒绝缓存任务查询：${String(tasks.message).split("\n")[0].slice(0, 80)}`,
+    );
   } catch (error) {
     failures.push(`异常中断：${error instanceof Error ? error.message : String(error)}`);
     console.error(error);

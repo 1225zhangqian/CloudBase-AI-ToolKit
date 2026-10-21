@@ -3134,7 +3134,7 @@
               "CDN",
               "EO"
             ],
-            "description": "缓存层（仅 cachePurgeTask）：CDN 或 EO。省略时按域名 AccessType 自动判定（EO→EO，其余→CDN）。"
+            "description": "缓存层（仅 cachePurgeTask）：CDN 或 EO。省略时按域名接入方式自动匹配（EO→EO、CDN→CDN）；DIRECT / CUSTOM / NONE 的域没有 CloudBase 托管的缓存，会直接拒绝并说明原因。"
           },
           "taskId": {
             "type": "string",
@@ -3556,7 +3556,7 @@
               "CDN",
               "EO"
             ],
-            "description": "缓存层（仅 purgeCache）：CDN 或 EO。省略时按域名 AccessType 自动判定（EO→EO，其余→CDN）。"
+            "description": "缓存层（仅 purgeCache）：CDN 或 EO。省略时按域名接入方式自动匹配（EO→EO、CDN→CDN）；DIRECT / CUSTOM / NONE 的域没有 CloudBase 托管的缓存，会直接拒绝并说明原因。"
           },
           "purgeType": {
             "type": "string",

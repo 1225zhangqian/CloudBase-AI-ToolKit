@@ -2927,7 +2927,7 @@ CloudBase HTTP 网关统一只读入口（Domain/Route）。查询域名下路�
     {
       name: "cacheType",
       type: "string",
-      description: `缓存层（仅 cachePurgeTask）：CDN 或 EO。省略时按域名 AccessType 自动判定（EO→EO，其余→CDN）。 可填写的值: "CDN", "EO"`,
+      description: `缓存层（仅 cachePurgeTask）：CDN 或 EO。省略时按域名接入方式自动匹配（EO→EO、CDN→CDN）；DIRECT / CUSTOM / NONE 的域没有 CloudBase 托管的缓存，会直接拒绝并说明原因。 可填写的值: "CDN", "EO"`,
     },
     {
       name: "taskId",
@@ -3291,7 +3291,7 @@ CloudBase HTTP 网关统一写入口（Domain/Route）。createRoute/updateRoute
     {
       name: "cacheType",
       type: "string",
-      description: `缓存层（仅 purgeCache）：CDN 或 EO。省略时按域名 AccessType 自动判定（EO→EO，其余→CDN）。 可填写的值: "CDN", "EO"`,
+      description: `缓存层（仅 purgeCache）：CDN 或 EO。省略时按域名接入方式自动匹配（EO→EO、CDN→CDN）；DIRECT / CUSTOM / NONE 的域没有 CloudBase 托管的缓存，会直接拒绝并说明原因。 可填写的值: "CDN", "EO"`,
     },
     {
       name: "purgeType",
