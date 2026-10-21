@@ -1183,14 +1183,12 @@ export function registerFunctionTools(server: ExtendedMcpServer) {
   const assertLogServiceEnabled = async (
     logService: { checkLogServiceEnabled: () => Promise<boolean> },
   ): Promise<void> => {
-    let enabled = true;
     try {
-      enabled = await logService.checkLogServiceEnabled();
+      if (await logService.checkLogServiceEnabled()) {
+        return;
+      }
     } catch {
       // 探活失败不制造新的错误源：保持「该时间段没有日志」的原始结论。
-      return;
-    }
-    if (enabled) {
       return;
     }
     throwToolPayloadError({
