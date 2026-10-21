@@ -174,7 +174,7 @@ Login credentials are stored in site-specific slots (`credential.domestic` / `cr
 
 For the international site, use `https://tcb-api.tencentcloud.com/mcp/v1`. **The site is determined by the domain** — there is no `site` parameter.
 
-Clients without OAuth support will get `403 Forbidden: Missing credentials` from the config above; use [static credentials](#remote-auth) instead.
+Clients without OAuth support will get `401 Unauthorized: Missing credentials` from the config above (the `WWW-Authenticate` header points at this endpoint's OAuth metadata); use [static credentials](#remote-auth) instead.
 
 ### What It Means and When to Use It
 
@@ -204,9 +204,12 @@ Because the MCP server does not run on the developer's machine, **tools involvin
 
 Some tools remain registered but have **action-level restrictions**: actions that depend on the local filesystem return an explicit error when called.
 
-- `manageFunctions`: actions that upload local source code
+- `manageFunctions`: actions that upload local source code; use `queryFunctions` `getFunctionUploadUrl` for a presigned URL, upload the zip, then deploy through the `code` parameter (two-phase)
 - `manageApps`: `deployApp` cannot use `filePath` / `localPath`; call `getUploadUrl` for a presigned URL, upload the archive, then call the action with `cosTimestamp`
+- `manageHosting`: `upload` / `downloadFile` / `downloadDirectory` depend on local paths and fail on call. Deploy static sites through the `manageApps` two-step upload instead; uploading or downloading already-hosted files has no remote substitute and needs local mode
 - `manageStorage`: actions that read from or write to local files
+
+**Remote mode can still deploy.** It always deploys through a **two-step upload plus a cloud pipeline**: get a presigned URL, upload the artifact (code zip or build output), then trigger the deploy, and the build runs in a cloud container. What local mode adds is building on the developer's machine and running a dry-run against the local `cloudbaserc` context before applying.
 
 There is also a **site-level capability difference**: the **International site does not currently provide NoSQL (document database) tools**. See [Site and Region](#site-region).
 
@@ -233,7 +236,7 @@ OAuth-capable clients such as Cursor, VS Code, and WorkBuddy can use this method
 
 > For the International site, change `url` to `https://tcb-api.tencentcloud.com/mcp/v1`.
 >
-> ⚠️ In clients without OAuth support, this endpoint-only configuration returns `403 Forbidden: Missing credentials`. Use [Method 2: Static Credentials](#remote-auth) instead.
+> ⚠️ In clients without OAuth support, this endpoint-only configuration returns `401 Unauthorized: Missing credentials`. Use [Method 2: Static Credentials](#remote-auth) instead.
 
 ### Method 2: Static Credentials {#remote-auth}
 
