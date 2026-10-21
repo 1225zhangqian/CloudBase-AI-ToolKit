@@ -174,7 +174,7 @@ tcb config set isIntl true
 
 国际站把地址换成 `https://tcb-api.tencentcloud.com/mcp/v1`。**站点由域名决定**，没有 `site` 参数。
 
-不支持 OAuth 的客户端用上面这种写法会返回 `403 Forbidden: Missing credentials`，改用[静态凭证](#remote-auth)。
+不支持 OAuth 的客户端用上面这种写法会返回 `401 Unauthorized: Missing credentials`（响应头 `WWW-Authenticate` 指向本端点的 OAuth 元数据），改用[静态凭证](#remote-auth)。
 
 ### 含义与适用场景
 
@@ -204,9 +204,12 @@ MCP 服务不在开发者本机，因此**涉及本机文件系统与本地进�
 
 另有一组**动作级限制**——工具本身仍在，但依赖本地文件系统的动作会在调用时返回明确错误：
 
-- `manageFunctions`：涉及本地代码上传的动作
+- `manageFunctions`：涉及本地代码上传的动作；改用 `queryFunctions` 的 `getFunctionUploadUrl` 取预签名地址，上传 zip 后走 `code` 入参部署（两段式）
 - `manageApps`：`deployApp` 传入 `filePath` / `localPath` 时不可用，改用 `getUploadUrl` 取预签名 URL、上传后带 `cosTimestamp` 调用
+- `manageHosting`：`upload` / `downloadFile` / `downloadDirectory` 依赖本地路径，调用时直接报错。部署静态站点改用 `manageApps` 的两步式上传；单纯上传或下载已有托管文件在远端没有替代路径，需改本地模式
 - `manageStorage` 中读写本地文件的动作
+
+**远端不是不能部署**，而是部署统一走「两步式上传 + 云端流水线」：先取预签名地址把产物（代码 zip / 构建产物）传上去，再触发部署，构建在云端容器里执行。本地模式多的那一层是「在开发者本机构建，并用本地 `cloudbaserc` 上下文做 apply 前的 dry-run」。
 
 此外还有一项**站点级能力差异**：**国际站暂未提供 NoSQL（文档数据库）相关工具**，见 [站点与地域](#site-region)。
 
@@ -233,7 +236,7 @@ Cursor、VS Code、WorkBuddy 等支持 OAuth 的客户端用这种方式即可�
 
 > 国际站把 `url` 换成 `https://tcb-api.tencentcloud.com/mcp/v1` 即可。
 >
-> ⚠️ 不支持 OAuth 的客户端用这种「只填地址」的写法会返回 `403 Forbidden: Missing credentials`，请改用[配置方式二：静态凭证](#remote-auth)。
+> ⚠️ 不支持 OAuth 的客户端用这种「只填地址」的写法会返回 `401 Unauthorized: Missing credentials`，请改用[配置方式二：静态凭证](#remote-auth)。
 
 ### 配置方式二：静态凭证 {#remote-auth}
 
