@@ -7,7 +7,7 @@
         "cloudbase-local": {
             "command": "npx",
             "args": [
-                "npm-global-exec@latest",
+                "-y",
                 "@cloudbase/cloudbase-mcp@latest"
             ],
             "env": {

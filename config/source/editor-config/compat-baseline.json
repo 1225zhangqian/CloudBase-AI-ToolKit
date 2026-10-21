@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "generatedAt": "2026-10-21T07:43:55.522Z",
+  "generatedAt": "2026-10-21T07:47:41.578Z",
   "groups": {
     "machine": {
       "description": "Machine-consumable configuration files. Missing, extra, or content drift blocks CI.",
@@ -25,19 +25,19 @@
       "files": {
         ".claude/settings.local.json": "deab0c27b9361033dad3512ffa7afda962146361715e0760257acb84052e95f9",
         ".codex/config.toml": "e9e0b0769a73f789b2fb68a027b68a62ba286a369409fd2aaa6bb67bc15fd192",
-        ".comate/mcp.json": "f9e4752fe93492518b6540da2dceffcfe398cef181dcf754be1982cc9495af75",
-        ".cursor/mcp.json": "ccc61630e79830fa7265be9a9b8128426b3e6e5f53b8b22a37929dc77df0ce67",
-        ".gemini/settings.json": "49f702246b005cca5a4205c0b9374602346d37935944b6e3ac8921613e5c1a23",
-        ".iflow/settings.json": "433625cfcfd0cf3ca6d419af242b30a3f6ce3016cfc5301a0793b6c59b01037c",
-        ".kiro/settings/mcp.json": "42736971aecec6c507c1015ec48f42112c0a4686ffc8aea5b0d89880783ad200",
-        ".mcp.json": "d01e337761f98484e1a6979a2ee8940009da0aecfcaa73651e8ec650d1f2bce6",
-        ".opencode.json": "55de6dc3141ffccd1be7aff391211cd2e869dfd831cf46dc7d0e610b3568dbb7",
-        ".qwen/settings.json": "d490259a682f77fecd05b2bf4ea761f5f50709a220a74d0d2a5d3f2355df5309",
-        ".roo/mcp.json": "8de1df0d6c634dbed8fdab03e2017f5be3afb8c6a45677df0ca95b11b7325d2c",
-        ".vscode/mcp.json": "f816449b3fbf9d4a97a8b6fbc0c94e380b680bfc5ed5ac7fe088a51f1fd302cb",
-        ".vscode/settings.json": "acc2a030db418f7eaa4dd7a74737c094f66bde05952297520fe255753aae69e4",
+        ".comate/mcp.json": "bc25caa333934457c05269511db8262b8316aa43e853d985b70b0a6810e50d71",
+        ".cursor/mcp.json": "6beb3f36ce2ff1b447ecc60f2a624851e03d9356229a7ff8076a6fd2fb59ee2f",
+        ".gemini/settings.json": "e5677928b6a023b0c61f8d437688dbde4efcb429d089a772ae110ad43f202b8f",
+        ".iflow/settings.json": "357e9668dfe26aceb317fe5cfc69b0cabdafcaa0d4e0a73bf779d549a2991d74",
+        ".kiro/settings/mcp.json": "75e45eef8b29732ae5c29b4f7f395d833f1b648fafebf6795f8545dafd9d1132",
+        ".mcp.json": "ad6bc7a7a03df51013f86489c94a73739958e56c705b710b1e319d25faa4ee4e",
+        ".opencode.json": "20d840201bcd5d7e60b5bbeb21c00135c584968401611e626e479a13f0de2a64",
+        ".qwen/settings.json": "66091aaed78f5be1cba1428cb3829614ce5782815ce2a9ef9d0e2d8fd6cfe6a3",
+        ".roo/mcp.json": "e84b7ee327f930a5de08f9cdcf71b1a2edfeb04c396658c4223d4b6ca4e86727",
+        ".vscode/mcp.json": "85167953e46bd9894d42eb0d63a56624f0f6c0af5260f64c172dbfa0db8b0370",
+        ".vscode/settings.json": "b7914e2ea4f8cd7dae488194992a887d3876e9e252d247579a45660ba8ed4a26",
         "codebuddy-plugin/.codebuddy-plugin/plugin.json": "af2e61e3f6f993da22e949841e989efe52b947b7970554c72aa46d3bf969b7aa",
-        "mcp.json": "1e5be0761daee9f8e102a1c7ba0dfd7507a0505409bae85f75cee7c664aa21f8"
+        "mcp.json": "40281e167655e375d9b5143084584881ed0f7b9f66d583b6a41f9df2bb34e11e"
       }
     },
     "textSurface": {
