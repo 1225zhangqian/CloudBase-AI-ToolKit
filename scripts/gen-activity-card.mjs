@@ -38,6 +38,23 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const XML_TEXT_ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;' };
+
+/** Escape a value for interpolation into an SVG text node. */
+const escText = (value) => String(value).replace(/[&<>]/g, (c) => XML_TEXT_ESCAPES[c]);
+
+/** Escape a value for interpolation into a double-quoted SVG attribute. */
+const escAttr = (value) => escText(value).replace(/"/g, '&quot;');
+
+/**
+ * Release tags are written by whoever publishes a release, and git allows `<`, `>`, `&`
+ * and quotes in a ref name. Keep the badge to something that cannot change the SVG
+ * structure, and fall back to `n/a` for anything else.
+ */
+const SAFE_TAG = /^[A-Za-z0-9._+-]{1,64}$/;
+
+const safeTag = (tag) => (SAFE_TAG.test(tag) ? tag : 'n/a');
+
 async function gh(pathname) {
   const headers = {
     Accept: 'application/vnd.github+json',
@@ -186,7 +203,7 @@ async function fetchData() {
     months: months.slice(-13),
     downloads30d: npmDays.slice(-30).reduce((sum, d) => sum + d.downloads, 0),
     latestRelease: latest
-      ? { tag: latest.tag_name, daysAgo: latestDaysAgo }
+      ? { tag: safeTag(latest.tag_name ?? ''), daysAgo: latestDaysAgo }
       : { tag: 'n/a', daysAgo: null },
     releasesTotal: lastPage(releasesRes, releases.length),
     releasesLast30d: releasesWithin(30),
@@ -287,7 +304,7 @@ function buildSvg(data, dark) {
     const i = Math.round((k * (n - 1)) / 3);
     const x = (PAD + i * step2 + step2 / 2).toFixed(0);
     return `<text x="${x}" y="${(base2 + 20).toFixed(0)}" fill="${c.sub}" font-size="10.5"`
-      + ` font-family="${FONT}" text-anchor="middle">${monthLabel(keys[i])}</text>`;
+      + ` font-family="${FONT}" text-anchor="middle">${escText(monthLabel(keys[i]))}</text>`;
   }).join('');
 
   // -- KPI row --
@@ -299,10 +316,10 @@ function buildSvg(data, dark) {
   ].map(([label, val, note], i) => {
     const x = (PAD + i * KPI_W).toFixed(0);
     return `<text x="${x}" y="108" fill="${c.fg}" font-size="28" font-weight="700"`
-      + ` font-family="${FONT}" letter-spacing="-.6">${val}</text>`
+      + ` font-family="${FONT}" letter-spacing="-.6">${escText(val)}</text>`
       + `<text x="${x}" y="130" fill="${c.muted}" font-size="12.5" font-weight="600"`
-      + ` font-family="${FONT}">${label}</text>`
-      + `<text x="${x}" y="147" fill="${c.sub}" font-size="11" font-family="${FONT}">${note}</text>`;
+      + ` font-family="${FONT}">${escText(label)}</text>`
+      + `<text x="${x}" y="147" fill="${c.sub}" font-size="11" font-family="${FONT}">${escText(note)}</text>`;
   }).join('');
 
   // -- health badges --
@@ -318,12 +335,12 @@ function buildSvg(data, dark) {
     return `<rect x="${x.toFixed(1)}" y="${BADGE_Y}" width="${BADGE_W.toFixed(1)}"`
       + ` height="${BADGE_H}" rx="9" fill="${c.chip}" stroke="${c.chipborder}" stroke-width="1"/>`
       + `<text x="${(x + 13).toFixed(1)}" y="${BADGE_Y + 15}" fill="${c.sub}" font-size="10.5"`
-      + ` font-family="${FONT}">${label}</text>`
+      + ` font-family="${FONT}">${escText(label)}</text>`
       + `<text x="${(x + 13).toFixed(1)}" y="${BADGE_Y + 30}" fill="${c.fg}" font-size="12.5"`
-      + ` font-weight="600" font-family="${FONT}">${val}</text>`;
+      + ` font-weight="600" font-family="${FONT}">${escText(val)}</text>`;
   }).join('');
 
-  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Repository activity and health for ${data.repo}">
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Repository activity and health for ${escAttr(data.repo)}">
   <defs>
     <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="${c.bg}"/><stop offset="1" stop-color="${c.bg2}"/>
@@ -347,11 +364,11 @@ function buildSvg(data, dark) {
   <rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="14" fill="url(#card)" stroke="${c.border}"/>
 
   <text x="${PAD}" y="48" fill="${c.fg}" font-size="17" font-weight="700" font-family="${FONT}">Repository Activity</text>
-  <text x="${PAD}" y="68" fill="${c.muted}" font-size="12" font-family="${FONT}">${data.repo}</text>
+  <text x="${PAD}" y="68" fill="${c.muted}" font-size="12" font-family="${FONT}">${escText(data.repo)}</text>
 
   <rect x="${W - PAD - 142}" y="32" width="142" height="24" rx="12" fill="${c.blue}" fill-opacity=".10" stroke="${c.blue}" stroke-opacity=".30"/>
   <circle cx="${W - PAD - 126}" cy="44" r="3.5" fill="${c.cyan}"/>
-  <text x="${W - PAD - 116}" y="48" fill="${c.accent}" font-size="11" font-weight="600" font-family="${FONT}">updated ${data.generatedAt}</text>
+  <text x="${W - PAD - 116}" y="48" fill="${c.accent}" font-size="11" font-weight="600" font-family="${FONT}">updated ${escText(data.generatedAt)}</text>
 
   ${kpis}
   <line x1="${PAD}" y1="${SEP1_Y}" x2="${W - PAD}" y2="${SEP1_Y}" stroke="${c.border}" stroke-width="1"/>
