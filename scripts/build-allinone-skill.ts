@@ -205,11 +205,21 @@ function injectRoutingTable(skillContent: string): string {
 }
 
 // Recursively copy directory with optional SKILL.md rename
+//
+// 跳过子 skill 里的 LICENSE.md：仓库内 35 份 LICENSE.md 内容完全一致，也与仓库根
+// LICENSE 相同，bundle 根目录已写了一份。重复带上会让 all-in-one 达到 211 个文件，
+// 而 SkillHub 单包上限是 200 文件，超限时发布接口直接返回 400。
+// 跳过无损：许可证仍由 bundle 根目录那份承载。
 function copyDir(src: string, dest: string, renameSkillMd: boolean): void {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     const srcPath = path.join(src, entry.name);
     let destName = entry.name;
+
+    // Sub-skill 级许可证重复，bundle 根目录已有一份
+    if (entry.isFile() && entry.name === "LICENSE.md") {
+      continue;
+    }
 
     // Rename SKILL.md to README.md if requested
     if (renameSkillMd && entry.name === "SKILL.md") {
