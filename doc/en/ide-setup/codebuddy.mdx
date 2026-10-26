@@ -32,6 +32,21 @@ If you don't have it installed, download it from the [Node.js website](https://n
 
 </details>
 
+<details>
+<summary><strong>Git installed (required for the plugin marketplace)</strong></summary>
+
+Adding a marketplace by GitHub URL makes CodeBuddy run `git clone` to fetch the repository, so a machine without `git` fails outright (on Windows the usual error is `program not found`):
+
+```bash
+git --version
+```
+
+On Windows, install [Git for Windows](https://git-scm.com/download/win). After installing, restart CodeBuddy so the new process picks up the updated PATH.
+
+The built-in integration and manual MCP configuration do not require Git.
+
+</details>
+
 ---
 
 ## Option 1: Install via Plugin Marketplace (Recommended)
@@ -128,7 +143,7 @@ Or manually write the MCP configuration:
 A: No. Start a conversation and follow the prompts to complete Device Login. API Key login is mainly for users who don't have a Tencent Cloud account and only have an environment API Key.
 
 **Q: Plugin marketplace addition failed?**
-A: Confirm the marketplace URL is `https://github.com/TencentCloudBase/CloudBase-AI-Toolkit`, check that your network can access GitHub, and retry if needed — or use the built-in integration / MCP marketplace instead.
+A: Confirm the marketplace URL is `https://github.com/TencentCloudBase/CloudBase-AI-Toolkit`, check that your network can access GitHub, and retry if needed — or use the built-in integration / MCP marketplace instead. On Windows, `program not found` means no usable Git is installed: install [Git for Windows](https://git-scm.com/download/win) and restart CodeBuddy.
 
 **Q: MCP connection failed?**
 A: Check the MCP configuration format, restart CodeBuddy, confirm your network is working, and make sure you have completed Device Login or API Key login.

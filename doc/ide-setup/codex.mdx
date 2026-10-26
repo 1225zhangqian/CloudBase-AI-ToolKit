@@ -33,6 +33,21 @@ node --version
 
 </details>
 
+<details>
+<summary><strong>已安装 Git（插件市场方式需要）</strong></summary>
+
+Codex 添加插件市场时会执行 `git clone` 拉取市场仓库，机器上找不到 `git` 会直接报 `program not found`：
+
+```bash
+git --version
+```
+
+Windows 用户请安装 [Git for Windows](https://git-scm.com/download/win)。安装后请**完全退出并重新打开 Codex**，新进程才会读到更新后的 PATH。
+
+只用 MCP 配置方式（方式二）不需要 Git。
+
+</details>
+
 ## 方式一：通过插件市场安装（推荐）
 
 插件市场方式会同时安装 MCP 工具和 AI Skills，一次安装即可获得完整能力。
@@ -46,6 +61,9 @@ node --version
 <IDESelector defaultIDE="openai-codex-cli" />
 
 ## 常见问题
+
+**Q: 添加插件市场时报 `failed to run git clone ... program not found`？**
+A: Codex 用 `git clone` 拉取市场仓库，这台机器上没有可用的 `git`。安装 Git for Windows 后完全退出并重新打开 Codex；再确认「稀疏路径」留空。
 
 **Q: MCP 连接失败？**
 A: 检查命令是否正确执行，重启 Codex，确认网络连接正常。

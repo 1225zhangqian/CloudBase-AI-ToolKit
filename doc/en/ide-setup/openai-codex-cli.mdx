@@ -33,6 +33,21 @@ If you don’t have it installed, download it from the [Node.js website](https:/
 
 </details>
 
+<details>
+<summary><strong>Git installed (required for the plugin marketplace)</strong></summary>
+
+Codex runs `git clone` to fetch the marketplace repository, so a machine without `git` fails with `program not found`:
+
+```bash
+git --version
+```
+
+On Windows, install [Git for Windows](https://git-scm.com/download/win). After installing, **quit Codex completely and reopen it** so the new process picks up the updated PATH.
+
+The MCP configuration approach (Method 2) does not require Git.
+
+</details>
+
 ---
 
 ## Method 1: Install via Plugin Marketplace (Recommended)
@@ -48,6 +63,9 @@ If you only need MCP tool connectivity, you can also configure it manually:
 <IDESelector defaultIDE="openai-codex-cli" />
 
 ## FAQ
+
+**Q: Adding the plugin marketplace fails with `failed to run git clone ... program not found`?**
+A: Codex uses `git clone` to fetch the marketplace repository, and no usable `git` was found on this machine. Install Git for Windows, then quit and reopen Codex.
 
 **Q: MCP connection failed?**
 A: Confirm the command runs correctly, restart OpenAI Codex CLI, and check your network.
