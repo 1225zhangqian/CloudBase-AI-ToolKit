@@ -34,6 +34,21 @@ If you don’t have it installed, download it from the [Node.js website](https:/
 
 </details>
 
+<details>
+<summary><strong>Git installed (required for the plugin marketplace)</strong></summary>
+
+Adding the marketplace makes Claude Code run `git clone` to fetch the marketplace repository, so a machine without `git` fails outright (on Windows the usual error is `program not found`):
+
+```bash
+git --version
+```
+
+On Windows, install [Git for Windows](https://git-scm.com/download/win). After installing, reopen your terminal or Claude Code so the new process picks up the updated PATH.
+
+The MCP configuration approach (Method 2) does not require Git.
+
+</details>
+
 ---
 
 ## Method 1: Install via Plugin Marketplace (Recommended)
@@ -59,6 +74,9 @@ If you only need MCP tool connectivity, you can also configure it manually:
 <IDESelector defaultIDE="claude-code" />
 
 ## FAQ
+
+**Q: Adding the plugin marketplace fails with `program not found`?**
+A: No usable `git` was found on the machine. Install [Git for Windows](https://git-scm.com/download/win), reopen your terminal, then run `claude plugin marketplace add` again.
 
 **Q: MCP connection failed?**
 A: Check your `.mcp.json` format, ensure `npx` is available, and restart Claude Code.
