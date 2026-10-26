@@ -34,6 +34,21 @@ node --version
 
 </details>
 
+<details>
+<summary><strong>已安装 Git（插件市场方式需要）</strong></summary>
+
+添加插件市场时，Claude Code 会用 `git clone` 拉取市场仓库；机器上找不到 `git` 会直接失败（Windows 常见报错 `program not found`）：
+
+```bash
+git --version
+```
+
+Windows 用户请安装 [Git for Windows](https://git-scm.com/download/win)。安装后请重新打开终端或 Claude Code，新进程才会读到更新后的 PATH。
+
+只做 MCP 配置（方式二）不需要 Git。
+
+</details>
+
 ---
 
 ## 方式一：通过插件市场安装（推荐）
@@ -59,6 +74,9 @@ claude plugin install cloudbase@tencent-cloudbase
 <IDESelector defaultIDE="claude-code" />
 
 ## 常见问题
+
+**Q: 添加插件市场时报 `program not found`？**
+A: 机器上没有可用的 `git`。安装 [Git for Windows](https://git-scm.com/download/win) 后重新打开终端，再执行 `claude plugin marketplace add`。
 
 **Q: MCP 连接失败？**
 A: 检查 `.mcp.json` 文件格式是否正确，确认 npx 命令可用，重启 Claude Code 应用。

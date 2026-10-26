@@ -32,6 +32,21 @@ node --version
 
 </details>
 
+<details>
+<summary><strong>已安装 Git（插件市场方式需要）</strong></summary>
+
+按 GitHub 地址添加市场源时，CodeBuddy 会用 `git clone` 拉取仓库；机器上找不到 `git` 会直接失败（Windows 常见报错 `program not found`）：
+
+```bash
+git --version
+```
+
+Windows 用户请安装 [Git for Windows](https://git-scm.com/download/win)。安装后请重启 CodeBuddy，新进程才会读到更新后的 PATH。
+
+用内置集成或手工配置 MCP 不需要 Git。
+
+</details>
+
 ---
 
 ## 方式一：通过插件市场安装（推荐）
@@ -128,7 +143,7 @@ tcb login --cloudbase-api-key <cloudbaseApiKey> -e <cloudbaseEnvId>
 A: 不需要。直接对话，按提示完成 Device 登录即可。API Key 登录主要用于没有腾讯云账号、仅持有环境 API Key 的场景。
 
 **Q: 插件市场添加失败？**  
-A: 确认市场源为 `https://github.com/TencentCloudBase/CloudBase-AI-Toolkit`，检查网络能否访问 GitHub；必要时重试或改用内置集成 / MCP 市场。
+A: 确认市场源为 `https://github.com/TencentCloudBase/CloudBase-AI-Toolkit`，检查网络能否访问 GitHub；必要时重试或改用内置集成 / MCP 市场。Windows 上如果报 `program not found`，说明本机没有可用的 Git，安装 [Git for Windows](https://git-scm.com/download/win) 后重启 CodeBuddy。
 
 **Q: MCP 连接失败？**  
 A: 检查配置文件格式是否正确，重启 CodeBuddy，确认网络连接正常，并确认已完成 Device 登录或 API Key 登录。
