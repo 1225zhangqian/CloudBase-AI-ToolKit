@@ -76,6 +76,31 @@ npx plugins add https://cnb.cool/tencent/cloud/cloudbase/cloudbase-sites-plugin.
 
 </details>
 
+<details>
+<summary><strong>没有 git（或装不上 git）</strong></summary>
+
+`plugins` CLI 对 `owner/repo` 和 `https://` 地址一律执行 `git clone`，CNB 地址也是 git。机器上没有 `git` 时，改用 HTTPS 下载 tarball，解包后按**本地目录**安装：
+
+```bash
+# 插件：下载 → 解包 → 从本地目录安装
+curl -L https://codeload.github.com/TencentCloudBase/cloudbase-plugin/tar.gz/refs/heads/main -o cloudbase-plugin.tgz
+tar xzf cloudbase-plugin.tgz
+npx plugins add ./cloudbase-plugin-main -y --scope user --target <target>
+
+# Skills：归档地址直接下载解包，同样不需要 git
+npx skills add https://codeload.github.com/TencentCloudBase/cloudbase-skills/tar.gz/refs/heads/main -y
+```
+
+三点差异，装之前先知道：
+
+- `--target` 必须显式指定 —— 检测不到客户端时会报 `No supported targets detected`
+- 市场名注册成**目录名** `cloudbase-plugin-main`，不是 `tencent-cloudbase`
+- 背后没有 git 仓库，**自动更新失效**，升级要重新下载再装一次
+
+Windows 10+ 自带 `curl` 和 `tar`。能装 [Git for Windows](https://git-scm.com/download/win) 的话仍建议装，后续升级省事。
+
+</details>
+
 ### 方式 2：按客户端安装
 
 不在上面 targets 列表里的工具，在这里选 —— 有插件市场的优先走插件市场，其余按 MCP 配置连接：

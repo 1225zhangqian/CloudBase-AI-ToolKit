@@ -76,6 +76,31 @@ If the plugin still won't install, fall back to Skills via CNB or the npm MCP �
 
 </details>
 
+<details>
+<summary><strong>No git, or git cannot be installed</strong></summary>
+
+The `plugins` CLI runs `git clone` for `owner/repo` and for `https://` URLs alike — CNB URLs are git too. On a machine without `git`, download the tarball over HTTPS and install from the **local directory** instead:
+
+```bash
+# Plugin: download → extract → install from the local directory
+curl -L https://codeload.github.com/TencentCloudBase/cloudbase-plugin/tar.gz/refs/heads/main -o cloudbase-plugin.tgz
+tar xzf cloudbase-plugin.tgz
+npx plugins add ./cloudbase-plugin-main -y --scope user --target <target>
+
+# Skills: an archive URL is downloaded and unpacked — no git either
+npx skills add https://codeload.github.com/TencentCloudBase/cloudbase-skills/tar.gz/refs/heads/main -y
+```
+
+Three differences to know before you install:
+
+- `--target` is **required** — without a detected client the CLI fails with `No supported targets detected`
+- The marketplace is registered under the **directory name** `cloudbase-plugin-main`, not `tencent-cloudbase`
+- There is no git repo behind it, so **auto-update does not work** — updating means downloading and reinstalling
+
+Windows 10+ ships `curl` and `tar`. If you can install [Git for Windows](https://git-scm.com/download/win), do — future updates are simpler.
+
+</details>
+
 ### Option 2: install per client
 
 For tools not in the targets list above, pick yours here — use the plugin marketplace where one exists, otherwise connect via the MCP config:
