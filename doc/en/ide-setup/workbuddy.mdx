@@ -39,10 +39,16 @@ If not installed, download from the [Node.js website](https://nodejs.org/en/down
 
 ## Using the Built-in Connector (Recommended)
 
-WorkBuddy has a built-in CloudBase MCP connector that can be enabled through the conversation interface:
+WorkBuddy ships the CloudBase MCP connector, so there is nothing to install. Two entry points lead to the same list:
 
-1. In the WorkBuddy conversation interface, click the **Connect App** button at the bottom left of the input box
-2. Find **Tencent CloudBase** in the popup, click to enter the detail page, and click **Connect** to enable
+- **In the chat**: click **Connectors** at the bottom left of the input box, type `cloudbase` in the search box, then turn on the switch next to **Tencent CloudBase**
+- **Connector page**: in the left sidebar open **Experts** → **Connectors**, find **Tencent CloudBase**, click the **+** on its card, then click **Connect** in the dialog
+
+Search by name (`cloudbase`), not by describing the task, or you get a list of unrelated connectors. Connectors that are already connected do not show up in search results; if nothing matches, check the connected list first.
+
+The first enable walks through one authorization. Right now that page only offers a WeChat QR code; scan it, agree, and come back to WorkBuddy with the connector connected.
+
+> ⚠️ If you only hold an environment-level API Key and have no Tencent Cloud account to sign in with, this page cannot be completed, because the connector needs an account that can scan and authorize. Use the CLI instead: `tcb login --flow web` (the CLI opens a browser and its page offers **Use API Key**) or `tcb login --cloudbase-api-key <key> -e <envId>`, then let the agent drive the CLI in the conversation.
 
 ![WorkBuddy built-in CloudBase connector](https://7463-tcb-advanced-a656fc-1257967285.tcb.qcloud.la/assets/workbuddy-connector-full.png)
 
