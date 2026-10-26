@@ -2,7 +2,7 @@
 
 > - 数据源：[API 概览](https://cloud.tencent.com/document/api/876/34809) · [依赖产品接口指引](https://cloud.tencent.com/document/api/876/34808)
 > - 所有接口均为腾讯云 API 3.0 管控面接口，支持各语言官方 SDK 调用；也可通过 CloudBase MCP 的 `callCloudApi` 工具或 [API Explorer](https://console.cloud.tencent.com/api/explorer) 直接调用
-> - 最近同步：2026-10-25
+> - 最近同步：2026-10-26
 
 ## API 概览
 
@@ -187,15 +187,15 @@
 | [DownloadFunction](https://cloud.tencent.com/document/api/876/137949) | 获取云函数地址并下载 | 20 |
 | [UpdateFunctionCode](https://cloud.tencent.com/document/api/876/137952) | 更新云函数代码 | 20 |
 
-### APIs连接器相关接口
+### 集成中心相关接口
 
 | 接口名称 | 接口功能 | 频率限制（次/秒） |
 | --- | --- | --- |
-| [CreateUserKey](https://cloud.tencent.com/document/api/876/139855) | 用户创建集成 | 20 |
-| [DeleteUserKey](https://cloud.tencent.com/document/api/876/139854) | 用户删除集成 | 20 |
-| [GetOneUserKey](https://cloud.tencent.com/document/api/876/139853) | 用户获取指定集成的详情信息 | 20 |
 | [GetUserKeyList](https://cloud.tencent.com/document/api/876/139852) | 用户获取集成列表 | 20 |
+| [GetOneUserKey](https://cloud.tencent.com/document/api/876/139853) | 用户获取指定集成的详情信息 | 20 |
+| [CreateUserKey](https://cloud.tencent.com/document/api/876/139855) | 用户创建集成 | 20 |
 | [UpdateUserKey](https://cloud.tencent.com/document/api/876/139851) | 用户更新集成信息 | 20 |
+| [DeleteUserKey](https://cloud.tencent.com/document/api/876/139854) | 用户删除集成 | 20 |
 
 > 注意：
 > 
