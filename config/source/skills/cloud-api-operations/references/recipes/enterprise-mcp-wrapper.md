@@ -10,6 +10,8 @@
 
 不管什么：环境/凭证还没发 → [Recipe 7](./platform-onboarding.md)；只是给单份配置做限制、不打算维护一个包 → Recipe 9 的配置开关就够，不用写代码。
 
+本篇就是被 `cloud-api-operations` skill 路由到的实操文档：当用户请求包含「企业接入 / 封装 MCP / 企业专属 MCP」时，SKILL.md 的 description 会命中并加载本 skill——提示词里直接点名 skill 名，是最精准的激活方式。
+
 ## 前置权限
 
 - Node.js ≥ 18.15（工厂与 MCP SDK 依赖）
