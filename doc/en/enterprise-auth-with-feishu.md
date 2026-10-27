@@ -1,6 +1,6 @@
 # Enterprise Branded AI Platform Integration Guide — Feishu/WeCom SSO Integration
 
-> Reference code: [`examples/cloudbase-auth-endpoint-with-feishu/`](https://github.com/TencentCloudBase/CloudBase-MCP/tree/main/examples/cloudbase-auth-endpoint-with-feishu) + CloudBase Managed Login Page + Custom OAuth 2.0 Identity Provider
+> CloudBase Managed Login Page + Custom OAuth 2.0 Identity Provider. This repository no longer ships an auth-service sample.
 
 ---
 
@@ -13,7 +13,7 @@ When enterprise AI platforms (such as Coding Agent, MCP toolkits, etc.) need to 
 
 CloudBase provides a **Managed Login Page + Custom OAuth 2.0 IdP** solution. Enterprises only need to configure the IdP in the Console, without having to implement complex logic like Feishu OAuth callbacks, token exchange, or user info retrieval.
 
-See the reference code at [`examples/cloudbase-auth-endpoint-with-feishu/`](https://github.com/TencentCloudBase/CloudBase-MCP/tree/main/examples/cloudbase-auth-endpoint-with-feishu), which works with the CloudBase Managed Login Page to deliver a complete enterprise-branded authorization flow.
+After the IdP is configured in the Console, the enterprise deploys its own auth service. This repository no longer ships a runnable sample.
 
 ---
 
@@ -115,22 +115,13 @@ Taking Feishu as an example, you need to create an enterprise self-built app on 
 
 ## 4. Deploying the Auth Service
 
-### 4.1 Clone the Example Code
+### 4.1 Bring your own auth service
 
-```bash
-# Clone the repository from GitHub
-git clone https://github.com/TencentCloudBase/CloudBase-MCP.git
-cd CloudBase-MCP/examples/cloudbase-auth-endpoint-with-feishu
-npm install
-```
+`examples/cloudbase-auth-endpoint-with-feishu` has been removed. The environment variables and deploy shape below are the contract; the implementation is maintained by the enterprise.
 
 ### 4.2 Configure Environment Variables
 
-```bash
-cp .env.example .env
-```
-
-Edit the `.env` file:
+Set these variables in the service you maintain:
 
 ```env
 # Service port (SCF HTTP function is fixed at 9000)
@@ -148,11 +139,9 @@ TENCENTCLOUD_SECRET_ID=your-secret-id
 TENCENTCLOUD_SECRET_KEY=your-secret-key
 ```
 
-### 4.3 Local Development
+### 4.3 Check locally
 
-```bash
-npm run dev
-```
+Start the process from your own service directory and confirm the device-code endpoint responds before deploying.
 
 ### 4.4 Deploy to CloudBase
 
@@ -169,7 +158,7 @@ It is recommended to configure CloudBase MCP in your AI development tool and the
 
 Enter the following in the AI conversation:
 
-> Please deploy the `examples/cloudbase-auth-endpoint-with-feishu` directory as an SCF HTTP function with function name `auth-service`, runtime Nodejs18.15, timeout 120 seconds, and read environment variables from the `.env` file. After deployment, add a gateway route pointing to this function.
+> Deploy the auth service as an SCF HTTP function named `auth-service`, runtime Nodejs18.15, timeout 120 seconds, and read environment variables from `.env`. After deployment, add a gateway route pointing to this function.
 
 The AI will automatically use MCP tools to complete the following:
 

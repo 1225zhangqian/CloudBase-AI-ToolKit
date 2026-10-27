@@ -115,23 +115,13 @@ flowchart TB
 
 ## 4. 部署授权服务
 
-### 4.1 克隆示例代码
+### 4.1 自备授权服务
 
-```bash
-# 本例基于 cloudbase-cli-auth-endpoint 改造
-# 完整代码参见 examples/cloudbase-auth-endpoint-with-feishu/
-git clone <your-repo>
-cd examples/cloudbase-auth-endpoint-with-feishu
-npm install
-```
+本仓库已移除 `examples/cloudbase-auth-endpoint-with-feishu`。下面的环境变量和部署形态是授权服务的约定，实现由企业自己维护。
 
 ### 4.2 配置环境变量
 
-```bash
-cp .env.example .env
-```
-
-编辑 `.env` 文件：
+在自有服务里设置这些变量：
 
 ```env
 # 服务端口
@@ -148,11 +138,9 @@ TENCENTCLOUD_SECRET_ID=your-secret-id
 TENCENTCLOUD_SECRET_KEY=your-secret-key
 ```
 
-### 4.3 本地开发运行
+### 4.3 本地确认
 
-```bash
-npm run dev
-```
+在自有服务目录里启动进程，确认设备码接口可访问后再部署。
 
 ### 4.4 部署到云开发 CloudRun
 
