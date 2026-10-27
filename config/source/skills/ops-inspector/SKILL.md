@@ -46,7 +46,7 @@ If a referenced sibling skill file is missing from this environment, ask the use
 - Replacing the platform's alert rules (SMS / 告警策略). A patrol catches drift and slow degradation between alerts; alert rules catch hard thresholds in real time. Do not disable alerting because a patrol exists.
 - Writing to the environment on a scheduled run. See *Scheduled Patrol* — every patrol step is read-only.
 - Directly fixing problems — it diagnoses and recommends; actual fixes should use the appropriate implementation skill.
-- Fetching metrics by guessing cloud API Actions. **Never** use `callCloudApi` for monitor curves — always use `queryEnv(action="metrics")`.
+- Fetching metrics by guessing cloud API Actions. For any metric `queryEnv` covers (functions, CloudRun, gateway QPS, MySQL, package usage), always use `queryEnv(action="metrics")` — never `callCloudApi`. The one exception is PostgreSQL: `queryEnv` has no PG metrics, so pull them via `callCloudApi` → `monitor` / `2018-07-24` / `GetMonitorData`, namespace `QCE/POSTGRES`, with the exact Action and dimensions pinned in the `cloud-api-operations` skill — never from memory.
 
 ### Common mistakes / gotchas
 
@@ -213,7 +213,7 @@ When the user specifies a resource type or a specific resource:
 1. **Cloud function errors**: `queryFunctions(action="listFunctionLogs", functionName="<name>")` then `queryLogs(action="searchLogs", queryString="function_name:\"<name>\" AND status_code:>202", ...)`
 2. **CloudRun errors**: `queryCloudRun(action="detail", detailServerName="<name>")` then `queryLogs(action="searchLogs", queryString="ERROR", service="tcbr", ...)`
    - If logs show DB / Redis connection failures (`ECONNREFUSED`, timeout, "could not connect"): check whether `VpcConf` is set and matches the database VPC. See `cloudrun-development/references/vpc-and-database.md`.
-3. **Database issues**: Check `queryPgDatabase(action="context"|"metadata"|"objects")` for CloudBase PG, `queryMysqlDatabase` for MySQL, or `readNoSqlDatabaseStructure` for NoSQL depending on type; for CPU/disk alerts also pull `MysqlCpuUsageRate` / `MysqlStorageUsage` metrics
+3. **Database issues**: Check `queryPgDatabase(action="context"|"metadata"|"objects")` for CloudBase PG, `queryMysqlDatabase` for MySQL, or `readNoSqlDatabaseStructure` for NoSQL depending on type; for CPU/disk alerts pull `MysqlCpuUsageRate` / `MysqlStorageUsage` — MySQL only. `queryEnv` has **no PostgreSQL metrics**. The platform monitoring set the console shows (namespace `QCE/POSTGRES` — dedicated instances: Cpu / Storage / Memory / MemoryRate / StorageRate / Qps / Connections / ReadWriteCalls / SqlRuntime* / SlowQueryCnt / ActiveConns / IdleConns / LongQuery / LongXact / Deadlocks / LongWaiting / Tps; shared clusters: Dbcpuusage / Dbmemorybytes / Dbsizebytes / Activeconnections / Idleconnections / Totalconnections) is still reachable from MCP: `callCloudApi` → `monitor` / `2018-07-24` / `GetMonitorData` with namespace `QCE/POSTGRES` (dedicated dimensions use `resourceId`, shared uses `DBName` + `AppId` — see the `cloud-api-operations` skill). For a quick check, `queryPgDatabase(action="sql")` on `pg_stat_activity` / `pg_database_size()` covers connections and size without an extra credential scope.
 4. **General error search**: `queryLogs(action="searchLogs", queryString="<error-keyword>", ...)`
 5. **Alarm / QPS questions**: follow `references/alarm-interpretation.md`
 6. **429 / AI model 429 / function timeout / function 404 / ACCESS_TOKEN_INVALID / 调用量为 0**: follow `references/fault-playbooks.md`
