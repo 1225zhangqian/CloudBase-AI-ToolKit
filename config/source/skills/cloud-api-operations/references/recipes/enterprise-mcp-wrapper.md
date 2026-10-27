@@ -101,6 +101,8 @@ if (scope && scope !== 'single_env') {
 
 `single_env` 且来源为 env 才放行；看到 `account` 说明回落到了全局登录态，直接拒绝服务。三个变量（envId、Key）由平台按人下发到员工配置的 `env` 块，员工不编辑。
 
+**交付给 AI 的凭证形态只有一种：环境 ID + API Key。** API Key 是长期根凭证，MCP 内部用它换 30 分钟有效的 STS 临时凭证出网，过期自动重换。STS 三件套（`TmpSecretId` / `TmpSecretKey` / `Token`）是换证**产物**，不是交付物——只把 STS 交给 AI 或写进配置，过期后整条链路挂掉且无法自愈；拿到 Key + envId 就永远能重新换证。
+
 ### 3. 发布与员工配置
 
 配上 `package.json`（`name` 写企业包名）后 `npm publish`；不发公共源就发企业内部源（员工 `.npmrc` 指过去）或直接从内部 git 安装。员工侧配置只剩：
@@ -183,6 +185,8 @@ await queryApps({ action: 'getBuildLog',  serviceName, buildId });
 - **enum 剪空要下架整个工具**：留下一个「没有任何合法参数」的工具，模型会反复空参重试
 - **两个环境变量必须同时给**：只给 Key 不给 `CLOUDBASE_ENV_ID`，Key 根本不参与解析，静默回落全局登录态
 - **错误返回带原因**：拦截时写明「平台策略禁止，重试无效」，不带说明的报错会诱使模型换个姿势再试
+- **只交 STS 不交 API Key**：临时凭证 30 分钟过期，过期后没有根凭证可重换，整条链路瘫痪——交付物永远是 `envId + API Key` 对
+- **接口名与参数凭记忆猜**：Action 名、参数结构、默认值一律以文档索引（api-reference）与官方文档为准；记忆推断的内容必须标注并先验证再用
 
 ## 验证步骤
 
