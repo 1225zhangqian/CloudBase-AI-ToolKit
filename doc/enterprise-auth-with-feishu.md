@@ -1,6 +1,6 @@
 # 企业自有品牌 AI 平台对接指南 — 飞书/企业微信 SSO 集成方案
 
-> 参考代码：[`examples/cloudbase-auth-endpoint-with-feishu/`](https://github.com/TencentCloudBase/CloudBase-MCP/tree/main/examples/cloudbase-auth-endpoint-with-feishu) + CloudBase 托管登录页 + 自定义 OAuth 2.0 身份源
+> CloudBase 托管登录页 + 自定义 OAuth 2.0 身份源。本仓库不再附带授权服务示例。
 
 ---
 
@@ -13,7 +13,7 @@
 
 CloudBase 提供了 **托管登录页 + 自定义 OAuth 2.0 身份源** 方案，企业只需在控制台配置身份源，无需自行实现飞书 OAuth 回调、token 交换、用户信息拉取等复杂逻辑。
 
-参考代码见 [`examples/cloudbase-auth-endpoint-with-feishu/`](https://github.com/TencentCloudBase/CloudBase-MCP/tree/main/examples/cloudbase-auth-endpoint-with-feishu)，配合 CloudBase 托管登录页，实现完整的企业自有品牌授权流程。
+控制台配好身份源后，授权服务由企业自己部署。本仓库不再附带可运行示例。
 
 ---
 
@@ -115,22 +115,13 @@ flowchart TB
 
 ## 4. 部署授权服务
 
-### 4.1 克隆示例代码
+### 4.1 自备授权服务
 
-```bash
-# 从 GitHub 克隆仓库
-git clone https://github.com/TencentCloudBase/CloudBase-MCP.git
-cd CloudBase-MCP/examples/cloudbase-auth-endpoint-with-feishu
-npm install
-```
+本仓库已移除 `examples/cloudbase-auth-endpoint-with-feishu`。下面的环境变量和部署形态是授权服务的约定，实现由企业自己维护。
 
 ### 4.2 配置环境变量
 
-```bash
-cp .env.example .env
-```
-
-编辑 `.env` 文件：
+在自有服务里设置这些变量：
 
 ```env
 # 服务端口（SCF HTTP 函数固定为 9000）
@@ -148,11 +139,9 @@ TENCENTCLOUD_SECRET_ID=your-secret-id
 TENCENTCLOUD_SECRET_KEY=your-secret-key
 ```
 
-### 4.3 本地开发运行
+### 4.3 本地确认
 
-```bash
-npm run dev
-```
+在自有服务目录里启动进程，确认设备码接口可访问后再部署。
 
 ### 4.4 部署到云开发
 
@@ -169,7 +158,7 @@ npm run dev
 
 在 AI 对话中输入：
 
-> 帮我将 `examples/cloudbase-auth-endpoint-with-feishu` 目录部署为 SCF HTTP 函数，函数名 `auth-service`，runtime Nodejs18.15，超时 120 秒，环境变量从 `.env` 文件中读取。部署后再添加一个网关路由指向该函数。
+> 将授权服务部署为 SCF HTTP 函数，函数名 `auth-service`，runtime Nodejs18.15，超时 120 秒，环境变量从 `.env` 读取。部署后再添加一个网关路由指向该函数。
 
 AI 会自动使用 MCP 工具完成以下操作：
 

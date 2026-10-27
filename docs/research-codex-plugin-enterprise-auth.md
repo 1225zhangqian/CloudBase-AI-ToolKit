@@ -5,7 +5,7 @@
 本文档调研了以下内容：
 
 > **后续产出**：
-> - 示例代码：`examples/cloudbase-auth-endpoint-with-feishu/`（基于参考实现改造）
+> - 示例代码已从仓库移除（原 `examples/cloudbase-auth-endpoint-with-feishu/`）
 > - 集成文档：`docs/enterprise-auth-with-feishu.md`（含完整 Mermaid 架构图/时序图）
 
 1. [云开发自有品牌-企业AI平台文档](https://docs.cloudbase.net/quick-start/enterprise-ai-platform-no-cam)

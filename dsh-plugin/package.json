@@ -93,7 +93,7 @@
     "esbuild": "0.25.9",
     "typescript": "5.9.2",
     "vitest": "3.2.7",
-    "zod": "^4.4.3"
+    "zod": "4.6.6"
   },
   "dsh": {
     "bundle": {
