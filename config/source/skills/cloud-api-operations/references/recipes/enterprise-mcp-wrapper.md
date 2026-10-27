@@ -1,4 +1,4 @@
-# Recipe 12 — 封装企业专属 MCP
+# Recipe 13 — 封装企业专属 MCP
 
 ## When to use
 
