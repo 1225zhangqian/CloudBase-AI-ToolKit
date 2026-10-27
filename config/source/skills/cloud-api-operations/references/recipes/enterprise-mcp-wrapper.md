@@ -6,7 +6,7 @@
 
 - 员工装一个包就拿到「裁剪过的工具面 + 默认拦截 + 审计」，不用每份配置重复写开关
 - 危险动作要在**协议层**拦（提示词约束拦不住误删与越权，见 Recipe 9 §C 的软硬之分）
-- 要预研远端形态：wrapper 部署为企业服务端点，员工零安装
+- 要把封装升级为远端形态：wrapper 部署为企业服务端点，员工零安装（见 §5）
 
 不管什么：环境/凭证还没发 → [Recipe 7](./platform-onboarding.md)；只是给单份配置做限制、不打算维护一个包 → Recipe 9 的配置开关就够，不用写代码。
 
@@ -175,7 +175,7 @@ await queryApps({ action: 'getBuildLog',  serviceName, buildId });
 
 `deployType: 'custom'` 的完整形态（git 源、`Routes`、`WorkingDir`）见云 API `CreateCloudApp` 文档；`secretRefs` 等敏感项建议由平台预配置。
 
-### 5. 远端形态（预研）
+### 5. 远端形态
 
 传输换成 `StreamableHTTPServerTransport`（短连接、无状态模式），每请求新建一对传输与实例——SDK 硬约束是「一个实例同时只能绑一个 transport」，短连接下每请求新建天然满足，无需会话管理。工具面开 `cloudMode: true` 让官方自动收窄依赖本地文件的工具。鉴权两条通道：员工 → wrapper 走企业 SSO / OAuth 网关；wrapper → CloudBase 走 OAuth 2.1 或静态凭证 header（`X-TencentCloud-SecretId` / `X-TencentCloud-SecretKey`）。行为对照物是官方托管端点 `tcb-api.cloud.tencent.com/mcp/v1`。
 
