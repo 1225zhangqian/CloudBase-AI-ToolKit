@@ -47,6 +47,7 @@
     "./skills/cloudbase-wechat-integration/",
     "./skills/cloudbase/",
     "./skills/cloudrun-development/",
+    "./skills/data-model-creation/",
     "./skills/http-api-cloudbase/",
     "./skills/minimal-web-baas-demo/",
     "./skills/miniprogram-development/",
