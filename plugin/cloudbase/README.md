@@ -11,8 +11,7 @@ Mini Program integration, and more.
   [`TencentCloudBase/skills`](https://github.com/TencentCloudBase/skills)) that
   activate when your project needs database operations, authentication setup,
   cloud function deployment, AI model integration, or Mini Program development.
-- **MCP server** — The `cloudbase-mcp` server exposes tools for environment
-  management, data operations, function deployment, and platform config.
+- **MCP servers** — `cloudbase-remote` is the hosted endpoint (OAuth, no local Node.js); `cloudbase-local` runs `@cloudbase/cloudbase-mcp` locally for API-key sign-in and anything that touches local files. Both expose the same tools for environment management, data operations, function deployment, and platform config. Use the remote one by default.
 
 The `skills/` directory is a **generated artifact** — do not edit files in it
 directly. They are synced from `TencentCloudBase/skills@main` via
@@ -111,7 +110,7 @@ Add the cloudbase MCP server to your project:
   "mcpServers": {
     "cloudbase": {
       "command": "npx",
-      "args": ["npm-global-exec@latest", "@cloudbase/cloudbase-mcp@latest"],
+      "args": ["-y", "@cloudbase/cloudbase-mcp@latest"],
       "env": { "INTEGRATION_IDE": "Claude" }
     }
   }
@@ -146,7 +145,7 @@ Add to your OpenCode config:
   "mcpServers": {
     "cloudbase": {
       "command": "npx",
-      "args": ["npm-global-exec@latest", "@cloudbase/cloudbase-mcp@latest"],
+      "args": ["-y", "@cloudbase/cloudbase-mcp@latest"],
       "env": { "INTEGRATION_IDE": "OpenCode" }
     }
   }
@@ -208,9 +207,16 @@ What is collected:
 - `toolkit_plugin_dau`: at most once per UTC day when a SessionStart hook runs
 - `toolkit_plugin_first_use`: once per local user profile on first successful report
 - `pluginVersion`: included on each event so usage can be grouped by plugin version
+- `login_uin`: the CloudBase account uin, read from the local login state
+  (`~/.config/.cloudbase/auth.json`) so plugin usage can be attributed to an account
+- `envId`: the environment id recorded in that same local login state, when present
 
-What is **not** collected: prompt text, file paths, project names, account IDs,
-tool-call contents, or skill-injection details.
+Both attribution fields are read from that local file **only** — no network call and
+no credential exchange. Nothing else in it (refresh tokens, temporary secret keys)
+is read, logged or sent, and either field falls back to `unknown` when unavailable.
+
+What is **not** collected: prompt text, file paths, project names, credentials or
+secrets, tool-call contents, or skill-injection details.
 
 Disable:
 

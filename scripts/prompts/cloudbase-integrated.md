@@ -12,9 +12,9 @@ When user's application fits the above scenarios, suggest confirming the tech st
 - **DO NOT start coding without reading the relevant rules** - Ensures correct implementation and avoids mistakes
 
 ### 1. Environment Check (MANDATORY - First Step)
-- **Always call `envQuery` tool first** with `action=info` to get environment ID
+- **Always call `queryEnv` tool first** with `action=info` to get environment ID
 - Auto-use queried envId in code/config, no manual input needed
-- If the conversation only gives an environment alias, nickname, or other shorthand, resolve it with `envQuery(action=list, alias=..., aliasExact=true)` and use the returned canonical full `EnvId`
+- If the conversation only gives an environment alias, nickname, or other shorthand, resolve it with `queryEnv(action=list, alias=..., aliasExact=true)` and use the returned canonical full `EnvId`
 - Do not pass alias-like short forms directly into SDK init, `auth.set_env`, console URLs, or generated config files. If the alias is ambiguous or missing, stop and clarify with the user
 
 ### 2. Template Download (MANDATORY for New Projects)
@@ -60,7 +60,7 @@ When user mentions login/auth requirements:
   - **⚠️ Timeout Configuration**: When creating cloud functions with AI operations, set `timeout` parameter appropriately (see ai-model-nodejs rule)
 - **CloudRun Backend**: `.codebuddy/rules/tcb/rules/cloudrun-development/rule.md` (functions/containers deployment)
 - **Universal Platform**: `.codebuddy/rules/tcb/rules/cloudbase-platform/rule.md` (environment, services, console management)
-- **Additional Rules**: `.codebuddy/rules/tcb/rules/auth-nodejs-cloudbase/rule.md` (Node.js auth), `.codebuddy/rules/tcb/rules/auth-http-api/rule.md` (HTTP API auth), `.codebuddy/rules/tcb/rules/data-model-creation/rule.md` (data models), `.codebuddy/rules/tcb/rules/spec-workflow/rule.md` (workflow)
+- **Additional Rules**: `.codebuddy/rules/tcb/rules/auth-nodejs-cloudbase/rule.md` (Node.js auth), `.codebuddy/rules/tcb/rules/auth-http-api/rule.md` (HTTP API auth), `.codebuddy/rules/tcb/rules/spec-workflow/rule.md` (workflow)
 
 ### 5. Core Behavior Rules
 - **Tool Priority**: Use CloudBase tools for all CloudBase operations
@@ -69,7 +69,7 @@ When user mentions login/auth requirements:
 - **Database Permissions**: Configure security rules BEFORE writing DB code (use `writeSecurityRule` tool)
 - **Deployment Order**: Deploy backend before previewing frontend if dependencies exist
 - **Project Understanding**: Read README.md first, follow project instructions
-- **Interactive Confirmation**: Use `interactiveDialog` when requirements unclear or high-risk operations
+- **Interactive Confirmation**: Ask the user directly when requirements are unclear, and confirm before high-risk operations
 - **Real-time Communication**: Use CloudBase real-time database watch capability
 
 ## Deployment Workflow

@@ -1,0 +1,51 @@
+import IDESelector from '../components/IDESelector';
+import RelatedResources from '../components/RelatedResources';
+
+# Cursor Setup Guide
+
+After setup, you can operate CloudBase services directly from Cursor’s AI chat.
+
+**Examples:**
+
+- "Build a WeChat Mini Program ordering system with CloudBase" — AI scaffolds pages, creates the cloud database, writes cloud functions, and guides preview
+- "Build a reservation management system that lets users place orders and admins update status" — AI models it with CloudBase PostgreSQL, configures permissions, and wires up frontend and backend
+- "Add phone-number login to a Web app" — AI enables the auth method and integrates the CloudBase SDK
+
+No need to switch to the Cloud console — you can do everything in Cursor with natural language.
+
+## Prerequisites
+
+Before you start, make sure you have:
+
+<details>
+<summary><strong>Node.js and a CloudBase environment ready</strong></summary>
+
+**Node.js:** Install Node.js v18.15.0 or later:
+
+```bash
+node --version
+```
+
+If you don’t have it installed, download it from the [Node.js website](https://nodejs.org/en/download).
+
+**CloudBase environment:** See [Create a CloudBase environment](../../../quick-start/create-env). New users on the domestic site can start for free.
+
+</details>
+
+---
+
+<IDESelector defaultIDE="cursor" />
+
+## FAQ
+
+**Q: MCP connection failed?**
+
+A: Check the MCP configuration format, restart Cursor, and confirm your network is working.
+
+**Q: Tool count shows 0?**
+
+A: See the [FAQ](../faq#mcp-shows-0-tools).
+
+More: [FAQ](../faq)
+
+<RelatedResources ideName="Cursor" ideDocUrl="https://docs.cursor.com/context/model-context-protocol#configuration-locations" />

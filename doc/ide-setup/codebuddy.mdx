@@ -7,9 +7,9 @@ CodeBuddy 可通过 **插件市场** 安装 CloudBase 插件（MCP + Skills）�
 
 **例如：**
 
-- "用云开发做一个微信小程序点餐系统" - AI 搭页面、建云数据库、写云函数并引导预览
-- "做一个预约管理系统，支持用户下单和后台改状态" - AI 用 CloudBase PostgreSQL 建模、配权限并接好前后端
-- "给 Web 应用加上手机号登录" - AI 启用认证方式并接入 CloudBase SDK
+- “用云开发做一个微信小程序点餐系统” - AI 搭页面、建云数据库、写云函数并引导预览
+- “做一个预约管理系统，支持用户下单和后台改状态” - AI 用 CloudBase PostgreSQL 建模、配权限并接好前后端
+- “给 Web 应用加上手机号登录” - AI 启用认证方式并接入 CloudBase SDK
 
 无需切换到云控制台，所有操作都可以在 CodeBuddy 中用自然语言完成。
 
@@ -28,7 +28,22 @@ node --version
 
 如果未安装，请从 [Node.js 官网](https://nodejs.org/en/download) 下载安装。
 
-**云开发环境：** 请参考文档 [开通云开发环境](../../../quick-start/create-env)。新用户可以免费开通体验。
+**云开发环境：** 请参考文档 [开通云开发环境](../../../quick-start/create-env)。国内站新用户可以免费开通体验。
+
+</details>
+
+<details>
+<summary><strong>已安装 Git（插件市场方式需要）</strong></summary>
+
+按 GitHub 地址添加市场源时，CodeBuddy 会用 `git clone` 拉取仓库；机器上找不到 `git` 会直接失败（Windows 常见报错 `program not found`）：
+
+```bash
+git --version
+```
+
+Windows 用户请安装 [Git for Windows](https://git-scm.com/download/win)。安装后请重启 CodeBuddy，新进程才会读到更新后的 PATH。
+
+用内置集成或手工配置 MCP 不需要 Git。
 
 </details>
 
@@ -78,6 +93,8 @@ codebuddy plugin install cloudbase@tencent-cloudbase
 
 无需预先配置 CLI。直接在 CodeBuddy 里开始对话，系统会提示完成 **Device 登录**（设备码授权），按页面提示授权即可。
 
+> 🌏 **国际站用户**：环境开通在腾讯云**国际站**时，需先声明站点，否则登录会走国内站授权页。在 MCP 配置的 `env` 中加入 `"TCB_SITE": "intl"`（或使用启动参数 `--site intl`），重启 CodeBuddy 后再登录。详见 [连接方式 - 国际站用户](../connection-modes#国际站用户)。
+
 ### 没有腾讯云账号（API Key）
 
 若你只有环境级 API Key（例如由合作方/管理员下发），请先安装 CloudBase CLI，再用 API Key 登录：
@@ -86,6 +103,7 @@ codebuddy plugin install cloudbase@tencent-cloudbase
 # 安装 CloudBase CLI
 npm i -g @cloudbase/cli
 
+# 国际站用户请先执行 tcb config set isIntl true（或设置环境变量 TCB_IS_INTL=true）切换到国际站链路
 # 使用环境 API Key 登录（必须同时指定环境 ID）
 tcb login --cloudbase-api-key <cloudbaseApiKey> -e <cloudbaseEnvId>
 ```
@@ -115,7 +133,7 @@ tcb login --cloudbase-api-key <cloudbaseApiKey> -e <cloudbaseEnvId>
 
 或手工写入 MCP 配置：
 
-<IDESelector defaultIDE="codebuddy" showInstallButton={false} />
+<IDESelector defaultIDE="codebuddy" />
 
 ---
 
@@ -125,7 +143,7 @@ tcb login --cloudbase-api-key <cloudbaseApiKey> -e <cloudbaseEnvId>
 A: 不需要。直接对话，按提示完成 Device 登录即可。API Key 登录主要用于没有腾讯云账号、仅持有环境 API Key 的场景。
 
 **Q: 插件市场添加失败？**  
-A: 确认市场源为 `https://github.com/TencentCloudBase/CloudBase-AI-Toolkit`，检查网络能否访问 GitHub；必要时重试或改用内置集成 / MCP 市场。
+A: 确认市场源为 `https://github.com/TencentCloudBase/CloudBase-AI-Toolkit`，检查网络能否访问 GitHub；必要时重试或改用内置集成 / MCP 市场。Windows 上如果报 `program not found`，说明本机没有可用的 Git，安装 [Git for Windows](https://git-scm.com/download/win) 后重启 CodeBuddy。
 
 **Q: MCP 连接失败？**  
 A: 检查配置文件格式是否正确，重启 CodeBuddy，确认网络连接正常，并确认已完成 Device 登录或 API Key 登录。

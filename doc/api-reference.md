@@ -6,7 +6,7 @@
 
 ## API 概览
 
-## 环境相关接口
+### 环境相关接口
 
 | 接口名称 | 接口功能 | 频率限制（次/秒） |
 | --- | --- | --- |
@@ -42,7 +42,7 @@
 | [DescribePlatforms](https://cloud.tencent.com/document/api/876/138298) | 查询平台版资源信息 | 20 |
 | [ModifyPlatformEnv](https://cloud.tencent.com/document/api/876/138295) | 修改平台版环境信息 | 20 |
 
-## 用户权限相关接口
+### 用户权限相关接口
 
 | 接口名称 | 接口功能 | 频率限制（次/秒） |
 | --- | --- | --- |
@@ -65,7 +65,7 @@
 | [DeleteApiKey](https://cloud.tencent.com/document/api/876/129834) | 删除云开发平台的API Key | 20 |
 | [DescribeApiKeyList](https://cloud.tencent.com/document/api/876/129833) | 查询云开发平台的API Key列表 | 20 |
 
-## HTTP网关相关接口
+### HTTP网关相关接口
 
 | 接口名称 | 接口功能 | 频率限制（次/秒） |
 | --- | --- | --- |
@@ -84,14 +84,14 @@
 | [DescribeGatewayVersions](https://cloud.tencent.com/document/api/876/129795) | 查询网关版本信息 | 20 |
 | [DeleteAuthDomain](https://cloud.tencent.com/document/api/876/128960) | 删除合法域名 | 20 |
 
-## 云托管相关接口
+### 云托管相关接口
 
 | 接口名称 | 接口功能 | 频率限制（次/秒） |
 | --- | --- | --- |
 | [DescribeCloudBaseRunServerVersion](https://cloud.tencent.com/document/api/876/49739) | 查询云托管服务版本的详情 | 1000 |
 | [DescribeCloudBaseBuildService](https://cloud.tencent.com/document/api/876/48345) | 获取云托管代码上传和下载url | 20 |
 
-## 计费相关接口
+### 计费相关接口
 
 | 接口名称 | 接口功能 | 频率限制（次/秒） |
 | --- | --- | --- |
@@ -105,7 +105,7 @@
 | [DescribePlatformCreditsUsageDetail](https://cloud.tencent.com/document/api/876/138300) | 获取平台版资源点用量明细 | 20 |
 | [DescribePlatformEnvUsage](https://cloud.tencent.com/document/api/876/138299) | 查询平台版资源用量 | 20 |
 
-## 文档型云数据库相关接口
+### 文档型云数据库相关接口
 
 | 接口名称 | 接口功能 | 频率限制（次/秒） |
 | --- | --- | --- |
@@ -120,7 +120,7 @@
 | [RunCommands](https://cloud.tencent.com/document/api/876/129012) | 执行文档型数据库命令 | 1000 |
 | [ModifySafeRule](https://cloud.tencent.com/document/api/876/128959) | 设置数据库安全规则 | \- |
 
-## 静态托管相关接口
+### 静态托管相关接口
 
 | 接口名称 | 接口功能 | 频率限制（次/秒） |
 | --- | --- | --- |
@@ -134,7 +134,7 @@
 | [DescribeCloudAppVersionList](https://cloud.tencent.com/document/api/876/135275) | 查询云应用服务版本列表 | 20 |
 | [DescribeCloudBaseRunBuildLog](https://cloud.tencent.com/document/api/876/135707) | 查询构建日志 | 20 |
 
-## AI模型相关接口
+### AI模型相关接口
 
 | 接口名称 | 接口功能 | 频率限制（次/秒） |
 | --- | --- | --- |
@@ -145,7 +145,7 @@
 | [UpdateAIModel](https://cloud.tencent.com/document/api/876/131316) | 更新AI模型 | 20 |
 | [ModifyAIModelStatus](https://cloud.tencent.com/document/api/876/139677) | 启停AI模型 | 20 |
 
-## 日志监控相关接口
+### 日志监控相关接口
 
 | 接口名称 | 接口功能 | 频率限制（次/秒） |
 | --- | --- | --- |
@@ -154,7 +154,7 @@
 | [ModifyClsTopic](https://cloud.tencent.com/document/api/876/81547) | 修改日志主题 | 20 |
 | [DescribeCurveData](https://cloud.tencent.com/document/api/876/129258) | 查询环境监控曲线 | 100 |
 
-## SQL型云数据库相关接口
+### SQL型云数据库相关接口
 
 | 接口名称 | 接口功能 | 频率限制（次/秒） |
 | --- | --- | --- |
@@ -175,7 +175,7 @@
 | [ResetPGAccountPassword](https://cloud.tencent.com/document/api/876/138618) | 修改 PG 实例用户角色密码 | 20 |
 | [DescribeTaskResult](https://cloud.tencent.com/document/api/876/138619) | 查看任务结果 | 20 |
 
-## 云函数相关接口
+### 云函数相关接口
 
 | 接口名称 | 接口功能 | 频率限制（次/秒） |
 | --- | --- | --- |
@@ -193,7 +193,7 @@
 
 ## 依赖产品接口指引
 
-## 概述
+### 概述
 
 云开发（Tencent CloudBase，TCB）是腾讯云提供的云原生一体化开发环境和工具平台，为开发者提供高可用、自动弹性扩缩的后端云服务，包含计算、存储、托管等 Serverless 化能力，可用于云端一体化开发多种端应用（小程序、公众号、Web 应用等），帮助开发者统一构建和管理后端服务和云资源，避免了应用开发过程中繁琐的服务器搭建及运维，开发者可以专注于业务逻辑的实现，开发门槛更低，效率更高。
 
@@ -201,13 +201,13 @@
 您可以调用 API 对云开发进行操作，例如获取用户权限，获取云开发项目列表等。  
 云开发支持的所有接口信息，请参见 [API 概览](https://cloud.tencent.com/document/product/876/34809)。
 
-## 云开发依赖资源接口指引
+### 云开发依赖资源接口指引
 
-### MySQL 数据库
+#### MySQL 数据库
 
 > **说明**：调用以下 MySQL 接口时，需要传入数据库集群 ID（`ClusterId`）。您可以调用 [DescribeMySQLClusterDetail](https://cloud.tencent.com/document/api/876/128184) 获取返回值中的 `DbClusterId` 字段作为 `ClusterId` 的值。
 
-#### 账号管理
+##### 账号管理
 
 | 接口名称 | 接口功能 |
 | --- | --- |
@@ -222,20 +222,20 @@
 | [ModifyAccountPrivileges](https://cloud.tencent.com/document/product/1003/92714) | 修改账号库表权限 |
 | [ResetAccountPassword](https://cloud.tencent.com/document/product/1003/83592) | 修改数据库账号密码 |
 
-#### 网络管理
+##### 网络管理
 
 | 接口名称 | 接口功能 |
 | --- | --- |
 | [CloseWan](https://cloud.tencent.com/document/product/1003/92737) | 关闭外网 |
 | [OpenWan](https://cloud.tencent.com/document/product/1003/92732) | 开通外网 |
 
-#### serverless集群管理
+##### serverless集群管理
 
 | 接口名称 | 接口功能 |
 | --- | --- |
 | [ResumeServerless](https://cloud.tencent.com/document/product/1003/70121) | 恢复serverless集群 |
 
-#### 备份与回档
+##### 备份与回档
 
 | 接口名称 | 接口功能 |
 | --- | --- |
@@ -246,7 +246,7 @@
 | [DescribeBackupDownloadUrl](https://cloud.tencent.com/document/product/1003/76374) | 查询备份下载地址 |
 | [RollBackCluster](https://cloud.tencent.com/document/product/1003/70115) | 集群回档 |
 
-#### 任务与数据库管理
+##### 任务与数据库管理
 
 | 接口名称 | 接口功能 |
 | --- | --- |
@@ -254,7 +254,7 @@
 | [DescribeClusterDatabaseTables](https://cloud.tencent.com/document/product/1003/113981) | 获取table列表 |
 | [DescribeClusterDatabases](https://cloud.tencent.com/document/product/1003/101559) | 获取集群数据库列表 |
 
-### SCF 云函数
+#### SCF 云函数
 
 > 此外，调用云函数接口时还需传入以下两个参数：
 > 
@@ -286,7 +286,7 @@
 | [UpdateFunctionConfiguration](https://cloud.tencent.com/document/api/876/137946) | 更新函数配置 |
 | [DeleteFunction](https://cloud.tencent.com/document/api/876/137950) | 删除函数 |
 
-### COS 对象操作
+#### COS 对象操作
 
 > **说明**：调用文件操作接口时，需根据上传目标获取对应的存储信息：
 > 
@@ -302,7 +302,7 @@
 | [PutObjectCopy](https://cloud.tencent.com/document/api/436/10881) | 移动/复制对象 |
 | [Select](https://cloud.tencent.com/document/api/436/37641) | 检索对象内容 |
 
-## API 快速入门
+### API 快速入门
 
 您可以使用 API Explorer 工具在线调用 API。  
 本文以 **获取环境列表** 为例，通过 API Explorer 工具调用 API 接口的步骤如下：

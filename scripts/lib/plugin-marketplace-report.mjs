@@ -15,10 +15,12 @@ export const PRIORITY_GROUPS = [
 /**
  * @param {object} market
  * @param {import('./plugin-marketplace-evidence.mjs').EvidenceResult[]} evidence
+ * @param {{ ignoreHint?: boolean }} [opts]
  */
-export function classifyPriority(market, evidence) {
-  if (market.priority_hint) {
-    return market.priority_hint;
+export function classifyPriority(market, evidence, opts = {}) {
+  const hint = opts.ignoreHint ? null : market.priority_hint;
+  if (hint) {
+    return hint;
   }
 
   const statuses = market.listing_statuses || {};
@@ -28,6 +30,15 @@ export function classifyPriority(market, evidence) {
   );
   const hasSubmittable = statusValues.includes("submittable");
   const hasBlocked = statusValues.includes("blocked") || (market.blockers && market.blockers.length > 0);
+  // Not every blocker is ours to clear: "awaiting maintainer merge", "deferred",
+  // "no public submission form" mean the next move belongs to the other side.
+  // Keep that distinct from "we are missing a manifest", otherwise ready_to_submit
+  // silently absorbs channels that cannot move at all.
+  const blockerText = (market.blockers || []).join("\n");
+  const blockedByOthers =
+    /await|pending|review|merge|deferred|needs? human|human login|escalat|no public|not documented|waiting|in review/i.test(
+      blockerText,
+    );
   const evidenceBad = evidence.some((e) => e.status === "missing" || e.status === "invalid");
   const eligibility = String(market.eligibility || "");
 
@@ -54,7 +65,13 @@ export function classifyPriority(market, evidence) {
   }
 
   if (hasSubmittable) {
-    if (evidenceBad || hasBlocked) {
+    if (evidenceBad) {
+      return "needs_packaging_or_manifest";
+    }
+    if (blockedByOthers) {
+      return "needs_partner_outreach";
+    }
+    if (hasBlocked) {
       return "needs_packaging_or_manifest";
     }
     return "ready_to_submit";
@@ -88,6 +105,11 @@ export function analyzeMatrix({ matrix, rootDir, now = new Date(), onlineResults
   const markets = matrix.markets.map((market) => {
     const evidence = checkLocalEvidence(rootDir, market.local_evidence || []);
     const priority = classifyPriority(market, evidence);
+    // A stale `priority_hint` silently freezes a row: today two channels got real
+    // "awaiting review" blockers and still reported as ready_to_submit because the
+    // hint won. Surface the disagreement instead of trusting the hint blindly.
+    const autoPriority = classifyPriority(market, evidence, { ignoreHint: true });
+    const hintConflict = Boolean(market.priority_hint) && market.priority_hint !== autoPriority;
     const stale = isStale(market.last_reviewed_at, matrix.reviewed_stale_days, now);
     const checklist = Array.isArray(market.submit_checklist) ? market.submit_checklist : [];
     const materials = checklist.map((item) => {
@@ -112,10 +134,13 @@ export function analyzeMatrix({ matrix, rootDir, now = new Date(), onlineResults
       recommended_install_path: market.recommended_install_path || null,
       last_reviewed_at: market.last_reviewed_at,
       owner: market.owner,
+      next_check_hint: market.next_check_hint || null,
       local_evidence: evidence,
       submit_checklist: checklist,
       materials,
       priority,
+      auto_priority: autoPriority,
+      hint_conflict: hintConflict,
       stale,
       manual_submit_only: true,
     };
@@ -183,6 +208,23 @@ export function renderMarkdown(report) {
     lines.push("");
   }
 
+  const conflicts = report.markets.filter((m) => m.hint_conflict);
+  if (conflicts.length > 0) {
+    lines.push("## Priority hints that disagree with the data");
+    lines.push("");
+    lines.push(
+      "Not errors. `priority_hint` exists to override the automatic classification on purpose, so most of " +
+        "these are deliberate. Review them anyway: when the matrix changed but the hint did not, the row " +
+        "silently keeps its old status (two channels with fresh \"awaiting review\" blockers still said " +
+        "ready_to_submit until the hints were dropped).",
+    );
+    lines.push("");
+    for (const m of conflicts) {
+      lines.push(`- \`${m.id}\`: hint \`${m.priority}\` vs data \`${m.auto_priority}\``);
+    }
+    lines.push("");
+  }
+
   for (const g of PRIORITY_GROUPS) {
     const items = report.groups[g];
     lines.push(`## ${g}`);
@@ -199,6 +241,12 @@ export function renderMarkdown(report) {
       lines.push(`- Channel: \`${m.channel_type}\``);
       lines.push(`- Eligibility: \`${m.eligibility}\``);
       lines.push(`- Last reviewed: ${m.last_reviewed_at}${m.stale ? " (**stale**)" : ""}`);
+      if (m.hint_conflict) {
+        lines.push(
+          `- **priority_hint disagrees with the data** — hint says \`${m.priority}\`, matrix says ` +
+            `\`${m.auto_priority}\`. Drop the hint (set \`priority_hint: null\`) unless the override is intentional.`,
+        );
+      }
       lines.push(`- Manual submit only: yes`);
       lines.push("");
       lines.push("Statuses:");
@@ -211,6 +259,10 @@ export function renderMarkdown(report) {
         lines.push("Blockers:");
         lines.push("");
         for (const b of m.blockers) lines.push(`- ${b}`);
+        lines.push("");
+      }
+      if (m.next_check_hint) {
+        lines.push(`Next check: ${m.next_check_hint}`);
         lines.push("");
       }
       if (m.local_evidence.length) {
@@ -249,8 +301,14 @@ export function renderMarkdown(report) {
   if (report.online && report.online.length) {
     lines.push("## Online probe results");
     lines.push("");
+    lines.push(
+      "`ok` = 2xx with a real body · `inconclusive` = 403/429 or an SPA shell / 404 page served as 200 " +
+        "(not evidence either way) · `not_found` = real 404 · `error` = 5xx / DNS / timeout.",
+    );
+    lines.push("");
     for (const row of report.online) {
-      lines.push(`- ${row.url}: ${row.status}`);
+      const detail = row.detail ? ` (${row.detail})` : "";
+      lines.push(`- ${row.status}: ${row.url}${detail}`);
     }
     lines.push("");
   }

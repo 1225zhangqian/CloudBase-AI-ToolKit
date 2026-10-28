@@ -1,15 +1,16 @@
 ---
 name: cloudbase-declarative-deploy
-description: CloudBase declarative deployment from a cloudbaserc config (声明式部署, 配置式部署, cloudbaserc 部署) through the deployApply / deployPlan MCP tools. Use when deploying database, functions, app, hosting, or gateway resources described in cloudbaserc.json/yaml as a single desired-state config, when a user wants a dry-run plan before applying, or when handling multi-environment deploys via mode / envOverrides. Covers plan-then-apply flow (deployPlan dry-run → deployApply confirm=true), envId resolution priority, only/skip filtering, concurrency, and continueOnError. Prefer deployPlan before deployApply; do not confuse with per-resource tcb CLI deploy or single-function deploy.
-version: 2.33.2
+description: CloudBase declarative deployment from a cloudbaserc config (声明式部署, 配置式部署, cloudbaserc 部署) through the deployBuild / deployPlan / deployApply MCP tools. Use when deploying database, functions, app, hosting, or gateway resources described in cloudbaserc.json/yaml as a single desired-state config, when a user wants to build static hosting artifacts locally first (deployBuild), or wants a dry-run plan before applying (deployPlan), or when handling multi-environment deploys via mode / envOverrides. Covers build-plan-apply flow (deployBuild local build → deployPlan dry-run → deployApply confirm=true), hosting build-output neutralization, envId resolution priority, only/skip filtering, concurrency, and continueOnError. Prefer deployBuild (when hosting declares a buildCommand) and deployPlan before deployApply; do not confuse with per-resource tcb CLI deploy or single-function deploy.
+version: 2.36.1
+license: MIT
 alwaysApply: false
 ---
 
 # CloudBase Declarative Deploy
 
 Deploy a whole CloudBase project from one `cloudbaserc` config as **desired state**,
-using the `deployPlan` (dry-run) and `deployApply` (apply) MCP tools. The orchestrator
-applies resources in a fixed dependency order:
+using the `deployBuild` (local hosting build), `deployPlan` (dry-run) and `deployApply`
+(apply) MCP tools. The orchestrator applies resources in a fixed dependency order:
 
 ```
 database → functions → app → hosting → gateway
@@ -35,6 +36,8 @@ missing constraints (or to install the missing skill). Do **not** HTTP-fetch rem
   resources, and the user wants to deploy them together as one config.
 - The user asks for 声明式部署 / 配置式部署 / "deploy from cloudbaserc" / "deploy the whole project".
 - The user wants to preview what a deploy will change before applying (dry-run plan).
+- The user wants to build the static hosting artifact locally first (declarative
+  hosting deploys no longer build implicitly — see `deployBuild`).
 - Multi-environment deploy: production/staging via `mode` + `envOverrides`.
 
 ## Do NOT use for
@@ -43,28 +46,57 @@ missing constraints (or to install the missing skill). Do **not** HTTP-fetch rem
 - In-app SDK integration (web/miniprogram/node) → the matching SDK skill.
 - Console UI operations.
 
-## Cloud mode
+## Cloud mode: deploy through the two-step upload channel
 
-`deployPlan` / `deployApply` in this skill are the **local-form declarative executor**.
-In cloud-hosted MCP mode these tools are intentionally not registered (filtered at tool
-registration), because that runtime has no local `cwd` / filesystem-bound execution path.
+`deployBuild` / `deployPlan` / `deployApply` in this skill are the **local-form declarative
+executor**. In cloud-hosted MCP mode they are intentionally not registered, because that
+runtime has no local `cwd` and no filesystem-bound execution path.
 
-If you are in cloud mode and do not see `deployPlan` / `deployApply` in the tool list,
-this is expected behavior.
+This is an **execution-channel switch, not a capability gap**. Everything still deploys, but
+the artifact is uploaded first and the build runs in the cloud. If those three tools are
+missing from the tool list, that is expected — pick the channel that matches the resource.
 
-Use the cloud upload-channel path instead:
+### Cloud functions — two-phase zip
 
-1. `queryApps(action=getUploadUrl)` to get `uploadUrl`, `uploadHeaders`, `unixTimestamp`
-2. Upload source/build zip to `uploadUrl` with returned headers
-   - If cloud build requires private/offline dependencies, package `node_modules` explicitly
-   - For public dependencies, uploading `package.json` + lockfile is typically enough
+1. `queryFunctions(action=getFunctionUploadUrl, functionName?)` returns `uploadUrl`,
+   `uploadHeaders`, `cosBucketName`, `cosBucketRegion`, `cosObjectName`, `expiresInSeconds`
+2. `PUT` the function zip to `uploadUrl` with `uploadHeaders`
+3. `manageFunctions(action=createFunction|updateFunctionCode, code={cosBucketName,
+   cosObjectName, cosBucketRegion?})` — phase B deploys from the environment's own COS bucket
+   (`deployMode=cos`); pass the triple through unchanged, the schema is strict
+
+`contentPath` (a local directory) is rejected in cloud mode. For layer contents use
+`base64Content`; for code use the two-phase path above.
+
+### CloudApp — two-step upload plus a cloud pipeline
+
+1. `queryApps(action=getUploadUrl, serviceName=...)` returns `uploadUrl`, `uploadHeaders`,
+   `unixTimestamp`
+2. Upload the source/build zip to `uploadUrl` with the returned headers
+   (`Content-Type: application/zip`)
+   - Public dependencies resolvable from a lockfile: `package.json` plus lockfile is enough
+   - Private or offline dependencies: package `node_modules` explicitly
 3. `manageApps(action=deployApp, cosTimestamp=<unixTimestamp>, installCmd?, buildCmd?, deployCmd?)`
-   - `installCmd` / `buildCmd` / `deployCmd` are pipeline declarations executed in cloud container
-   - Agent passes data + declarations; it does not execute local shell commands
+   - `installCmd` / `buildCmd` / `deployCmd` are pipeline declarations executed in the cloud
+     container; you pass data and declarations, you do not run local shell commands
 
-Planned cloud declarative path (incremental roadmap): upload `cloudbaserc` as a data
-artifact, then run server-side plan/apply orchestration. `deployApply` remains the
-local-form executor of the same declarative spec.
+### Static hosting — route through CloudApp
+
+`manageHosting(action=upload)` is blocked in cloud mode because it needs a local path.
+Deploy a static site through the CloudApp two-step upload above (upload the prebuilt
+artifact, exclude `node_modules`). Uploading or downloading an already-hosted file has no
+remote substitute and needs local mode. The other hosting actions (`delete`,
+`setWebsiteDocument`, `enableService`, `bindDomain`, `unbindDomain`, `updateDomain`) remain
+available.
+
+### What cloud mode does not give you
+
+- **No dry-run.** There is no `deployPlan` against a local `cloudbaserc`. Do not claim a plan
+  was generated or reviewed in cloud mode; state what is about to be deployed and what the
+  upload contains. Roadmap: upload `cloudbaserc` as a data artifact, then run server-side
+  plan/apply orchestration.
+- **No local project context.** `mode` / `envOverrides` resolution from a project file does
+  not apply; pass the target environment explicitly.
 
 For parameter details, see `references/plan-and-apply.md` (`Cloud-hosted upload pipeline path`).
 
@@ -116,14 +148,29 @@ explicit envId param  >  cloudbaserc `envId`  >  logged-in / bound environment
 If none can be resolved, the tool errors out. Prefer confirming the resolved envId
 with the user before applying to production.
 
-## Two-step workflow (local mode)
+## Local workflow (build → plan → apply)
+
+When `hosting` declares a `buildCommand`, declarative deploy is a three-step flow —
+`deployApply` no longer runs the local build implicitly:
 
 1. Ensure a `cloudbaserc` config exists under the project root (`cwd`).
-2. Call `deployPlan` (optionally with `mode`, `envId`, `only`, `skip`). Read the plan.
-3. Present the plan + Deployment Gate declaration to the user; get confirmation.
-4. Call `deployApply` with `confirm=true` (plus `yes` / `concurrency` / `continueOnError`
+2. **Build first** (only when `hosting` has a `buildCommand`): call
+   `deployBuild({ cwd, mode? })` to produce the local artifacts (builds every hosting
+   item; pure-static items without a build command are skipped automatically).
+   - If the build artifacts are missing at apply time, `deployApply` fails with
+     `BUILD_OUTPUT_NOT_FOUND` and directs you back to this step — call `deployBuild`
+     first, then retry.
+   - `deployBuild` needs no `envId` and no `confirm` (local build only, never touches
+     cloud resources); if dependencies are not installed it fails with
+     `DEPENDENCY_NOT_INSTALLED` and tells you to run install first.
+3. Call `deployPlan` (optionally with `mode`, `envId`, `only`, `skip`). Read the plan.
+4. Present the plan + Deployment Gate declaration to the user; get confirmation.
+5. Call `deployApply` with `confirm=true` (plus `yes` / `concurrency` / `continueOnError`
    as needed). Reuse the same `mode` / `envId` / `only` / `skip` as the plan.
-5. Report the applied result back to the user.
+   A hosting item with existing build output is uploaded directly (the tool clears
+   the build command and reports `hostingNeutralized: true`); rebuild with `deployBuild`
+   after source changes so the upload is not stale.
+6. Report the applied result back to the user.
 
 For cloud-hosted MCP mode, do not ask for local `cwd`/filesystem reads; use the
 `Cloud mode` upload-channel flow above.
@@ -134,10 +181,15 @@ Use this mental model: **build → plan → apply**. The build executor depends 
 
 | resource | typical build executor | deployment path |
 |----------|------------------------|-----------------|
-| `hosting` | local shell (when `buildCommand` is set) | upload build output |
+| `hosting` | `deployBuild` (local shell build, run **before** apply) | `deployApply` uploads the built output directly; missing output → `BUILD_OUTPUT_NOT_FOUND` |
 | `app` (`framework=static`) | local prebuilt artifact | package upload + deploy record |
 | `app` (non-static frameworks) | cloud pipeline | source zip upload + cloud build + deploy |
 | `functions` | local zip / cloud build / image pipeline | depends on `buildStrategy` (`zip`/`cloud`/`local`/`image`) |
+
+`deployBuild` builds every `hosting` item that has a `buildCommand` (framework mapping or
+package.json auto-detection); it skips pure-static items. Build failures surface as
+`BUILD_FAILED`, missing local dependencies as `DEPENDENCY_NOT_INSTALLED` (run install
+first — `deployBuild` never installs dependencies for you).
 
 Build command resolution follows declaration priority:
 
@@ -163,6 +215,7 @@ moved from local shell to cloud pipeline; agent transmits declarations and artif
 
 ## Minimum self-check
 
+- [ ] Built the hosting artifacts first (`deployBuild`) when `hosting` declares a `buildCommand`?
 - [ ] Ran `deployPlan` and read the action classification before `deployApply`?
 - [ ] Resolved and confirmed the target `envId`?
 - [ ] Completed the Deployment Gate declaration before applying?

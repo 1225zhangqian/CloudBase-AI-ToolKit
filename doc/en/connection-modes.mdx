@@ -1,0 +1,554 @@
+# Connection Modes: Remote vs Local
+
+CloudBase MCP supports two connection modes: **Remote Mode** (the server runs in the cloud and the IDE connects over HTTP) and **Local Mode** (the server runs on your machine via `npx`, with the IDE connecting over stdio). Both use the same code and the same tools. The difference is where the server runs, and which tools that take away — the ones that touch your local file system.
+
+If you are unsure, start with **Remote Mode**: enter one endpoint, and an OAuth-capable client walks you through authorization.
+
+> ⚠️ **MCP hands the AI real write access** — deleting collections, functions, and stored files is within reach. Read [Dangerous Operations and Confirmation](#safety) before you connect. The confirmation prompt only appears in clients that support elicitation, and it is a guardrail, not a security boundary.
+
+---
+
+## Choosing a Mode
+
+| Your situation | Recommended mode | Notes |
+|----------|----------|------|
+| You want the fastest setup and do not want to maintain Node.js locally | **Remote Mode** · Tencent Cloud-hosted service | Enter one endpoint; interactive clients complete authorization automatically |
+| Your team needs a consistent connection method | **Remote Mode** · Tencent Cloud-hosted service | No operations overhead; capabilities are upgraded centrally without requiring each client to track versions |
+| Cloud agent / platform integration where the caller does not run on the developer's machine | **Remote Mode** · Tencent Cloud-hosted service | A cloud-based caller can connect only over HTTP |
+| CI/CD, scripted, or unattended use | **Remote Mode** + static credentials | Use API credentials when interactive authorization is unavailable; see [Authentication](#remote-auth). Local Mode also works with `npx` + `CLOUDBASE_API_KEY` |
+| You need to upload local files or download templates to your machine | **Local Mode** (`npx`) | Tools involving the local filesystem or local processes are registered only in Local Mode |
+| You already have a server and need private-network access or self-managed credentials | **Remote Mode** · self-hosted | Cloud Mode must be enabled |
+
+Remote Mode has explicit capability gaps because tools that require the developer's local filesystem are not registered. See [Remote Mode capability boundaries](#remote-mode-capabilities). Recommend it only together with these limitations, rather than implying that both modes are identical in every respect.
+
+---
+
+## Site and Region (site / region) {#site-region}
+
+### Two Separate Account Systems
+
+CloudBase has two mutually independent account systems: the **China site** (`domestic`, `cloud.tencent.com`) and the **International site** (`intl`, `tencentcloud.com`). Their environments, consoles, API credentials, and login sessions are not shared.
+
+**Before connecting, confirm which site hosts your environment, then choose the matching endpoint.** The typical symptom of choosing the wrong site is **“login succeeded, but my environment is missing”**, not an explicit error.
+
+| | China site | International site |
+|---|---|---|
+| Remote MCP endpoint | `https://tcb-api.cloud.tencent.com/mcp/v1` | `https://tcb-api.tencentcloud.com/mcp/v1` |
+| Console | [tcb.cloud.tencent.com](https://tcb.cloud.tencent.com/dev) | [tcb.tencentcloud.com](https://tcb.tencentcloud.com/dev) |
+| Default region | `ap-shanghai` | `ap-singapore` |
+| Supported regions | `ap-shanghai`, `ap-guangzhou`, `ap-singapore` | `ap-singapore` |
+| NoSQL (document database) tools | Available | **Not currently available** |
+
+> **In Remote Mode, the hostname determines the site**—the China-site endpoint always selects the China site, while the International-site endpoint selects the International site. A single hostname cannot switch between the two sites, and no additional declaration is required.
+
+### How Local Mode Determines the Site {#local-mode-site}
+
+Local Mode has no hostname from which to infer the site. MCP resolves it in the following order:
+
+```
+Explicit cloudBaseOptions.site/region
+  > Environment variables TCB_SITE / TCB_REGION
+  > Project-level config .cloudbase/project.json
+  > cloudbaserc.json (field-level fallback; site is an MCP extension field)
+  > Global default: domestic + ap-shanghai
+```
+
+When inferring the site from `region`:
+
+| region | Resolution when site is not configured |
+|--------|----------------------------------------|
+| `ap-shanghai` / `ap-guangzhou` | `domestic` (China site) |
+| `ap-singapore` | **Ambiguous**: both sites provide this region; defaults to `intl` when site is omitted for backward compatibility |
+
+### How the tcb CLI Determines the Site {#cli-site}
+
+The `tcb` CLI uses a **different switch** from MCP's `TCB_SITE`. Setting the wrong switch fails silently:
+
+| Tool | Switch | Scope | Verification |
+|------|------|----------|------|
+| `tcb` CLI | Environment variable `TCB_IS_INTL=true`, or persistently `tcb config set isIntl true` | **Machine-wide**: affects China-site projects on the same machine as well | `tcb config get isIntl` |
+| MCP (Local Mode) | `TCB_SITE` + `TCB_REGION` | One IDE's MCP configuration | `auth(action="status")` |
+
+To use the International site only for the current command without leaving global state:
+
+```bash
+TCB_IS_INTL=true tcb login
+TCB_IS_INTL=true tcb env list
+```
+
+If you have confirmed that the entire machine should use the International site, persist the setting (this also affects China-site projects on the machine):
+
+```bash
+tcb config set isIntl true
+```
+
+> ⚠️ If **`tcb login` succeeds but `tcb env list` is empty**, the site is wrong; it does not mean the account has no environments. Check `isIntl` before logging in again.
+>
+> ⚠️ **Change both sides when switching sites.** MCP resolves environment variables before `.cloudbase/project.json`, so changing only the project record while leaving the client's `env` unchanged still uses the old site. The project record is repository-scoped, can be committed, and is loaded automatically after restart; `tcb config isIntl` is machine-scoped and must not be treated as project configuration.
+
+### International Site Users
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "command": "npx",
+      "args": ["@cloudbase/cloudbase-mcp@latest"],
+      "env": {
+        "TCB_SITE": "intl",
+        "TCB_REGION": "ap-singapore"
+      }
+    }
+  }
+}
+```
+
+### Singapore Environments on the China Site
+
+The China site supports the Singapore region, but **setting only `TCB_REGION=ap-singapore` is treated as the international site** — login redirects there and NoSQL tools are skipped. Set the site too:
+
+```json
+"env": { "TCB_SITE": "domestic", "TCB_REGION": "ap-singapore" }
+```
+
+Or write it into the project-level `.cloudbase/project.json` (a separate file, not merged into `cloudbaserc.json`), and every session in that directory picks it up:
+
+```json
+{
+  "site": "domestic",
+  "region": "ap-singapore",
+  "envId": "your-env-id"
+}
+```
+
+<details>
+<summary>Environment ID resolution order, and fallback for existing CLI projects</summary>
+
+The `envId` becomes the project's default environment. Resolution order:
+
+```
+Explicit cloudBaseOptions.envId
+  > Environment variable CLOUDBASE_ENV_ID
+  > Environment currently bound in the process (result of auth(action="set_env"))
+  > envId in project-level config .cloudbase/project.json
+  > envId in cloudbaserc.json (field-level fallback)
+  > Environment in account login state
+  > Return ENV_REQUIRED and direct the caller to auth(action="set_env")
+```
+
+`cloudbaserc.json` fallback notes for existing CLI projects, which do not need duplicate binding configuration:
+
+- **Field-level fallback**: `project.json` and `cloudbaserc.json` complement each other field by field. For example, if `project.json` contains only `site` and `cloudbaserc.json` contains only `envId`, both take effect; for the same field, `project.json` takes precedence.
+- **envId / region support literal values and `{{env.KEY}}` templates**: templates are resolved from `.env` / `.env.local` at the project root, using the same source as the CLI. `{{private.X}}` and templates that fail to resolve are skipped and resolution continues to the next level without an error.
+- **MCP does not write `cloudbaserc.json`**: it is a human-maintained deployment configuration managed by the CLI, which may also update it after deployment. Machine-managed binding persistence uses `.cloudbase/project.json`.
+
+Because this file lives in and can be committed with the repository, newly started MCP processes and every Git worktree of the same repository automatically use the same environment; you do not need to run `set_env` for each worktree. Different repositories read their own files, so bindings do not leak between projects.
+
+</details>
+
+### Multi-Site Credential Coexistence
+
+Login credentials are stored in site-specific slots (`credential.domestic` / `credential.intl` in `~/.config/.cloudbase/auth.json`). China-site and International-site login sessions can coexist, and switching environments does not require signing in again. Legacy single-slot data is treated as `domestic` when read and is automatically upgraded to the site-specific format on the first write.
+
+---
+
+## Remote Mode (Recommended) {#remote-mode}
+
+### Quick Start
+
+1. Add the endpoint to your client's MCP config (China site):
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "type": "http",
+      "url": "https://tcb-api.cloud.tencent.com/mcp/v1"
+    }
+  }
+}
+```
+
+2. On first connect the client opens a browser: sign in to Tencent Cloud and pick an environment to authorize.
+3. Ask the AI to look something up to confirm the connection, for example "list my cloud functions".
+
+For the international site, use `https://tcb-api.tencentcloud.com/mcp/v1`. **The site is determined by the domain** — there is no `site` parameter.
+
+Clients without OAuth support will get `401 Unauthorized: Missing credentials` from the config above (the `WWW-Authenticate` header points at this endpoint's OAuth metadata); use [static credentials](#remote-auth) instead.
+
+### What It Means and When to Use It
+
+- **Meaning**: the MCP server runs remotely and your IDE connects over HTTP; Node.js does not need to be installed or running locally.
+- **Use cases**: fast initial setup, consistent team access, cloud agents or platform integrations where the caller does not run on the developer's machine, and self-hosted deployments that require infrastructure control.
+- **Advantages**: no local environment dependency; one endpoint is enough; interactive clients complete authorization in the browser without storing API credentials in the configuration file; capabilities are upgraded centrally without requiring each client to track versions.
+- **Limitations**: capabilities that depend on the local filesystem are unavailable, as described below.
+
+Remote services have two deployment sources with the same capabilities; the only difference is who operates them:
+
+- **Tencent Cloud-hosted MCP service**: no operations overhead. Configure the endpoint and authentication method below. This is the path for most users.
+- **Self-hosted on your own server**: deploy and enable Cloud Mode yourself. Use this when you need private-network access or self-managed credentials.
+
+### Remote Mode Capability Boundaries {#remote-mode-capabilities}
+
+Because the MCP server does not run on the developer's machine, **tools involving the local filesystem or local processes are not registered**. Calling them fails because the tool is not present:
+
+| Tool | Why it is unavailable |
+|------|-----------|
+| `auth` | Login requires reading and writing local credential files |
+| `manageStorage` | Involves local file upload/download |
+| `downloadTemplate` | Downloads project templates to the local machine |
+| `manageCloudRun` | Involves starting a local service (`action="run"`) |
+| `deployBuild` | Reads local `cloudbaserc` and builds upload artifacts from the current working directory |
+| `deployPlan` | Same as above |
+| `deployApply` | Same as above |
+
+Some tools remain registered but have **action-level restrictions**: actions that depend on the local filesystem return an explicit error when called.
+
+- `manageFunctions`: actions that upload local source code; use `queryFunctions` `getFunctionUploadUrl` for a presigned URL, upload the zip, then deploy through the `code` parameter (two-phase)
+- `manageApps`: `deployApp` cannot use `filePath` / `localPath`; call `getUploadUrl` for a presigned URL, upload the archive, then call the action with `cosTimestamp`
+- `manageHosting`: `upload` / `downloadFile` / `downloadDirectory` depend on local paths and fail on call. Deploy static sites through the `manageApps` two-step upload instead; uploading or downloading already-hosted files has no remote substitute and needs local mode
+- `manageStorage`: actions that read from or write to local files
+
+**Remote mode can still deploy.** It always deploys through a **two-step upload plus a cloud pipeline**: get a presigned URL, upload the artifact (code zip or build output), then trigger the deploy, and the build runs in a cloud container. What local mode adds is building on the developer's machine and running a dry-run against the local `cloudbaserc` context before applying.
+
+There is also a **site-level capability difference**: the **International site does not currently provide NoSQL (document database) tools**. See [Site and Region](#site-region).
+
+These restrictions are implemented consistently through **Cloud Mode**. Tencent Cloud-hosted MCP has Cloud Mode enabled on the server. Enable it yourself when deploying on your own server; see [Self-Hosting on Your Own Server](#cloud-mode-self-host).
+
+### Method 1: OAuth Authorization (Interactive, Recommended)
+
+Enter only the endpoint; **do not place API credentials in the configuration file**:
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "type": "http",
+      "url": "https://tcb-api.cloud.tencent.com/mcp/v1"
+    }
+  }
+}
+```
+
+On the first connection, the client automatically performs dynamic client registration (DCR), opens the browser for login, lets you select an environment and approve access, and obtains a token.
+
+OAuth-capable clients such as Cursor, VS Code, and WorkBuddy can use this method. Compared with storing API credentials in configuration, it prevents credentials from being written to disk or committed accidentally.
+
+> For the International site, change `url` to `https://tcb-api.tencentcloud.com/mcp/v1`.
+>
+> ⚠️ In clients without OAuth support, this endpoint-only configuration returns `401 Unauthorized: Missing credentials`. Use [Method 2: Static Credentials](#remote-auth) instead.
+
+### Method 2: Static Credentials {#remote-auth}
+
+Use this method for clients without OAuth support and for CI/CD or other environments that cannot complete interactive authorization. The remote service authenticates the caller through request headers and currently supports Tencent Cloud API credentials:
+
+| Header | Value | How to obtain it |
+|--------|-----|---------|
+| `X-TencentCloud-SecretId` | Tencent Cloud SecretId | [Tencent Cloud API Keys](https://console.cloud.tencent.com/cam/capi) |
+| `X-TencentCloud-SecretKey` | Tencent Cloud SecretKey | Same as above |
+
+Both headers must be provided together. Replace `<env_id>` with your environment ID from the [CloudBase Console](https://tcb.cloud.tencent.com/dev):
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "type": "http",
+      "url": "https://tcb-api.cloud.tencent.com/mcp/v1?env_id=<env_id>",
+      "headers": {
+        "X-TencentCloud-SecretId": "<Tencent Cloud Secret ID>",
+        "X-TencentCloud-SecretKey": "<Tencent Cloud Secret Key>"
+      }
+    }
+  }
+}
+```
+
+> ⚠️ These are **account-level credentials** with permissions covering the Tencent Cloud account. Never commit them to a repository or share them with others. For CI, inject them through a secret-management system.
+>
+> For the International site, change `url` to `https://tcb-api.tencentcloud.com/mcp/v1?env_id=<env_id>` and use International-site credentials.
+
+### URL Parameters (Remote Mode Only) {#remote-url-params}
+
+Remote MCP configuration has no `env` block, so the following values can be passed only through URL parameters.
+
+The remote endpoint accepts exactly four query parameters; **all other parameters are ignored**:
+
+| Parameter | Required | Purpose |
+|------|----------|------|
+| `env_id` (or `envId`) | Required with static credentials; optional with OAuth because the token binds the environment | Select the environment to operate on |
+| `enable_plugins` | No | Enable only the specified plugins, separated by commas |
+| `disable_plugins` | No | Disable specified plugins from the default set, separated by commas |
+| `use_internal_endpoint` | No | Use an internal endpoint; available only in specific deployments |
+
+```
+# Enable only specified plugins
+https://tcb-api.cloud.tencent.com/mcp/v1?env_id=YOUR_ENV_ID&enable_plugins=env,database
+
+# Disable specified plugins
+https://tcb-api.cloud.tencent.com/mcp/v1?env_id=YOUR_ENV_ID&disable_plugins=rag,env
+```
+
+The available plugin names are defined by `mcp/src/server.ts`. Prefer these canonical names: `env`, `database`, `pg_database`, `pg_storage`, `mysql_database`, `functions`, `hosting`, `storage`, `setup`, `rag`, `download`, `gateway`, `cloudrun`, `app-auth`, `permissions`, `logs`, `agents`, `apps`, `capi`, `feedback`, `database-nosql`, `database-sql`, `data-model`.
+
+> ⚠️ **There is no `site` parameter and no `region` parameter.** The hostname determines the site—the China-site endpoint selects the China site even when the environment is in `ap-singapore`; adding `site=domestic` has no effect. The environment determines the region: with OAuth, it comes from the environment bound to the token. To query another region, pass `region` in the relevant tool call.
+
+### Environment Variables in Remote Mode
+
+In Remote Mode, environment variables are configured **on the server**. When using Tencent Cloud-hosted MCP, pass `env_id` and credentials through the URL and headers as described above; no server-side environment configuration is needed.
+
+If you **self-host** the remote service, see [MCP Tools - Hosted MCP Configuration](/ai/cloudbase-ai-toolkit/mcp-tools#hosted-mcp-configuration) for optional environment variables such as `TENCENTCLOUD_SECRETID`, `TENCENTCLOUD_SECRETKEY`, and `CLOUDBASE_ENV_ID`. You can also select the site server-side with `TCB_SITE` (`domestic` / `intl`), using the same behavior as Local Mode.
+
+### Self-Hosting on Your Own Server (Cloud Mode) {#cloud-mode-self-host}
+
+#### How to Enable It
+
+Enable Cloud Mode in any one of these ways:
+
+```bash
+# Method 1: Environment variable
+export CLOUDBASE_MCP_CLOUD_MODE=true
+
+# Method 2: Alternative environment variable
+export MCP_CLOUD_MODE=true
+
+# Method 3: CLI argument
+npx @cloudbase/cloudbase-mcp@latest --cloud-mode
+```
+
+The server then exposes a Streamable HTTP endpoint. Tools that read or write local files or start local processes are disabled individually; see [Remote Mode capability boundaries](#remote-mode-capabilities). This prevents remote callers from accessing the server's local resources through these tools.
+
+#### Security Architecture
+
+CloudBase MCP provides layered protection for each deployment mode:
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  Local Mode                         │
+│  - All tools available                              │
+│  - Caller = developer (already controls the machine)│
+│  - Transport: stdio / localhost                     │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│            Remote Mode / Cloud Mode                 │
+│  - Local file/process tools disabled automatically  │
+│  - Three-layer filtering: server-side registration  │
+│    filtering + client-side allowlist (redundant)     │
+│  - Remote callers cannot access server-local files  │
+│  - Transport: HTTPS (Streamable HTTP)                │
+└─────────────────────────────────────────────────────┘
+```
+
+> **Important**: In Local Mode, tools such as `manageCloudRun(action="run")` are normal product capabilities, equivalent to the developer running `curl` or `node app.js` in a terminal. They run only on the developer's machine and do not create a privilege-escalation risk. If you deploy MCP on a remote server and expose it externally, **Cloud Mode must be enabled**. Tencent Cloud-hosted MCP enables it by default.
+
+---
+
+## Local Mode {#local-mode}
+
+### What It Means and When to Use It
+
+- **Meaning**: the MCP server runs on your machine via `npx`, alongside your IDE.
+- **Use cases**: capabilities that depend on the local filesystem, such as uploading local code or directories and downloading templates to your machine; offline or restricted-network environments.
+- **Advantages**: the complete feature set, including upload, download, and template-installation capabilities that depend on the local filesystem.
+- **Requirements**: Node.js is installed and `npx` is available.
+
+### Quick Start
+
+Add this to your IDE's MCP configuration (for example, Cursor or WindSurf):
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "command": "npx",
+      "args": ["@cloudbase/cloudbase-mcp@latest"],
+      "env": {}
+    }
+  }
+}
+```
+
+> 💡 Local Mode has no hostname from which to infer the site. International-site users must set `TCB_SITE=intl` in `env`; the China site is the default and does not need to be specified. See [How Local Mode Determines the Site](#local-mode-site).
+
+### Optional Environment Variables in Local Mode
+
+In Local Mode, behavior can be controlled through environment variables. All variables below are **optional**; omitted values use the default behavior.
+
+| Environment variable | Description | Default / Notes |
+|----------|------|-------------|
+| `CLOUDBASE_API_KEY` | CloudBase environment-level API Key (recommended for CI/CD and MCP Server) | Use with `CLOUDBASE_ENV_ID`; takes priority over `TENCENTCLOUD_*` credentials. `CLOUDBASE_APIKEY` is also read for compatibility with `@cloudbase/js-sdk` / `@cloudbase/node-sdk`, but the underscore form `CLOUDBASE_API_KEY` takes precedence. [Create one in the console](https://tcb.cloud.tencent.com/dev) |
+| `CLOUDBASE_ENV_ID` | CloudBase environment ID | If omitted, the first call guides you through login and environment selection |
+| `CLOUDBASE_API_ENDPOINT` | Custom endpoint for API Key credential exchange (advanced) | Defaults to `https://<envId>.<region>.tcb-api.tencentcloudapi.com` |
+| `CLOUDBASE_LOCAL_ENDPOINT` | Redirects Cloud APIs to a local process origin, for example `http://127.0.0.1:8797` | When unset, calls go to Tencent Cloud. The value is an origin — do not include `/capi`, it is appended automatically. Once set, login is skipped, no credentials are required, and the environment ID is `local`. This is not the same address as `CLOUDBASE_API_ENDPOINT` above |
+| `TENCENTCLOUD_SECRETID` | Tencent Cloud SecretId | If omitted, obtained through the login flow. [Get Tencent Cloud API credentials](https://console.cloud.tencent.com/cam/capi) |
+| `TENCENTCLOUD_SECRETKEY` | Tencent Cloud SecretKey | Same as above |
+| `TENCENTCLOUD_SESSIONTOKEN` | Tencent Cloud temporary credential token | Required only for temporary credentials. See [STS](https://console.cloud.tencent.com/cam/capi) |
+| `TCB_REGION` | Tencent Cloud region, such as `ap-shanghai` | Uses the SDK default when omitted |
+| `TCB_SITE` | Site: `domestic` (China site) or `intl` (International site) | If omitted, inferred from `region`; ambiguous `ap-singapore` defaults to `intl`. China-site Singapore users must explicitly set `domestic` |
+| `TCB_AUTH_OAUTH_ENDPOINT` | Custom device-code login endpoint (advanced) | Uses the default login endpoint when omitted |
+| `TCB_AUTH_CLIENT_ID` | Custom device-code login `client_id` (advanced) | Uses the default `client_id` when omitted |
+| `TCB_AUTH_OAUTH_CUSTOM` | Custom endpoint response-format switch (advanced) | Defaults to `false` without a custom endpoint and `true` when one is configured |
+| `TCB_TCR_USERNAME` | Personal-edition TCR push username, which is the Tencent Cloud account UIN | Required only for personal-edition HTTP Cloud Function image builds (`imageType=personal` with `local` / `cloud`). It shares the name `{{env.TCB_TCR_USERNAME}}` with cloudbaserc, so the CLI and MCP use the same variable |
+| `TCB_TCR_PASSWORD` | Personal-edition TCR fixed password | Same as above. Once configured, credentials do not need to be passed in tool parameters, keeping the password out of the AI context. [Get the personal-edition registry password](https://console.cloud.tencent.com/tcr/token) |
+| `INTEGRATION_IDE` | Current IDE identifier, such as `Cursor` or `CodeBuddy` | Used for logging and capability adaptation |
+| `CLOUDBASE_MCP_PLUGINS_ENABLED` | Comma-separated enabled plugin list | Uses the default plugin set when omitted |
+| `CLOUDBASE_MCP_PLUGINS_DISABLED` | Comma-separated disabled plugin list | Equivalent to the `disable_plugins` URL parameter |
+| `WORKSPACE_FOLDER_PATHS` / `PROJECT_ROOT` | Project root for template downloads, remote files, and related operations | Defaults to the current working directory; CI can use `GITHUB_WORKSPACE` and similar variables |
+| `CLOUDBASE_MCP_TELEMETRY_DISABLED` | Set to `true` to disable telemetry | Telemetry is enabled by default |
+| `CLOUDBASE_LOG_DIR` | Log directory | Defaults to `~/.cloudbase-mcp/logs` |
+
+**Telemetry**: CloudBase MCP reports usage statistics by default for product improvement and usage analysis. These include tool name, result and duration, the tool-level `action` (for example `status` / `set_env` on `auth`), truncated error summary, environment ID, region/site, IDE and MCP client identifiers together with the capabilities they declare (such as whether interactive input is supported), device identifier, and the environment owner's root-account UIN (`login_uin`, consistent with CloudBase CLI). When a client reads a `ui://` panel resource, one extra resource-read event is reported (event name `toolkit_resource_read`, carrying the resource URI, MIME type, content byte size, duration and outcome, reusing the same environment / site / client fields as above). Reported values are truncated and filtered for sensitive fields and are not used for other purposes. Set `CLOUDBASE_MCP_TELEMETRY_DISABLED=true` to disable telemetry completely.
+
+### Which Login Environment Variables Should I Set?
+
+In most cases, **you do not need to configure these three variables**: `TCB_AUTH_OAUTH_ENDPOINT`, `TCB_AUTH_CLIENT_ID`, and `TCB_AUTH_OAUTH_CUSTOM`.
+
+Configure them only when integrating an enterprise or platform-specific login middleware. See [Isolation without CAM sub-accounts](/quick-start/enterprise-ai-platform-no-cam).
+
+- Personal development and standard teams: use the default device-code login; no configuration is needed
+- Servers, CI/CD, MCP Server, and AI Agents: use `CLOUDBASE_API_KEY` + `CLOUDBASE_ENV_ID` (environment-level long-lived credentials that are exchanged automatically for temporary credentials)
+- Traditional API credentials: set `TENCENTCLOUD_SECRETID`, `TENCENTCLOUD_SECRETKEY`, optional `TENCENTCLOUD_SESSIONTOKEN`, and `CLOUDBASE_ENV_ID`
+- Enterprise custom login middleware: usually start by configuring only `TCB_AUTH_OAUTH_ENDPOINT`
+
+#### Credential Priority
+
+When multiple credentials are available, MCP selects them in this order:
+
+1. `CLOUDBASE_API_KEY` + `CLOUDBASE_ENV_ID` — CloudBase environment-level API Key; if `CLOUDBASE_API_KEY` is absent, `CLOUDBASE_APIKEY` is read for compatibility
+2. `TENCENTCLOUD_SECRETID` + `TENCENTCLOUD_SECRETKEY` — Tencent Cloud permanent or temporary credentials
+3. Locally stored Device Flow credentials (`~/.config/.cloudbase/auth.json`)
+
+#### Login Modes and Query Scope
+
+The login methods have **different visible-environment scopes**. This is a credential boundary, not a missing environment:
+
+| Login method | `auth(status)` field | Visible environments |
+|----------|---------------------|------------|
+| Account-level (device / web / Tencent Cloud SecretId) | `credential_scope=account` | Environments the account can access in the current region; query other regions explicitly |
+| Environment-level API Key (`CLOUDBASE_API_KEY` + `CLOUDBASE_ENV_ID`) | `credential_scope=single_env` | **Only the bound envId**; other environments and regions cannot be listed |
+
+Cross-region queries with account-level credentials:
+
+- MCP: `queryEnv(action="list", region="ap-singapore")` (formerly `envQuery`)
+- MCP management plane: `callCloudApi(service="tcb", action="DescribeEnvs", region="ap-singapore")`. **Do not put `Region` in `params`**, which causes `The parameter Region is not recognized`
+- CLI: `tcb env list -r ap-singapore --json`
+
+When using account-level login, `auth(action="set_env", envId="<EnvId>")` can bind an environment even when the envId is not present in the current region's candidate list. An environment-level API Key cannot be rebound to another envId.
+
+#### API Key Mode Example
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "command": "npx",
+      "args": ["@cloudbase/cloudbase-mcp@latest"],
+      "env": {
+        "CLOUDBASE_API_KEY": "<your-api-key>",
+        "CLOUDBASE_ENV_ID": "<your-env-id>"
+      }
+    }
+  }
+}
+```
+
+> 💡 Create and manage API Keys in the environment settings of the [CloudBase Console](https://tcb.cloud.tencent.com/dev).
+>
+> ⚠️ API Keys grant environment-level operation permissions. Keep them secure, inject them through environment variables, and do not hardcode them in configuration files.
+
+#### Custom Login Middleware
+
+Minimal example:
+
+```bash
+TCB_AUTH_OAUTH_ENDPOINT=https://auth.your-domain.com/oauth
+```
+
+Notes:
+
+- `TCB_AUTH_CLIENT_ID`: set only when the custom login service requires a fixed `client_id`
+- `TCB_AUTH_OAUTH_CUSTOM`: use `true` with a custom `TCB_AUTH_OAUTH_ENDPOINT`; it now defaults to `true` automatically when an endpoint is configured
+
+---
+
+## Dangerous Operations and Confirmation {#safety}
+
+Destructive actions request confirmation before they run (MCP elicitation). Whether that prompt appears depends on the client — **it is not a security boundary**.
+
+### Actions that trigger confirmation
+
+| Resource | `tool.action` |
+|---|---|
+| Functions | `manageFunctions.deleteFunction`, `deleteFunctionTrigger`, `deleteLayerVersion` |
+| Database | `writeNoSqlDatabaseStructure.deleteCollection`, `writeNoSqlDatabaseContent.delete`, `manageMysqlDatabase.destroyMySQL` |
+| Storage and hosting | `manageStorage.delete`, `manageHosting.delete` |
+| CloudRun | `manageCloudRun.delete` |
+| Migrations | `managePgDatabase.execute`, `applyMigration` — judged by the **SQL statement**, not the action name |
+| Domains and routing | `envDomainManagement.delete`, `manageEnv.removeSecurityDomain`, `manageGateway.deleteRoute`, `deleteCustomDomain` |
+| Accounts and releases | `manageAgents.deleteAgent`, `manageAppAuth.deleteProvider`, `deleteApiKey`, `manageApps.deleteApp`, `deleteAppVersion` |
+
+### Boundaries
+
+| Client behaviour | Result |
+|---|---|
+| No elicitation support | No prompt; the call runs |
+| Supported but auto-answered (< 500ms) | Treated as not asked; the call runs |
+| User declines | Normal result, not an error — an error would make the model retry the same delete |
+
+> ⚠️ A guardrail, not a boundary. Do not rely on it in production: use read-only credentials, or narrow the plugin set with `enable_plugins`.
+
+### Switches
+
+| Variable | Effect |
+|---|---|
+| `CLOUDBASE_MCP_SKIP_ELICITATIONS` | Comma-separated skip list; `tool` or `tool.action`, case-sensitive, no wildcards |
+| `CLOUDBASE_MCP_ELICIT_AUTO_APPROVE=block` | Also block when the client answers automatically |
+
+## Supported Plugins
+
+The current plugin names, default-enabled set, and compatible aliases are defined by `mcp/src/server.ts`. The table below lists every supported canonical name:
+
+| Plugin | Enabled by default | Description |
+|--------|----------|------|
+| `env` | Yes | Environment login, environment queries, and security-domain management |
+| `database` | Yes | NoSQL database + data models (combined registration) |
+| `pg_database` | Yes | PostgreSQL database |
+| `pg_storage` | Yes | PostgreSQL storage |
+| `mysql_database` | Yes | MySQL database |
+| `functions` | Yes | Cloud Function queries, creation, updates, and invocation |
+| `hosting` | Yes | Static Hosting and domain management |
+| `storage` | Yes | Cloud Storage file management |
+| `setup` | Yes | Templates, IDE rules, and configuration downloads |
+| `rag` | Yes | Knowledge base, skills, OpenAPI, and official documentation search |
+| `download` | Yes | Download remote files locally |
+| `gateway` | Yes | Cloud Function access endpoints and route management |
+| `cloudrun` | Yes | CloudBase Run service initialization, deployment, and management |
+| `app-auth` | Yes | Application-side authentication configuration |
+| `permissions` | Yes | Permissions, roles, and security rules |
+| `logs` | Yes | Log service status and log search |
+| `agents` | Yes | Agent queries and management |
+| `apps` | Yes | CloudApp application and version management |
+| `capi` | Yes | Generic Cloud API calls |
+| `feedback` | Yes | Registers `prepareFeedback` by default, which drafts a case study or retrospective and returns a submission link after confirmation; it never submits on your behalf |
+| `database-nosql` | No | NoSQL database only (subset of `database`) |
+| `database-sql` | No | SQL database only (subset of `mysql_database`) |
+| `data-model` | No | Data models only (subset of `database`) |
+
+Compatible aliases (prefer canonical names):
+
+| Alias | → canonical |
+|------|-------------|
+| `access-control` | `permissions` |
+| `auth-config` | `app-auth` |
+| `security-rule` / `security-rules` | `permissions` |
+| `secret-rule` / `secret-rules` | `permissions` |
+| `users` | `permissions` |
+| `mysql` / `mysql-database` | `mysql_database` |
+| `sql-database` | `mysql_database` |
+
+When no plugin scope is configured, plugins marked “Yes” above are enabled by default. You can control the scope with environment variables or URL parameters. Multiple values for `enable_plugins` / `disable_plugins` and `CLOUDBASE_MCP_PLUGINS_ENABLED` / `CLOUDBASE_MCP_PLUGINS_DISABLED` are **comma-separated**.
+
+## Supported Tools
+
+Tool names and counts evolve between versions. For complete parameters and descriptions, see [MCP Tools](/ai/cloudbase-ai-toolkit/mcp-tools). To confirm that a tool or plugin actually exists, use the registrations in `mcp/src/server.ts` and `mcp/src/tools/*.ts` as the source of truth.

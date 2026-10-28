@@ -1,7 +1,8 @@
 import * as fs from "fs/promises";
 import * as os from "os";
 import * as path from "path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { t } from "../i18n/index.js";
 import type { ExtendedMcpServer } from "../server.js";
 
 const { mockGetCloudBaseManager, mockCreateCloudBaseManagerWithOptions } = vi.hoisted(() => ({
@@ -9,12 +10,42 @@ const { mockGetCloudBaseManager, mockCreateCloudBaseManagerWithOptions } = vi.ho
   mockCreateCloudBaseManagerWithOptions: vi.fn(),
 }));
 
+// 让测试可以把 os.homedir() 指向临时目录，从而控制技能搜索根（<home>/.cloudbase-mcp/...）。
+const skillTestState = vi.hoisted(() => ({ home: "" }));
+
+vi.mock("os", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("os")>();
+  return {
+    ...actual,
+    default: actual,
+    homedir: () => skillTestState.home || actual.homedir(),
+  };
+});
+
 vi.mock("../cloudbase-manager.js", () => ({
   getCloudBaseManager: mockGetCloudBaseManager,
   createCloudBaseManagerWithOptions: mockCreateCloudBaseManagerWithOptions,
 }));
 
-import { registerRagTools, resolveSkillSearchRoots } from "./rag.js";
+import {
+  SKILL_REMOTE_BASE_URL,
+  RESOURCE_DOWNLOAD_FAILURE_BACKOFF_MS,
+  __resetResourceDownloadStateForTests,
+  __skipFreshCacheChecksForTests,
+  __updateResourceCacheForTests,
+  __setBeforeDirectorySwapForTests,
+  __setResourceDownloadTimeoutForTests,
+  buildSkillRawUrl,
+  collectSkillMarkdownFiles,
+  getCacheTtlMs,
+  isDocsHtmlFallback,
+  loadSkillIndex,
+  registerRagTools,
+  resolveDocsMarkdownPath,
+  resolveSkillSearchRoots,
+  rewriteRelativeLinks,
+  warmupHostedResources,
+} from "./rag.js";
 
 function createMockServer() {
   const tools: Record<string, { meta: any; handler: (args: any) => Promise<any> }> = {};
@@ -97,6 +128,44 @@ describe("rag tools", () => {
         "limit",
       ]),
     );
+  });
+
+  it("every skillName example in the description is a real enum value", async () => {
+    /**
+     * 枚举来自磁盘上的 skills 源，而 `resolveSkillSearchRoots` 用 `process.argv[1]`
+     * 往上两级推仓库根 —— vitest 的 argv[1] 指向 `node_modules` 深处，推出来的根
+     * 找不到 `config/source/skills`，于是只剩「下载来的 web-template」这一条兜底。
+     * 那条兜底要走网络：CI 上偶发失败时枚举就是空的（症状是 `options` undefined，
+     * 不是断言不等）。
+     *
+     * 这里显式把 argv[1] 指向 `<repo>/.probe/sub/probe.js`，让仓库根算对，
+     * 这条断言就只依赖仓库里的源文件。
+     */
+    const prevArgv1 = process.argv[1];
+    process.argv[1] = path.resolve(
+      path.dirname(new URL(import.meta.url).pathname),
+      "../../../.probe/sub/probe.js",
+    );
+    try {
+      const { server, tools } = createMockServer();
+
+      await registerRagTools(server);
+
+      const meta = tools.searchKnowledgeBase.meta;
+      const options: string[] = meta.inputSchema.skillName.unwrap().options;
+      // 描述里以 `skillName=<值>` 形式的示例，模型会照抄，因此必须都在枚举里
+      const examples = [...String(meta.description).matchAll(/skillName=([a-z0-9-]+)/g)].map(
+        (match) => match[1],
+      );
+
+      expect(examples.length).toBeGreaterThan(0);
+      // 先确认枚举真的建起来了：扫不到 skills 时这里会给 undefined，报错信息会误导成断言问题
+      expect(Array.isArray(options)).toBe(true);
+      expect(options.length).toBeGreaterThan(0);
+      expect(examples.filter((name) => !options.includes(name))).toEqual([]);
+    } finally {
+      process.argv[1] = prevArgv1;
+    }
   });
 
   it("searchKnowledgeBase should expose docs mode and official app.docs actions", async () => {
@@ -190,6 +259,62 @@ describe("rag tools", () => {
       success: false,
       message: expect.stringContaining("docPath"),
     });
+  });
+
+  it("readDoc should request the .md address and report the resolved path", async () => {
+    const { server, tools } = createMockServer();
+    const readDoc = vi.fn().mockResolvedValue("# 快速开始\n正文");
+
+    mockCreateCloudBaseManagerWithOptions.mockReturnValue({ docs: { readDoc } });
+
+    await registerRagTools(server);
+
+    const result = await tools.searchKnowledgeBase.handler({
+      mode: "docs",
+      action: "readDoc",
+      docPath: "https://docs.cloudbase.net/quick-start/index",
+    });
+
+    // 站点把 markdown 放在 `<页面路径>.md`；旧规则拼的 `/index.md` 会拿到 HTML 兜底页。
+    // 官方文档站的完整地址会被剥成站内路径再交给 SDK —— fetch 目标恒为首方基址，调用方
+    // 无法指定主机。回显给调用方的 docPath 仍是他传进来的原串。
+    expect(readDoc).toHaveBeenCalledWith("/quick-start.md");
+    expect(JSON.parse(result.content[0].text)).toMatchObject({
+      success: true,
+      data: {
+        action: "readDoc",
+        docPath: "https://docs.cloudbase.net/quick-start/index",
+        markdownPath: "/quick-start.md",
+        content: "# 快速开始\n正文",
+      },
+    });
+  });
+
+  it("readDoc should turn an HTML shell response into an explicit failure", async () => {
+    const { server, tools } = createMockServer();
+    const readDoc = vi
+      .fn()
+      .mockResolvedValue(
+        '<!doctype html><html lang="zh-Hans"><head><title>云开发</title></head></html>',
+      );
+
+    mockCreateCloudBaseManagerWithOptions.mockReturnValue({ docs: { readDoc } });
+
+    await registerRagTools(server);
+
+    const result = await tools.searchKnowledgeBase.handler({
+      mode: "docs",
+      action: "readDoc",
+      docPath: "https://docs.cloudbase.net/http-api/pgdb/update-records#step-1",
+    });
+
+    const body = JSON.parse(result.content[0].text);
+    expect(body.success).toBe(false);
+    // 报错要指出实际请求的 markdown 地址，并给出可抓取的网页版地址作为退路。
+    expect(body.message).toContain("update-records.md#step-1");
+    expect(body.message).toContain(
+      "https://docs.cloudbase.net/http-api/pgdb/update-records#step-1",
+    );
   });
 
   it("searchKnowledgeBase should avoid empty enums when dynamic catalogs are unavailable", async () => {
@@ -303,15 +428,19 @@ describe("rag tools", () => {
 
       // Skill enumeration may be unavailable offline; either way the response
       // must point at the remote SKILL.md URL instead of a server-local path.
+      // Use a name that can never be enumerated so the assertion is stable.
       const skillResult = await tools.searchKnowledgeBase.handler({
         mode: "skill",
-        skillName: "auth-tool",
+        skillName: "__missing-skill__",
       });
       const skillText = skillResult.content[0].text;
       expect(skillText).toContain(
-        "https://cnb.cool/tencent/cloud/cloudbase/skills/-/git/raw/main/skills",
+        "https://cnb.cool/tencent/cloud/cloudbase/cloudbase-skills/-/git/raw/main/skills/cloudbase/references/__missing-skill__/SKILL.md",
       );
-      expect(skillText).not.toContain("absolute path is:");
+      // 本地绝对路径提示必须缺失（断言按词典键构造，避免绑定具体语言）
+      expect(skillText).not.toContain(
+        t("rag.skillLocal", { path: "__SENTINEL__", content: "" }).split("__SENTINEL__")[0],
+      );
     } finally {
       globalThis.fetch = originalFetch;
       if (previousCloudMode === undefined) {
@@ -320,5 +449,547 @@ describe("rag tools", () => {
         process.env.CLOUDBASE_MCP_CLOUD_MODE = previousCloudMode;
       }
     }
+  });
+});
+
+describe("searchKnowledgeBase mode=skill remote references", () => {
+  const originalFetch = globalThis.fetch;
+  const previousCloudMode = process.env.CLOUDBASE_MCP_CLOUD_MODE;
+  let tempDirs: string[] = [];
+
+  async function createFakeSkillHome(skillName: string) {
+    const home = await fs.mkdtemp(path.join(os.tmpdir(), "rag-remote-skill-"));
+    tempDirs.push(home);
+
+    const skillDir = path.join(
+      home,
+      ".cloudbase-mcp",
+      "web-template",
+      ".claude",
+      "skills",
+      skillName,
+    );
+    await fs.mkdir(path.join(skillDir, "references", "nested"), {
+      recursive: true,
+    });
+
+    await fs.writeFile(
+      path.join(skillDir, "SKILL.md"),
+      [
+        "---",
+        `name: ${skillName}`,
+        "description: fake skill used by rag remote-reference tests",
+        "---",
+        "",
+        "# Fake Skill",
+        "",
+        "See [guide](references/guide.md) and [sibling](../sibling-skill/SKILL.md).",
+        "Escape [outside](../../outside.md) stays relative.",
+        "",
+        "```ts",
+        "// [must-not-rewrite](references/inside.md)",
+        "```",
+        "",
+        "Keep [absolute](https://example.com/x.md) and [anchor](#section).",
+      ].join("\n"),
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(skillDir, "references", "guide.md"),
+      "# Guide\n",
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(skillDir, "references", "nested", "deep.md"),
+      "# Deep\n",
+      "utf8",
+    );
+
+    // 有效缓存：让 downloadResources 走快速路径，测试不触发网络下载
+    await fs.writeFile(
+      path.join(home, ".cloudbase-mcp", "cache-meta.json"),
+      JSON.stringify({ timestamp: Date.now() }),
+      "utf8",
+    );
+
+    return { home, skillDir };
+  }
+
+  function mockFetchByStatus(status: number) {
+    globalThis.fetch = vi.fn(async (input: unknown) => {
+      if (String(input).startsWith(SKILL_REMOTE_BASE_URL)) {
+        return { status } as unknown as Response;
+      }
+      throw new Error("offline");
+    }) as unknown as typeof fetch;
+  }
+
+  async function registerInFakeHome(home: string) {
+    skillTestState.home = home;
+    vi.resetModules();
+    const { registerRagTools: isolatedRegisterRagTools } = await import(
+      "./rag.js"
+    );
+    const { server, tools } = createMockServer();
+    await isolatedRegisterRagTools(server);
+    return tools;
+  }
+
+  afterEach(async () => {
+    globalThis.fetch = originalFetch;
+    if (previousCloudMode === undefined) {
+      delete process.env.CLOUDBASE_MCP_CLOUD_MODE;
+    } else {
+      process.env.CLOUDBASE_MCP_CLOUD_MODE = previousCloudMode;
+    }
+    skillTestState.home = "";
+    vi.resetModules();
+    for (const dir of tempDirs) {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+    tempDirs = [];
+  });
+
+  it("uses the live all-in-one skills repo and builds raw urls per skill", () => {
+    expect(SKILL_REMOTE_BASE_URL).toBe(
+      "https://cnb.cool/tencent/cloud/cloudbase/cloudbase-skills/-/git/raw/main/skills/cloudbase/references",
+    );
+    expect(
+      buildSkillRawUrl("cloudrun-development", "references/vpc-and-database.md"),
+    ).toBe(
+      `${SKILL_REMOTE_BASE_URL}/cloudrun-development/references/vpc-and-database.md`,
+    );
+  });
+
+  it("collects every markdown file recursively with SKILL.md first", async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "rag-skill-md-"));
+    tempDirs.push(dir);
+    await fs.mkdir(path.join(dir, "references", "rules"), { recursive: true });
+    await fs.writeFile(path.join(dir, "SKILL.md"), "", "utf8");
+    await fs.writeFile(path.join(dir, "checklist.md"), "", "utf8");
+    await fs.writeFile(path.join(dir, "references", "rules", "A.md"), "", "utf8");
+    await fs.writeFile(path.join(dir, "notes.txt"), "", "utf8");
+
+    await expect(collectSkillMarkdownFiles(dir)).resolves.toEqual([
+      "SKILL.md",
+      "checklist.md",
+      "references/rules/A.md",
+    ]);
+  });
+
+  it("rewrites fence-outside relative links only and preserves anchors", () => {
+    const input = [
+      "[a](references/x.md#sec)",
+      "[abs](https://example.com/y.md)",
+      "[root](/root.md)",
+      "[anchor](#only)",
+      "[sibling](../sibling-skill/SKILL.md)",
+      "[escape](../../outside.md)",
+      "```",
+      "[inside](references/y.md)",
+      "```",
+      "[after](checklist.md)",
+    ].join("\n");
+
+    const output = rewriteRelativeLinks(input, "myskill");
+
+    expect(output).toContain(
+      `[a](${SKILL_REMOTE_BASE_URL}/myskill/references/x.md#sec)`,
+    );
+    expect(output).toContain("[abs](https://example.com/y.md)");
+    expect(output).toContain("[root](/root.md)");
+    expect(output).toContain("[anchor](#only)");
+    expect(output).toContain(
+      `[sibling](${SKILL_REMOTE_BASE_URL}/sibling-skill/SKILL.md)`,
+    );
+    expect(output).toContain("[escape](../../outside.md)");
+    expect(output).toContain("[inside](references/y.md)");
+    expect(output).toContain(
+      `[after](${SKILL_REMOTE_BASE_URL}/myskill/checklist.md)`,
+    );
+  });
+
+  it("returns the full remote md address list and rewritten body when the mirror exists", async () => {
+    process.env.CLOUDBASE_MCP_CLOUD_MODE = "true";
+    const { home } = await createFakeSkillHome("myskill");
+    mockFetchByStatus(200);
+
+    const tools = await registerInFakeHome(home);
+    const result = await tools.searchKnowledgeBase.handler({
+      mode: "skill",
+      skillName: "myskill",
+    });
+    const text = result.content[0].text;
+
+    expect(text).toContain(`${SKILL_REMOTE_BASE_URL}/myskill/SKILL.md`);
+    expect(text).toContain(
+      `${SKILL_REMOTE_BASE_URL}/myskill/references/guide.md`,
+    );
+    expect(text).toContain(
+      `${SKILL_REMOTE_BASE_URL}/myskill/references/nested/deep.md`,
+    );
+    expect(text).toContain(
+      `](${SKILL_REMOTE_BASE_URL}/myskill/references/guide.md)`,
+    );
+    expect(text).toContain(
+      `](${SKILL_REMOTE_BASE_URL}/sibling-skill/SKILL.md)`,
+    );
+    expect(text).toContain("[must-not-rewrite](references/inside.md)");
+    expect(text).not.toContain(
+      `](${SKILL_REMOTE_BASE_URL}/myskill/references/inside.md)`,
+    );
+    expect(text).not.toContain(
+      t("rag.skillLocal", { path: "__SENTINEL__", content: "" }).split("__SENTINEL__")[0],
+    );
+  });
+
+  it("falls back to inline content without dead links when the mirror is missing", async () => {
+    process.env.CLOUDBASE_MCP_CLOUD_MODE = "true";
+    const { home } = await createFakeSkillHome("local-only-skill");
+    mockFetchByStatus(404);
+
+    const tools = await registerInFakeHome(home);
+    const result = await tools.searchKnowledgeBase.handler({
+      mode: "skill",
+      skillName: "local-only-skill",
+    });
+    const text = result.content[0].text;
+
+    expect(text).toContain(
+      t("rag.skillRemoteMissing", { skillName: "local-only-skill" }),
+    );
+    expect(text).not.toContain(SKILL_REMOTE_BASE_URL);
+    expect(text).toContain(t("rag.skillContentHeading", { body: "" }).trim());
+    expect(text).toContain("](references/guide.md)");
+  });
+
+  it("points unknown skill names at the remote hint instead of throwing", async () => {
+    process.env.CLOUDBASE_MCP_CLOUD_MODE = "true";
+    const { home } = await createFakeSkillHome("myskill");
+    mockFetchByStatus(200);
+
+    const tools = await registerInFakeHome(home);
+    const result = await tools.searchKnowledgeBase.handler({
+      mode: "skill",
+      skillName: "ghost-skill",
+    });
+    const text = result.content[0].text;
+
+    expect(text).toContain(
+      t("rag.skillNotFound", {
+        skillName: "ghost-skill",
+        available: "myskill",
+        remoteHint: "",
+      }).trim(),
+    );
+    expect(text).toContain(`${SKILL_REMOTE_BASE_URL}/ghost-skill/SKILL.md`);
+  });
+});
+
+describe("CloudBase docs markdown addressing", () => {
+  // 站点规则：markdown 在 `<页面路径>.md`；`<路径>/index.md` 一律落到 SPA 兜底页。
+  it.each([
+    [
+      "裸页面路径加 .md",
+      "https://docs.cloudbase.net/quick-start/create-env",
+      "https://docs.cloudbase.net/quick-start/create-env.md",
+    ],
+    [
+      "相对路径同样处理",
+      "quick-start/create-env",
+      "quick-start/create-env.md",
+    ],
+    [
+      "index 型页面去掉 /index 再加 .md",
+      "https://docs.cloudbase.net/quick-start/index",
+      "https://docs.cloudbase.net/quick-start.md",
+    ],
+    [
+      "旧文档里的 /index.md 写法还原后重拼",
+      "https://docs.cloudbase.net/integration/introduce/index.md",
+      "https://docs.cloudbase.net/integration/introduce.md",
+    ],
+    [
+      "已是 .md 的路径原样透传（避免重复加后缀）",
+      "https://docs.cloudbase.net/quick-start/create-env.md",
+      "https://docs.cloudbase.net/quick-start/create-env.md",
+    ],
+    [
+      "结尾斜杠先归一化",
+      "https://docs.cloudbase.net/quick-start/create-env/",
+      "https://docs.cloudbase.net/quick-start/create-env.md",
+    ],
+    [
+      "保留锚点",
+      "https://docs.cloudbase.net/quick-start/create-env#step-2",
+      "https://docs.cloudbase.net/quick-start/create-env.md#step-2",
+    ],
+    [
+      "index 型路径带锚点",
+      "https://docs.cloudbase.net/faq/index#billing",
+      "https://docs.cloudbase.net/faq.md#billing",
+    ],
+    ["首尾空白先裁剪", "  quick-start/create-env  ", "quick-start/create-env.md"],
+  ])("%s", (_label, input, expected) => {
+    expect(resolveDocsMarkdownPath(input)).toBe(expected);
+  });
+
+  it.each([
+    ["doctype 开头的兜底页", "<!doctype html>\n<html>", true],
+    ["无 doctype 的 html 标签", '<html lang="zh-Hans">', true],
+    ["带 BOM 的兜底页", "\uFEFF<!DOCTYPE html><html>", true],
+    ["markdown 正文", "# 快速开始\n正文", false],
+    ["带 front matter 的 markdown", "---\ntitle: x\n---\n# 标题", false],
+    ["以 import 开头的 mdx 源文", "import Tabs from '@theme/Tabs';", false],
+    ["空字符串", "", false],
+  ])("isDocsHtmlFallback: %s", (_label, content, expected) => {
+    expect(isDocsHtmlFallback(content)).toBe(expected);
+  });
+});
+
+describe("hosted resource download and skill index", () => {
+  let home = "";
+  const originalTtl = process.env.CLOUDBASE_MCP_CACHE_TTL_MS;
+  const originalFetch = globalThis.fetch;
+
+  beforeEach(async () => {
+    home = await fs.mkdtemp(path.join(os.tmpdir(), "rag-hosted-"));
+    skillTestState.home = home;
+    __resetResourceDownloadStateForTests();
+    delete process.env.CLOUDBASE_MCP_CACHE_TTL_MS;
+  });
+
+  afterEach(() => {
+    skillTestState.home = "";
+    __resetResourceDownloadStateForTests();
+    __setBeforeDirectorySwapForTests(null);
+    globalThis.fetch = originalFetch;
+    if (originalTtl === undefined) {
+      delete process.env.CLOUDBASE_MCP_CACHE_TTL_MS;
+    } else {
+      process.env.CLOUDBASE_MCP_CACHE_TTL_MS = originalTtl;
+    }
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  async function writeSkill(root: string): Promise<string> {
+    const skillFile = path.join(root, "demo", "SKILL.md");
+    await fs.mkdir(path.dirname(skillFile), { recursive: true });
+    await fs.writeFile(
+      skillFile,
+      "---\ndescription: demo skill for the index\n---\n# Demo\n",
+      "utf8",
+    );
+    return skillFile;
+  }
+
+  async function rewriteDescription(skillFile: string, description: string): Promise<void> {
+    await fs.writeFile(
+      skillFile,
+      `---\ndescription: ${description}\n---\n# Demo\n`,
+      "utf8",
+    );
+  }
+
+  it("names a root-level SKILL.md from its front matter instead of the directory", async () => {
+    const root = path.join(home, "skills");
+    const skillFile = await writeSkill(root);
+    // All-in-one 索引的形态：一份 SKILL.md 直接躺在搜索根里，没有自己的目录
+    const rootIndexFile = path.join(root, "SKILL.md");
+    await fs.writeFile(
+      rootIndexFile,
+      "---\nname: cloudbase-all-in-one\ndescription: all-in-one index\n---\n",
+      "utf8",
+    );
+
+    const skills = await loadSkillIndex([root]);
+
+    expect(skills).toEqual([
+      {
+        name: "cloudbase-all-in-one",
+        description: "all-in-one index",
+        absolutePath: rootIndexFile,
+      },
+      { name: "demo", description: "demo skill for the index", absolutePath: skillFile },
+    ]);
+    // 旧实现按「SKILL.md 的父目录名」取名，根目录那份会变成 "skills"
+    expect(skills.map((skill) => skill.name)).not.toContain("skills");
+  });
+
+  it("skips a root-level SKILL.md that declares no name", async () => {
+    const root = path.join(home, "skills");
+    await fs.mkdir(root, { recursive: true });
+    await fs.writeFile(
+      path.join(root, "SKILL.md"),
+      "---\ndescription: unnamed index\n---\n",
+      "utf8",
+    );
+
+    // 根目录里没有可用的目录名，frontmatter 也不给名字 ⇒ 不收（而不是收成 "skills"）
+    expect(await loadSkillIndex([root])).toEqual([]);
+  });
+
+  it("does not re-read SKILL.md while the memo is fresh", async () => {
+    const root = path.join(home, "skills");
+    const skillFile = await writeSkill(root);
+
+    const first = await loadSkillIndex([root]);
+    expect(first).toEqual([
+      { name: "demo", description: "demo skill for the index", absolutePath: skillFile },
+    ]);
+
+    await rewriteDescription(skillFile, "changed skill");
+    expect(await loadSkillIndex([root])).toEqual(first);
+  });
+
+  it("rebuilds the skill index after TTL expiry", async () => {
+    process.env.CLOUDBASE_MCP_CACHE_TTL_MS = "20";
+    const root = path.join(home, "skills");
+    const skillFile = await writeSkill(root);
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-08T00:00:00Z"));
+
+    await loadSkillIndex([root]);
+    await rewriteDescription(skillFile, "changed skill");
+    vi.advanceTimersByTime(21);
+    expect(await loadSkillIndex([root])).toEqual([
+      { name: "demo", description: "changed skill", absolutePath: skillFile },
+    ]);
+  });
+
+  it("disables the skill index memo when the cache TTL is 0", async () => {
+    process.env.CLOUDBASE_MCP_CACHE_TTL_MS = "0";
+    expect(getCacheTtlMs()).toBe(0);
+    const root = path.join(home, "skills");
+    const skillFile = await writeSkill(root);
+
+    await loadSkillIndex([root]);
+    await rewriteDescription(skillFile, "changed skill");
+    expect(await loadSkillIndex([root])).toEqual([
+      { name: "demo", description: "changed skill", absolutePath: skillFile },
+    ]);
+  });
+
+  it("invalidates the skill index when the resource cache is updated", async () => {
+    const root = path.join(home, "skills");
+    const skillFile = await writeSkill(root);
+    await loadSkillIndex([root]);
+    await rewriteDescription(skillFile, "changed skill");
+
+    await __updateResourceCacheForTests();
+    expect(await loadSkillIndex([root])).toEqual([
+      { name: "demo", description: "changed skill", absolutePath: skillFile },
+    ]);
+  });
+
+  it("uses an existing template directory when the download times out, then backs off for 60s", async () => {
+    const template = path.join(home, ".cloudbase-mcp", "web-template");
+    await fs.mkdir(template, { recursive: true });
+    await fs.writeFile(path.join(template, "marker.txt"), "keep", "utf8");
+    __setResourceDownloadTimeoutForTests(30);
+
+    let fetches = 0;
+    globalThis.fetch = vi.fn((_url: string, init?: RequestInit) => {
+      fetches += 1;
+      return new Promise((_resolve, reject) => {
+        const abort = () => reject(Object.assign(new Error("The operation was aborted"), { name: "TimeoutError" }));
+        if (init?.signal?.aborted) {
+          abort();
+          return;
+        }
+        init?.signal?.addEventListener("abort", abort, { once: true });
+      });
+    }) as unknown as typeof fetch;
+
+    await warmupHostedResources();
+    expect(fetches).toBe(1);
+    await fs.access(path.join(template, "marker.txt"));
+
+    await warmupHostedResources();
+    expect(fetches).toBe(1);
+
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockImplementation(() => now + RESOURCE_DOWNLOAD_FAILURE_BACKOFF_MS + 5);
+    await warmupHostedResources();
+    expect(fetches).toBe(2);
+    await fs.access(path.join(template, "marker.txt"));
+  });
+
+  it("does not fetch again during the 60s backoff when nothing is cached", async () => {
+    __setResourceDownloadTimeoutForTests(20);
+    let fetches = 0;
+    globalThis.fetch = vi.fn((_url: string, init?: RequestInit) => {
+      fetches += 1;
+      return new Promise((_resolve, reject) => {
+        init?.signal?.addEventListener("abort", () => {
+          reject(Object.assign(new Error("aborted"), { name: "TimeoutError" }));
+        }, { once: true });
+      });
+    }) as unknown as typeof fetch;
+
+    await expect(warmupHostedResources()).rejects.toThrow();
+    await expect(warmupHostedResources()).rejects.toThrow();
+    expect(fetches).toBe(1);
+  });
+
+  it("cloud-mode lock recheck reuses the template download without an openapi directory", async () => {
+    const base = path.join(home, ".cloudbase-mcp");
+    await fs.mkdir(path.join(base, "web-template"), { recursive: true });
+    await fs.writeFile(
+      path.join(base, "cache-meta.json"),
+      JSON.stringify({ timestamp: Date.now() }),
+      "utf8",
+    );
+    let fetches = 0;
+    globalThis.fetch = vi.fn(async () => {
+      fetches += 1;
+      throw new Error("should not fetch");
+    }) as unknown as typeof fetch;
+
+    __skipFreshCacheChecksForTests(1);
+
+    let release: (() => void) | undefined;
+    const started = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let secondFetchesAtJoin = -1;
+    const pending = warmupHostedResources().finally(() => release?.());
+    const joined = (async () => {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      secondFetchesAtJoin = fetches;
+      return warmupHostedResources();
+    })();
+    await Promise.all([pending, joined, started]);
+    expect(fetches).toBe(0);
+    expect(secondFetchesAtJoin).toBe(0);
+  });
+
+  it("does not expose an empty skill list while the template directory is being replaced", async () => {
+    const skillRoot = path.join(home, ".cloudbase-mcp", "web-template", ".claude", "skills");
+    await writeSkill(skillRoot);
+    const indexed = await loadSkillIndex([skillRoot]);
+    expect(indexed.length).toBeGreaterThan(0);
+
+    let seen = 0;
+    __setBeforeDirectorySwapForTests(async () => {
+      const during = await loadSkillIndex([skillRoot]);
+      seen = during.length;
+    });
+
+    const { default: AdmZip } = await import("adm-zip");
+    const zip = new AdmZip();
+    zip.addFile("marker.txt", Buffer.from("next"));
+    const bytes = zip.toBuffer();
+    globalThis.fetch = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      arrayBuffer: async () =>
+        bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+      text: async () => "",
+    })) as unknown as typeof fetch;
+
+    await warmupHostedResources();
+    expect(seen).toBeGreaterThan(0);
   });
 });

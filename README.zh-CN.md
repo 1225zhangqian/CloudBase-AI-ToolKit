@@ -24,23 +24,30 @@
 
 ## 最近更新
 
-**v2.33.x**（2026-09）
+**v2.36.x**（2026-10）
 
-- 云函数 / 应用：支持自定义容器镜像部署与异步状态查询；云端上传通道（`getUploadUrl` + `deployApp` cosTimestamp）
-- 环境绑定：`cloudbaserc.json` 可作为 envId / region / site 的字段级回退（字面量与 `{{env.KEY}}`）
-- 错误引导 / Skills：按结构化 `Code` 集中引导；虚拟支付参考；CodeBuddy IDE MCP 升级 skill；WorkBuddy experts
-- 云 API / 部署：`callCloudApi` 开放 monitor / postgres 服务；声明式部署 `deployPlan` / `deployApply`；新增 `cloud-api-operations` skill
+- MCP Apps：新增三张面板（起步、环境用量、部署产物），以实验性形态发布、默认关闭，加 `CLOUDBASE_MCP_UI=on` 才会出现
+- 安全：删除类操作、破坏性 SQL 与对应的 `callCloudApi` 删除动作会先停下来确认并点名目标；参数里出现疑似密钥时只核对长度与 sha256 指纹，不回显明文
+- 环境：用量面板新增指标视图（QPS、调用数、错误、超时、MySQL 与云托管负载），指标名一律用人话；工具面移除 MySQL 开通能力
+- 上手引导：`initialize` 响应带 `instructions`，第一步就是只读调用；远程接入文档改为 OAuth 优先
 
-**v2.32.x**（2026-08）
+**v2.35.x**（2026-10）
 
-- 认证 / 安全 / IDE：国际站（`TCB_SITE=intl`）登录链路修复；queryFunctions/queryCloudRun 默认脱敏环境变量；新增 Kimi Code / Kimi Work 支持
-- 小程序：新增 `queryMessagePush` / `manageMessagePush`，支持事件与消息类型订阅（虚拟支付默认事件、声明式幂等、可选 appid）
-- 小程序：消息推送支持云函数/云托管模式识别与切换（`ensureContainerMode` / `setContainerCallback`，订阅前校验函数存在）
-- 网关：`manageGateway` 在创建自定义域名/路由前校验 HTTP 服务，并支持证书自动选择与更清晰的 DNS 指引
+- 托管 / 认证：托管 MCP 每个请求使用独立 transport，客户端元数据按凭据隔离缓存；项目级凭据优先于账号级登录态
+- 工具 / Skills：工具面移除 MySQL 开通能力；每个 skill 包在 `SKILL.md` 旁自带 `LICENSE.md`；新增 MCP 参考 skill，写明远程端点、插件开关与工具 schema
+- 反馈：`prepareFeedback` 改为返回仓库的新建 issue 页面，不再自动拼错误报告；托管服务器默认启用的插件集与本地一致
+- 上手引导 / 文档：`initialize` 响应现在带服务端 `instructions`（该先做的那个调用、首用顺序、可照抄的问法）；远程接入文档改为 OAuth 优先，只填地址即完成配置，密钥改为 CI 场景的写法
 
-**v2.31.x**（2026-08）
+**v2.34.x**（2026-09）
 
-- 云托管：`getDeployLog` 遇 CODING 未登录 / 镜像部署无构建时，改写为 `getProcessLog` / `getDeployRecords` 建议，不再暴露原始英文报错
+- 多语言 / IDE：工具文案全量国际化，新增实例级 `lang` 与 `auth` 的 `site` / `region` 参数，国际站登录与地域路由更准确
+- 云 API：`callCloudApi` 服务白名单扩至 57 个并内置版本映射（`tke` / `mongodb` / `vod` 等多版本服务需显式传 `version`）
+- 部署 / 环境：新增 `appBuild` 工具与托管构建中和；`queryEnv` 如实回执 region 生效情况，`domains` 尊重传入的 envId
+- Skills / 文档：skill 兜底读取改指官方分发仓并返回 references 地址清单；cloudrun 增加 SDK-first 数据库访问决策闸门；官网文档链接改指站点当前 Markdown 寻址；专家包与部署 skill 在交付后可执行「部署分享」（脱敏、至多一次、可拒绝）
+- 部署 / 应用：云端上传通道可完整跑通（`deployApp` 接受 `getUploadUrl` 返回的时间戳，`getBuildLog` 接受部署返回的构建 ID）；网关路由创建前会校验上游资源是否存在
+- Skills / 上下文：新增 PostgreSQL 访问模式最佳实践 skill（批量读写、索引、RLS 角色门禁、上线容量）；`searchKnowledgeBase` 内联的 skill / OpenAPI 清单改为按需返回，43 个工具的常驻面在每次 `tools/list` 时缩小 9.1%
+- 运行态 / 托管：云托管 Function 模式不得监听 `PORT`（由函数框架绑定），并补上以 `CLOUDBASE_APIKEY` 为准的凭证决策门；静态托管的路径与前缀统一归一化，前导斜杠不再被误读成「目录为空」
+- 连接器：新增国际站 WorkBuddy 连接器 `cloudbase-intl`，与国内 `cloudbase` 共用 `config/source/**` 内容源（远程 `streamableHttp` + 标准 MCP OAuth，取代本地 stdio），构建时把中国站域名改写为国际站
 
 [Releases][changelog] · [Star][github-stars-link] · Watch → Releases
 
@@ -96,7 +103,7 @@ AI IDE（Cursor、Claude Code、Codex、CodeBuddy 等）擅长生成代码。真
 | Claude Code / Codex（原生 marketplace） | 添加本仓库为 marketplace，再安装 `cloudbase` 插件（见[插件文档](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ai-agent-plugins)） |
 | 支持 Open Plugin Spec 的工具 | `npx plugins add TencentCloudBase/cloudbase-plugin` |
 | 希望 CLI 统一配置多种工具 | [CloudBase AI CLI](https://docs.cloudbase.net/cli-v1/ai/introduce)：`npm i -g @cloudbase/cli && tcb ai` |
-| CodeBuddy / WorkBuddy / ZCode / Kimi（已内置） | 使用 IDE 内置的 CloudBase 插件或连接器；CodeBuddy 也可通过[插件市场安装](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/codebuddy) |
+| CodeBuddy / WorkBuddy / 豆包 / MiniMax Code / DeepSeek Harness / ZCode / Kimi（已内置） | 使用 IDE 内置的 CloudBase 插件或连接器；CodeBuddy 也可通过[插件市场安装](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/codebuddy) |
 | 其他支持 MCP 的 IDE | 仅配置 MCP（见下方） |
 
 #### Plugin
@@ -120,7 +127,7 @@ npx plugins add TencentCloudBase/cloudbase-plugin
 }
 ```
 
-托管 HTTP、自建 Cloud Mode、按插件裁剪工具集见 [安装与连接](#安装与连接)。
+远端 HTTP、自建 Cloud Mode、按插件裁剪工具集见 [安装与连接](#安装与连接)。
 
 </details>
 
@@ -145,6 +152,9 @@ Skills 负责写法与结构；MCP 负责环境与资源操作。完成后应能
 | [CloudBase AI CLI](https://docs.cloudbase.net/cli-v1/ai/introduce) | CLI | [指引](https://docs.cloudbase.net/cli-v1/ai/introduce) |
 | [OpenClaw](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/openclaw) | CLI | [指引](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/openclaw) |
 | [WorkBuddy](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/workbuddy) | 独立 IDE | [指引](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/workbuddy) |
+| [豆包](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/doubao) | 桌面端 / 网页版（插件市场） | [指引](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/doubao) |
+| [MiniMax Code](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/minimax-code) | 桌面端 / 终端 CLI（插件市场） | [指引](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/minimax-code) |
+| [DeepSeek Harness](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/deepseek-harness) | 桌面应用（插件） | [指引](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/deepseek-harness) |
 | [ZCode](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/zcode) | 独立 IDE（≥ 3.4.1 内置插件） | [指引](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/zcode) |
 | [Kimi Code](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/kimi-code) | CLI（插件市场） | [指引](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/kimi-code) |
 | [Kimi Work](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/kimi-code) | 桌面应用（插件面板） | [指引](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/kimi-code) |
@@ -245,9 +255,29 @@ Skills 负责写法与结构；MCP 负责环境与资源操作。完成后应能
 
 ### MCP 连接模式
 
-**本地模式**（默认）：本机 `npx` 启动，功能最全（含依赖本地文件系统的上传、模板等）。
+**远端模式**（推荐）：IDE 通过 HTTP 连接腾讯云上的 MCP，无需本机 Node；交互式客户端在浏览器里完成授权即可。
 
-**托管模式**：IDE 通过 HTTP 连接腾讯云上的 MCP，无需本机 Node；部分本地文件能力不可用。
+| 站点 | MCP 地址 |
+|------|----------|
+| 国内站 | `https://tcb-api.cloud.tencent.com/mcp/v1` |
+| 国际站 | `https://tcb-api.tencentcloud.com/mcp/v1` |
+
+请选与环境所在站点匹配的地址 —— 两套站点的账号、控制台与凭证互相独立。
+
+**OAuth（交互式，推荐）**：只填地址就是全部配置。IDE 会打开浏览器完成登录与授权，环境也在那里选 —— **配置文件里不放密钥**，也没有需要轮换的东西。
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "type": "http",
+      "url": "https://tcb-api.cloud.tencent.com/mcp/v1"
+    }
+  }
+}
+```
+
+**静态凭证**（不支持 OAuth 的客户端，以及 CI/CD）：补上 `env_id` 与**同一站点**的密钥对。
 
 ```json
 {
@@ -264,16 +294,23 @@ Skills 负责写法与结构；MCP 负责环境与资源操作。完成后应能
 }
 ```
 
-托管 URL 可用 `site`（`domestic` / `intl`）指定登录站点（国内站新加坡需 `site=domestic`），也可用 `enable_plugins` / `disable_plugins` 裁剪工具集。名称以 `mcp/src/server.ts` 为准。
+> 静态密钥不轮换、不删除就一直有效；OAuth 会话则可以靠退出登录结束。只在浏览器授权走不通的场景才用静态凭证，并且不要把它提交进仓库。
 
-**云端 Hosted MCP E2E**（官方 SDK 客户端）：`npm run test:hosted-mcp:e2e`，环境变量与双模式说明见 [`tests/hosted-mcp-e2e/README.md`](tests/hosted-mcp-e2e/README.md)。缺凭证时相关用例 skip（退出码 0）。
+**本地模式**：本机 `npx @cloudbase/cloudbase-mcp@latest` 启动，功能最全（含依赖本地文件系统的上传、模板等）。
+
+远端的取舍：依赖本地文件系统的能力（上传、模板下载）不可用；国际站暂未提供 NoSQL（文档数据库）工具。
+
+远端 URL 支持 `env_id`、`enable_plugins`、`disable_plugins`、`use_internal_endpoint` 四个参数；**没有 `site`**——站点由域名决定，国内站环境落在 `ap-singapore` 也一样。插件名称以 `mcp/src/server.ts` 为准。
+
+**云端 MCP E2E**（官方 SDK 客户端）：`npm run test:hosted-mcp:e2e`，环境变量与双模式说明见 [`tests/hosted-mcp-e2e/README.md`](tests/hosted-mcp-e2e/README.md)。缺凭证时相关用例 skip（退出码 0）。
 
 **自建 Cloud Mode**：在自有服务器部署时设置 `CLOUDBASE_MCP_CLOUD_MODE=true`（或 `MCP_CLOUD_MODE=true`），禁用本地文件与本地进程类工具，避免远程调用方操作宿主机。
 
 | 场景 | 建议 |
 |------|------|
-| 个人开发 | 本地 `npx` |
-| 团队 / 免运维 | 腾讯云托管 HTTP |
+| 个人开发 / 最快上手 | 远端 URL（OAuth） |
+| 需要本地文件能力 | 本地 `npx` |
+| CI / 自动化 | 远端 + 静态凭证 |
 | 自建 MCP 服务 | 必须开启 Cloud Mode |
 
 ## 案例
@@ -316,7 +353,7 @@ Skills 负责写法与结构；MCP 负责环境与资源操作。完成后应能
 <details>
 <summary>自建 MCP 服务是否安全？</summary>
 
-本地 `npx` 等同于你在本机执行工具。远程部署务必设置 `CLOUDBASE_MCP_CLOUD_MODE=true`，以禁用本地文件与进程类工具。腾讯云托管 HTTP 模式已带该保护。
+本地 `npx` 等同于你在本机执行工具。远程部署务必设置 `CLOUDBASE_MCP_CLOUD_MODE=true`，以禁用本地文件与进程类工具。腾讯云远端 HTTP 模式已带该保护。
 
 </details>
 
@@ -350,7 +387,10 @@ Toolkit（含 MCP）开源，MIT。云开发环境有免费额度；超出后按
 
 ## 项目活跃度
 
-![Repo Activity](https://repobeats.axiom.co/api/embed/6cd6ed00da4384e43b24805c197f584626946dda.svg "Repobeats analytics image")
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/TencentCloudBase/CloudBase-AI-Toolkit/main/scripts/assets/activity-card-dark.svg">
+  <img alt="仓库活跃度：52 周提交趋势、月度 npm 下载量与项目健康度" src="https://raw.githubusercontent.com/TencentCloudBase/CloudBase-AI-Toolkit/main/scripts/assets/activity-card-light.svg">
+</picture>
 
 ## Contributors
 

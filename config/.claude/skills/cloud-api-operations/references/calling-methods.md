@@ -4,22 +4,66 @@
 
 ```json
 {
-  "service": "cam",                // 白名单内服务，见下
+  "service": "cam",                // 腾讯云产品标识，任意产品可调，见下
   "action": "DescribeRoleList",    // 官方 Action 名，禁止猜测
-  "version": "2019-01-16",         // 官方 API 版本；未知 service 必须显式传
+  "version": "2019-01-16",         // 官方 API 版本；多数可省，多版本产品必传
   "region": "ap-shanghai",         // 可选，X-TC-Region；跨地域必传，禁止写进 params
   "params": { "Page": 1, "Rp": 50 }
 }
 ```
 
-- **Service 白名单**（随版本演进，以工具 schema 为准）：`tcb / tcbr / scf / sts / cam / lowcode / cdn / vpc / monitor / postgres`（2.34.0 起新增 monitor、postgres）。monitor/postgres 无内置默认 version，**必须显式传**：monitor `2018-07-24`、postgres `2017-03-12`。若当前部署版本 schema 枚举不含目标 service，说明版本较旧，取 `auth get_temp_credentials` 临时密钥走 §2 SDK 路径。
+- **service 是白名单枚举**：只接受白名单内的产品标识，名单外的取值（对象存储 COS 这类不在云 API 体系内的产品、以及任何拼写错误）会被直接拒绝 —— 不要臆造 service 名、也不要试近义词。与中文名不一致的常见项：云数据库 MySQL 是 `cdb`、日志服务是 `cls`、DNS 解析是 `dnspod`、SSL 证书是 `ssl`。**完整清单（按产品线分组）：[`./service-versions.md`](./service-versions.md)。**
+- **version 多数可以省**：只有一个官方版本的产品会按映射表自动补齐（例如 `ssl` → `2019-12-05`）。**只有多版本产品必须显式传** —— `tke`、`mongodb`、`teo`、`vod`、`sms`、`monitor`：缺省会报错并列出可选版本，不会替你猜（猜错会被服务端报成 Action 不存在，很难排查）。
+- **最常用的几个**：
+
+  | service | version | 用途 |
+  | --- | --- | --- |
+  | `tcb` | `2018-06-08` | 云开发环境 / 用户 / 认证 / 函数 / 数据库 |
+  | `tcbr` | `2022-02-17` | 云托管 |
+  | `scf` | `2018-04-16` | 云函数 |
+  | `sts` | `2018-08-13` | 临时密钥与调用者身份 |
+  | `cam` | `2019-01-16` | 权限、角色、策略 |
+  | `monitor` | `2018-07-24` | 云监控 / 告警策略（多版本） |
+  | `postgres` | `2017-03-12` | PostgreSQL |
+  | `ssl` | `2019-12-05` | SSL 证书 |
 - **前置条件**：首次调用若返回 `ENV_REQUIRED`，先完成环境绑定（`auth` 工具 `set_env`）再重发；这不是云 API 错误，是工具自身的会话状态要求。
-- **常用 version**：tcb `2018-06-08`、scf `2018-04-16`、sts `2018-04-16`、cam `2019-01-16`、tcbr `2022-02-17`（必传）、monitor `2018-07-24`、postgres `2017-03-12`。
 - **错误分类**（错误信息前缀决定下一步）：
   - `The parameter 'X' is not recognized` → Action 正确、参数名错；对照官方文档修正字段名/大小写
   - `action ... is invalid or not found` → Action 名未经文档来源确认就发起调用；回官方文档核对后用确认过的名字（实测案例：控制台代理的 `ListRoles` 在官方 CAM 2019-01-16 API 中不存在，真实 Action 为 `DescribeRoleList`）
   - `UnauthorizedOperation / AuthFailure` → CAM 权限不足；走 §3 授权升级
   - `Region is not recognized` → region 传到顶层参数，不放进 params
+
+### 常用 Action 与参数示例（tcb / tcbr）
+
+`tcb`（云开发管控面）：
+
+| 用途 | Action |
+| --- | --- |
+| 环境管理 | `CreateEnv` / `ModifyEnv` / `DescribeEnvs` / `DestroyEnv` |
+| 用户管理 | `CreateUser` / `ModifyUser` / `DescribeUserList` / `DeleteUsers` |
+| 认证配置 | `EditAuthConfig` |
+| 云函数 | `DescribeFunctions` / `CreateFunction` |
+| 数据库 | `CreateMySQLInstance` |
+
+`tcbr`（云托管）：`CreateCloudRunEnv`（初始化）、`DescribeEnvBaseInfo`（查单个环境，`EnvId` 必填）、`DescribeCloudRunEnvs`（查环境列表 / 资源，`EnvId` 可选过滤）、`CreateCloudRunServer` / `DescribeCloudRunServers`。
+
+参数示例：
+
+```json
+{ "service": "tcb", "action": "DestroyEnv", "params": { "EnvId": "env-xxx", "BypassCheck": true } }
+```
+
+环境已处于隔离期时可再补 `params.IsForce: true`；更新环境别名：
+
+```json
+{ "service": "tcb", "action": "ModifyEnv", "params": { "EnvId": "env-xxx", "Alias": "demo" } }
+```
+
+跨地域查询时 `region` 走顶层，不要放进 `params`：
+
+```json
+{ "service": "tcb", "action": "DescribeEnvs", "region": "ap-singapore" }
+```
 
 ## §2 代码管控（用户侧脚本/服务）
 
@@ -31,24 +75,93 @@
    - **目录规律**：除 Node.js 外都是 `tencentcloud/<service>/<version>/`；schema 文件就在该目录下（Python `models.py`、Go `models.go`、Java 同包 `<Action>Request.java`）。每个接口一个 `<Action>Request` / `<Action>Response` 定义，字段名、参数名（json tag / 注解）、类型、必填性、注释齐全；同目录的 client 文件（`<service>_client.py` / `client.go`）可确认该 service 的 Action 全集。
    - **Node.js 特例**：按服务 npm 分包 `tencentcloud-sdk-nodejs-<service>`，types `.d.ts` 就是 schema；源码在 `tencentcloud-sdk-nodejs` 仓库 `src/services/<service>/<version>/` 下。
    - **不确定语言或路径时**：先抓仓库根目录的文件列表（GitHub API `https://api.github.com/repos/TencentCloud/<repo>/contents/tencentcloud`）确认实际结构，不要凭猜构造 URL；各仓库根路径 `examples/` 有每接口调用示例。
-   - 已实测锚点（Python 与 Go 结构完全同构，2026-09-08）：
+   - 已实测锚点（Python 与 Go 结构完全同构）：
      `https://raw.githubusercontent.com/TencentCloud/tencentcloud-sdk-python/master/tencentcloud/monitor/v20180724/models.py` → `CreateAlarmPolicyRequest` 结构体直接可读。
 
-## §3 CAM 权限不足 → 拼授权链接（实测可用，2026-09-08）
+## §3 权限：先认凭据身份，再给一键授权链接
 
-权限模型要点（同日实测）：
+### 3.1 权限来自谁
 
-- 账号级登录（device code / OAuth STS）：以登录的子账号/角色身份调用管控面，权限取决于该身份的 CAM 策略。**用户自己登录的子账号可能有完整 monitor 权限**（2026-09-08 二次实测：某子账号直调 monitor 告警全链路零障碍）——权限错误发生时才走授权升级，不要预先假定。
-- API Key 环境级：服务端固定权限模型，面向单环境数据面，没有为单个 Key 追加任意 CAM 策略的通道。
-- TCB **服务角色族**默认**无告警管理权限**（以 TCB_QcsRole 身份调用时）：`TCB_QcsRole` 无 monitor 策略；`TCBMonitor_QCSRole` 仅 `monitor:GetMonitorData`。
-- 临时密钥获取：`auth(action="get_temp_credentials", confirm="yes", reveal=true)` 返回明文 STS 三元组，可直接用于官方 SDK / TC3 手工签名（即 §2 代码管控路径），适用于 callCloudApi 白名单未放行目标 service 时的真实操作。
+管控面调用「没权限」，先看是哪种凭据在调用 —— 三种身份的权限来源不同：
 
-**授权链接拼装流程**（cam service 已放行，全程可程序化）：
+| 凭据身份 | 实际调用者 | 权限来自 | 不足时怎么补 |
+| --- | --- | --- | --- |
+| 账号级登录（device code / OAuth STS / 腾讯云密钥） | 登录的用户 / 子账号本人 | 该身份自身的 CAM 策略 | 由主账号给**这个子账号**追加策略（控制台操作） |
+| 环境级 API Key | 服务端固定模型 | 单环境数据面 + 固定的 TCB 策略 | **没有为单个 Key 追加任意 CAM 策略的通道** —— 换账号级凭据，或走下面的角色路线 |
+| CLI / MCP 用 TCB 服务角色换取的临时密钥 | 角色（`TCB_QcsRole` 等） | 挂在**角色**上的策略 | 给**角色**追加策略（一键授权链接） |
 
-1. 查角色 RoleId（按 RoleName 定位，跨账号 RoleId 不同）：
-   `callCloudApi(service="cam", version="2019-01-16", action="GetRole", params={ "RoleName": "TCB_QcsRole" })`
-   → `RoleInfo.RoleId`
-2. 拼 CAM 角色详情页链接（实测 URL 格式）：
-   `https://console.cloud.tencent.com/cam/role/detail?roleId=<RoleId>`
-3. 把链接和需要挂载的策略名一起给用户，例如追加 `QcloudMonitorReadOnlyAccess`（只读）或自定义告警策略集（`monitor:CreateAlarmPolicy` / `DescribeAlarmPolicies` / `BindingPolicyObject` 等），说明这是**一次性操作**，授权完成后重试原调用。
-4. 重试时遵循幂等模式：Create 前先 Describe 查重，避免重复创建。
+TCB 服务角色族挂的是 TCB 自己声明的策略集（`QcloudAccessForTCBRole` 等），跨产品能力覆盖到哪一步由这份策略决定；`TCBMonitor_QCSRole` 只覆盖 `monitor:GetMonitorData`（拉指标）。所以跨产品调用报 `UnauthorizedOperation` 是预期内的，不是配置出错 —— 先按上表确认你的凭据属于哪一行，再决定给谁补策略。
+
+自己在哪一行，用 `auth(action="status")` 看 `credential_scope`：`account` = 账号级登录，`single_env` = 环境级 API Key。
+
+**角色挂载的策略会随产品迭代变化**，别照着文档里的旧结论判断。确认当前覆盖范围要现场读，但**读 cam 需要调用身份自己就有 cam 策略**：
+
+1. `ListAttachedRolePolicies`：看角色挂了哪些策略
+2. `GetPolicy(PolicyId=…)`：直接回 `PolicyDocument` —— 一段**字符串**，二次解析后看 `statement[].action`；`GetPolicyVersion` 也能读，但 `VersionId` **必须是数字**（传字符串报 `InvalidParameter ... should be uint64`）
+
+⚠️ **能不能读，取决于调用那一刻的身份，而不是「登录时是谁」**：账号级身份（`federated-user`）下 `GetRole` / `ListAttachedRolePolicies` / `ListPolicies` / `GetPolicy` 都**能调通**（2026-10-12 实测）；一旦调过云开发产品接口、身份被换成 `TCB_QcsRole`，同一批调用全被拒（`resource (*) has no permission`）。⇒ **要读 cam 就先读 cam**；真读不了再让用户换一个有 `QcloudCamReadOnlyAccess` 的身份。读不了不影响 §3.2 —— 那里的 `principal` 用固定值。
+
+**确认「我到底是谁」用 `sts/GetCallerIdentity`，不依赖 cam**：返回 `Type`（`CAMRole` / `Account`）、`Arn`、`UserId`；以 `TCB_QcsRole` 调用时 `UserId` 形如 `<ownerUin>:TCB_QcsRole-<uin>-<timestamp>`。哪一行身份由此判定，比 `credential_scope` 更准 —— `credential_scope: account` 只说明「不是环境级 API Key」，实际落地仍可能是角色扮演身份。
+
+临时密钥用于代码侧调用：`auth(action="get_temp_credentials", confirm="yes", reveal=true)` 返回明文 STS 三元组，直接喂官方 SDK / TC3 手工签名，即 §2 代码管控路径。
+
+### 3.2 一键授权链接（交给用户点一下）
+
+调不通、且身份落在上表「服务角色」那一行时，直接给用户一条链接，比让他自己去 CAM 里找入口快得多 —— 控制台自己就是这么做的：捕获到 `AuthFailure.UnauthorizedOperation` 且 message 含 `Check your CAM policies` 后弹「CAM 授权提示」，点「前往 CAM 授权」跳的就是这个页面。
+
+```
+https://console.cloud.tencent.com/cam/role/grant?roleName=<角色名>&policyName=<策略名>&principal=<URL 编码后的 base64>&serviceType=<展示用>&s_url=<授权后回跳地址>
+```
+
+| 参数 | 必填 | 说明 |
+| --- | --- | --- |
+| `roleName` | 是 | 要补策略的角色，如 `TCB_QcsRole` |
+| `policyName` | 是 | 预设策略名。**可以逗号连接多个**（`A,B,C`），一条链接一次挂多个 —— 控制台建角色时就是把 5 个策略拼成一条 |
+| `principal` | 是 | 角色载体的 base64，见下表 |
+| `serviceType` / `s_url` / `roleDesc` | 否 | 页面展示与授权后回跳；`s_url` 给用户当前页面地址即可 |
+
+`principal` = `URLEncode(base64('{"service":["<角色载体>"]}'))`，末位 `=` 写成 `%3D`。注意 **`service` 是数组**（与角色信任策略里 `statement[].principal.service[]` 同构），不是字符串。下面这些值取自 CloudBase 控制台的实现（建角色走 `src/constants/cam/role.ts`，告警场景追加策略走 `cam-aurh-request.ts`），照抄即可：
+
+| 用途 | `principal` 参数值 | 解出来是什么 |
+| --- | --- | --- |
+| `TCB_QcsRole` 追加式（单载体） | `eyJzZXJ2aWNlIjpbInRjYi5jbG91ZC50ZW5jZW50LmNvbSJdfQ%3D%3D` | `{"service":["tcb.cloud.tencent.com"]}` |
+| `TCB_QcsRole` 建角色式（三载体全量） | `eyJzZXJ2aWNlIjpbInNjZi5xY2xvdWQuY29tIiwidGNiLmNsb3VkLnRlbmNlbnQuY29tIiwiY3ZtLnFjbG91ZC5jb20iXX0%3D` | `{"service":["scf.qcloud.com","tcb.cloud.tencent.com","cvm.qcloud.com"]}` |
+| `SCF_QcsRole` 追加式 | `eyJzZXJ2aWNlIjpbInNjZi5xY2xvdWQuY29tIl19` | `{"service":["scf.qcloud.com"]}` |
+
+链接是**一次性操作**：用户点完授权，重试原调用即可。
+
+> 当前身份已经是**账号级**（`federated-user`）时，也可以不等人点，直接调 `cam/ListPolicies` → `cam/AttachRolePolicy` → `cam/ListAttachedRolePolicies` 把它挂上（可重复执行）；入参见 [`./recipes/cloud-audit-operation-trace.md`](./recipes/cloud-audit-operation-trace.md) 的「给服务角色补权限」。
+
+两条使用边界，写进给用户的说明里：
+
+- **点链接的人得有权授**。授权页要主账号或具备 CAM 写权限的身份登录；子账号点开同样授不了 —— 别把这条链接当万能兜底。
+- **给服务角色加策略 = 扩大这个角色的权限面**，不只是「让这一次调用通过」。拿到该角色临时密钥的任何调用方都会带上这份新权限。跨产品策略尽量先选**只读**版本（如 `QcloudDNSPodReadOnlyAccess`），确需写再升级；涉及消费的操作（买域名、买资源）不要给角色授权，让用户自己在控制台做。
+
+### 3.3 策略名怎么选
+
+按「要做的事」对「要挂的策略」：
+
+| 需要的能力 | 预设策略 |
+| --- | --- |
+| 云监控告警的读写（`CreateAlarmPolicy` / `BindingPolicyObject` / `UnBindingPolicyObject` / 通知模板 …） | `QcloudMonitorFullAccess` |
+| 只读监控数据与告警配置（`GetMonitorData` / `DescribeAlarmPolicies` …） | `QcloudMonitorReadOnlyAccess` |
+| SSL 证书的写（申请 / 续期 / 删除 / 部署到 CDN） | `QcloudSSLFullAccess` |
+| 只读证书（`ssl:DescribeCertificates` / `DescribeCertificateDetail` / `CheckCertificateChain`） | `QcloudSSLReadOnlyAccess` |
+| 通用 CDN 加速域名（`AddCdnDomain` / `DescribeDomains` / `UpdateDomainConfig` / `DeleteCdnDomain` …） | `QcloudCDNFullAccess` |
+| 只读 CDN 加速域名 | `QcloudCDNReadOnlyAccess` |
+| DNS 解析记录（DNSPod 的域名、记录增删改查） | `QcloudDNSPodFullAccess` |
+| 只读 DNS 解析记录 | `QcloudDNSPodReadOnlyAccess` |
+| 读 PostgreSQL 实例（`postgres:DescribeDBInstances` …） | `QcloudPostgreSQLReadOnlyAccess`（覆盖所有 `Describe*` / `Inquiry*`） |
+| 读操作审计事件（`cloudaudit:LookUpEvents` / `DescribeEvents` …） | `QcloudAuditReadOnlyAccess` |
+| 建/改云审计跟踪集（把日志投递到 COS / CLS） | `QcloudAuditFullAccess` |
+
+两条容易踩的：
+
+- `QcloudMonitorReadOnlyAccess` 对「告警策略」**只有访问权、没有操作权** —— 做告警的写操作挂它没用，要挂 `QcloudMonitorFullAccess`。
+- 云开发自己的域名（静态托管 / 网关自定义域名的绑定解绑）**不需要额外策略**：它走 `tcb:*` 与 `cdn:Tcb*` 系列 Action，属于云开发自身能力。只有要操作**独立的 CDN 加速域名**时，才需要 `QcloudCDNFullAccess`。
+
+要更小权限就自建自定义策略（把上面提到的 Action 写进策略语句），再把策略挂到角色上（走 3.2 的角色详情页）。
+
+### 3.4 重试
+
+授权是异步生效前的一步人工操作，授权完重试原调用。写操作重试遵循幂等模式：Create 前先 Describe 查重，避免重复创建。

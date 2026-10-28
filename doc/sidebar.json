@@ -37,6 +37,9 @@
               "ai/cloudbase-ai-toolkit/ide-setup/wechat-devtools",
               "ai/cloudbase-ai-toolkit/ide-setup/workbuddy",
               "ai/cloudbase-ai-toolkit/ide-setup/zcode",
+              "ai/cloudbase-ai-toolkit/ide-setup/doubao",
+              "ai/cloudbase-ai-toolkit/ide-setup/minimax-code",
+              "ai/cloudbase-ai-toolkit/ide-setup/deepseek-harness",
               "ai/cloudbase-ai-toolkit/ide-setup/codex",
               "ai/cloudbase-ai-toolkit/ide-setup/openai-codex-cli",
               "ai/cloudbase-ai-toolkit/ide-setup/cursor",
@@ -81,7 +84,6 @@
               "ai/cloudbase-ai-toolkit/prompts/auth-tool-cloudbase",
               "ai/cloudbase-ai-toolkit/prompts/auth-web-cloudbase",
               "ai/cloudbase-ai-toolkit/prompts/auth-wechat-miniprogram",
-              "ai/cloudbase-ai-toolkit/prompts/auth-http-api",
               "ai/cloudbase-ai-toolkit/prompts/auth-nodejs-cloudbase"
             ]
           },
@@ -95,8 +97,8 @@
               "ai/cloudbase-ai-toolkit/prompts/cloudbase-document-database-in-wechat-miniprogram",
               "ai/cloudbase-ai-toolkit/prompts/relational-database-mcp-cloudbase",
               "ai/cloudbase-ai-toolkit/prompts/relational-database-web-cloudbase",
-              "ai/cloudbase-ai-toolkit/prompts/data-model-creation",
-              "ai/cloudbase-ai-toolkit/prompts/database-http-api"
+              "ai/cloudbase-ai-toolkit/prompts/postgresql-development-cloudbase",
+              "ai/cloudbase-ai-toolkit/prompts/postgresql-best-practices-cloudbase"
             ]
           },
           {
@@ -106,7 +108,9 @@
             "collapsed": true,
             "items": [
               "ai/cloudbase-ai-toolkit/prompts/cloud-functions",
-              "ai/cloudbase-ai-toolkit/prompts/cloudrun-development"
+              "ai/cloudbase-ai-toolkit/prompts/cloudrun-development",
+              "ai/cloudbase-ai-toolkit/prompts/cloudbase-declarative-deploy",
+              "ai/cloudbase-ai-toolkit/prompts/cloud-api-operations"
             ]
           },
           {
@@ -120,7 +124,8 @@
               "ai/cloudbase-ai-toolkit/prompts/miniprogram-development",
               "ai/cloudbase-ai-toolkit/prompts/cloudbase-wechat-integration",
               "ai/cloudbase-ai-toolkit/prompts/ui-design",
-              "ai/cloudbase-ai-toolkit/prompts/http-api-cloudbase"
+              "ai/cloudbase-ai-toolkit/prompts/http-api-cloudbase",
+              "ai/cloudbase-ai-toolkit/prompts/cloud-storage-web"
             ]
           },
           {
@@ -131,7 +136,8 @@
             "items": [
               "ai/cloudbase-ai-toolkit/prompts/ai-model-web",
               "ai/cloudbase-ai-toolkit/prompts/ai-model-nodejs",
-              "ai/cloudbase-ai-toolkit/prompts/ai-model-wechat"
+              "ai/cloudbase-ai-toolkit/prompts/ai-model-wechat",
+              "ai/cloudbase-ai-toolkit/prompts/cloudbase-agent"
             ]
           },
           {
@@ -141,7 +147,12 @@
             "collapsed": true,
             "items": [
               "ai/cloudbase-ai-toolkit/prompts/spec-workflow",
-              "ai/cloudbase-ai-toolkit/prompts/cloudbase-platform"
+              "ai/cloudbase-ai-toolkit/prompts/cloudbase-platform",
+              "ai/cloudbase-ai-toolkit/prompts/cloudbase-cli",
+              "ai/cloudbase-ai-toolkit/prompts/cloudbase-mcp",
+              "ai/cloudbase-ai-toolkit/prompts/cloudbase-code-review",
+              "ai/cloudbase-ai-toolkit/prompts/ops-inspector",
+              "ai/cloudbase-ai-toolkit/prompts/issue-report"
             ]
           }
         ]

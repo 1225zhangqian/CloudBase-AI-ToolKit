@@ -55,6 +55,7 @@ describe("cloudbase manager auth gate", () => {
     vi.resetModules();
     vi.clearAllMocks();
     delete process.env.CLOUDBASE_ENV_ID;
+    delete process.env.CLOUDBASE_LOCAL_ENDPOINT;
     mockReadProjectConfig.mockReturnValue(undefined);
     mockReadProjectEnvId.mockReturnValue(undefined);
     mockReadCloudbaseRcBinding.mockReturnValue(undefined);
@@ -85,6 +86,29 @@ describe("cloudbase manager auth gate", () => {
         }),
       }),
     });
+  });
+
+  it("getEnvId should also fail fast with AUTH_REQUIRED when login is missing", async () => {
+    const { getEnvId } = await import("./cloudbase-manager.js");
+
+    // 未登录时不能落到 ENV_REQUIRED：那条文案写死「当前已登录，但还没有可用环境」，
+    // 会把「没登录」误诊成「登录了但缺环境」，调用方据此去 set_env 选环境而永远选不到。
+    try {
+      await getEnvId();
+      expect.unreachable("AUTH_REQUIRED should be thrown");
+    } catch (error: any) {
+      expect(error).toMatchObject({
+        name: "ToolPayloadError",
+        payload: expect.objectContaining({
+          code: "AUTH_REQUIRED",
+          next_step: expect.objectContaining({
+            tool: "auth",
+            action: "start_auth",
+          }),
+        }),
+      });
+      expect(error?.payload?.message ?? "").not.toContain("当前已登录");
+    }
   });
 
   it("should fail fast with AUTH_PENDING when device auth is in progress", async () => {
@@ -602,6 +626,7 @@ describe("project-pinned envId (.cloudbase/project.json)", () => {
     vi.resetModules();
     vi.clearAllMocks();
     delete process.env.CLOUDBASE_ENV_ID;
+    delete process.env.CLOUDBASE_LOCAL_ENDPOINT;
     delete process.env.TCB_REGION;
     delete process.env.TCB_SITE;
     mockReadProjectConfig.mockReturnValue(undefined);
@@ -629,6 +654,7 @@ describe("project-pinned envId (.cloudbase/project.json)", () => {
     mockReadProjectEnvId.mockReturnValue(undefined);
     mockReadCloudbaseRcBinding.mockReturnValue(undefined);
     delete process.env.CLOUDBASE_ENV_ID;
+    delete process.env.CLOUDBASE_LOCAL_ENDPOINT;
   });
 
   it("should pin project envId in a fresh process without asking for set_env", async () => {
@@ -681,6 +707,42 @@ describe("project-pinned envId (.cloudbase/project.json)", () => {
     await expect(getEnvId()).resolves.toBe("env-from-host");
   });
 
+  it("routes cloud API calls to CLOUDBASE_LOCAL_ENDPOINT without a Tencent login", async () => {
+    process.env.CLOUDBASE_LOCAL_ENDPOINT = "http://127.0.0.1:8797";
+    mockCommonServiceCall.mockResolvedValue({
+      EnvList: [{ EnvId: "other-env", Alias: "other", Region: "ap-shanghai" }],
+    });
+
+    const { getCloudBaseManager } = await import("./cloudbase-manager.js");
+    await getCloudBaseManager();
+
+    expect(mockPeekLoginState).not.toHaveBeenCalled();
+    expect(mockCommonServiceCall).not.toHaveBeenCalled();
+    expect(mockCloudBaseCtor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        envId: "local",
+        requestFn: expect.any(Function),
+      }),
+    );
+  });
+
+  it("does not tell the user to create a cloud env when the local endpoint returns no environments", async () => {
+    process.env.CLOUDBASE_LOCAL_ENDPOINT = "http://127.0.0.1:8797";
+    mockCommonServiceCall.mockResolvedValue({ EnvList: [] });
+
+    const { getCloudBaseManager } = await import("./cloudbase-manager.js");
+
+    await expect(getCloudBaseManager({
+      cloudBaseOptions: { requestFn: async () => ({}) },
+    })).rejects.toMatchObject({
+      name: "ToolPayloadError",
+      payload: expect.objectContaining({
+        code: "LOCAL_ENDPOINT_UNAVAILABLE",
+        message: expect.stringContaining("http://127.0.0.1:8797/capi"),
+      }),
+    });
+  });
+
   it("should prefer explicit envId and runtime set_env over project envId", async () => {
     mockReadProjectEnvId.mockReturnValue("env-project-a");
 
@@ -699,5 +761,195 @@ describe("project-pinned envId (.cloudbase/project.json)", () => {
       name: "ToolPayloadError",
       payload: expect.objectContaining({ code: "ENV_REQUIRED" }),
     });
+  });
+});
+
+describe("databaseInstanceIdCache TTL", () => {
+  const makeCloudbase = () => ({
+    env: {
+      getEnvInfo: vi.fn(async () => ({
+        EnvInfo: { Databases: [{ InstanceId: "ins-ttl" }] },
+      })),
+    },
+  });
+
+  beforeEach(async () => {
+    const { resetDatabaseInstanceIdCache } = await import("./cloudbase-manager.js");
+    resetDatabaseInstanceIdCache();
+    vi.restoreAllMocks();
+  });
+
+  it("命中缓存后超过 TTL 会重新解析，而不是一直用旧实例", async () => {
+    const { getDatabaseInstanceId } = await import("./cloudbase-manager.js");
+    const cloudbase = makeCloudbase();
+    const options = {
+      cloudBaseOptions: { envId: "env-ttl" },
+      cloudbase,
+    } as any;
+
+    const first = await getDatabaseInstanceId(options);
+    expect(first.source).toBe("envInfo");
+    expect(first.instanceId).toBe("ins-ttl");
+
+    const second = await getDatabaseInstanceId(options);
+    expect(second.source).toBe("cache");
+    expect(cloudbase.env.getEnvInfo).toHaveBeenCalledTimes(1);
+
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 31 * 60 * 1000);
+    try {
+      const third = await getDatabaseInstanceId(options);
+      expect(third.source).toBe("envInfo");
+      expect(cloudbase.env.getEnvInfo).toHaveBeenCalledTimes(2);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+  it("TTL 内重复调用不会重复查询环境信息", async () => {
+    const { getDatabaseInstanceId } = await import("./cloudbase-manager.js");
+    const cloudbase = makeCloudbase();
+    const options = {
+      cloudBaseOptions: { envId: "env-ttl-2" },
+      cloudbase,
+    } as any;
+
+    await getDatabaseInstanceId(options);
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(Date.now() + 29 * 60 * 1000);
+    try {
+      const again = await getDatabaseInstanceId(options);
+      expect(again.source).toBe("cache");
+      expect(cloudbase.env.getEnvInfo).toHaveBeenCalledTimes(1);
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
+
+});
+
+describe("env binding slot", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.clearAllMocks();
+    delete process.env.CLOUDBASE_ENV_ID;
+    delete process.env.CLOUDBASE_LOCAL_ENDPOINT;
+    delete process.env.CLOUDBASE_MCP_CLOUD_MODE;
+    delete process.env.MCP_CLOUD_MODE;
+    delete process.env.TCB_REGION;
+    delete process.env.TCB_SITE;
+    mockReadProjectConfig.mockReturnValue(undefined);
+    mockReadProjectEnvId.mockReturnValue(undefined);
+    mockReadCloudbaseRcBinding.mockReturnValue(undefined);
+    mockAuthGetProgressState.mockResolvedValue({
+      status: "IDLE",
+      updatedAt: Date.now(),
+    });
+  });
+
+  afterEach(() => {
+    delete process.env.CLOUDBASE_MCP_CLOUD_MODE;
+    delete process.env.MCP_CLOUD_MODE;
+  });
+
+  it("records login_state without caching it", async () => {
+    mockPeekLoginState.mockResolvedValue({
+      secretId: "sid",
+      secretKey: "skey",
+      token: "token",
+      envId: "env-from-authjson",
+    });
+
+    const { getEnvId, getCachedEnvId, runInEnvSlot } = await import("./cloudbase-manager.js");
+    const { readReportedEnv } = await import("./utils/env-binding.js");
+
+    await runInEnvSlot(async () => {
+      await expect(getEnvId()).resolves.toBe("env-from-authjson");
+      expect(readReportedEnv()).toEqual({
+        envId: "env-from-authjson",
+        envIdSource: "login_state",
+      });
+    });
+    expect(getCachedEnvId()).toBeNull();
+  });
+
+  it("clears the slot on logout", async () => {
+    mockPeekLoginState.mockResolvedValue({
+      secretId: "sid",
+      secretKey: "skey",
+      token: "token",
+      envId: "env-from-authjson",
+    });
+
+    const { getEnvId, resetCloudBaseManagerCache, runInEnvSlot } = await import(
+      "./cloudbase-manager.js"
+    );
+    const { readReportedEnv } = await import("./utils/env-binding.js");
+
+    await runInEnvSlot(async () => {
+      await getEnvId();
+      expect(readReportedEnv().envId).toBe("env-from-authjson");
+      resetCloudBaseManagerCache();
+      expect(readReportedEnv()).toEqual({ envId: "unknown", envIdSource: "default" });
+    });
+  });
+
+  it("does not record the local endpoint as an environment", async () => {
+    process.env.CLOUDBASE_LOCAL_ENDPOINT = "http://127.0.0.1:3000";
+    const { getEnvId, runInEnvSlot } = await import("./cloudbase-manager.js");
+    const { readReportedEnv } = await import("./utils/env-binding.js");
+
+    await runInEnvSlot(async () => {
+      await expect(getEnvId()).resolves.toBe("local");
+      expect(readReportedEnv().envIdSource).toBe("default");
+    });
+  });
+
+  it("cloud mode does not read the machine login file or CLOUDBASE_ENV_ID", async () => {
+    process.env.CLOUDBASE_MCP_CLOUD_MODE = "true";
+    process.env.CLOUDBASE_ENV_ID = "env-leaked";
+    mockPeekLoginState.mockResolvedValue({
+      secretId: "sid",
+      secretKey: "skey",
+      token: "token",
+      envId: "env-from-authjson",
+    });
+
+    const { getEnvId, getCachedEnvId, runInEnvSlot } = await import("./cloudbase-manager.js");
+    const { readReportedEnv } = await import("./utils/env-binding.js");
+
+    await runInEnvSlot(async () => {
+      await expect(getEnvId()).rejects.toMatchObject({
+        name: "ToolPayloadError",
+        payload: expect.objectContaining({ code: "ENV_REQUIRED" }),
+      });
+      expect(readReportedEnv().envIdSource).toBe("default");
+    });
+    expect(mockPeekLoginState).not.toHaveBeenCalled();
+    expect(mockReadProjectEnvId).not.toHaveBeenCalled();
+    expect(getCachedEnvId()).toBeNull();
+    expect(process.env.CLOUDBASE_ENV_ID).toBe("env-leaked");
+  });
+
+  it("cloud mode auto-bind writes this request only", async () => {
+    process.env.CLOUDBASE_MCP_CLOUD_MODE = "true";
+    process.env.CLOUDBASE_ENV_ID = "env-leaked";
+    mockCommonServiceCall.mockResolvedValue({
+      EnvList: [{ EnvId: "env-only", Alias: "only", Region: "ap-shanghai" }],
+    });
+    mockCloudBaseCtor.mockImplementation(() => ({
+      commonService: vi.fn(() => ({ call: mockCommonServiceCall })),
+      env: { listEnvs: mockListEnvs },
+    }));
+
+    const { getEnvId, getCachedEnvId, runInEnvSlot } = await import("./cloudbase-manager.js");
+    const { readReportedEnv } = await import("./utils/env-binding.js");
+    const options = { secretId: "sid", secretKey: "skey", token: "token" };
+
+    await runInEnvSlot(async () => {
+      await expect(getEnvId(options)).resolves.toBe("env-only");
+      expect(options).toMatchObject({ envId: "env-only" });
+      expect(readReportedEnv()).toEqual({ envId: "env-only", envIdSource: "auto_bound" });
+    });
+    expect(mockPeekLoginState).not.toHaveBeenCalled();
+    expect(getCachedEnvId()).toBeNull();
   });
 });

@@ -38,6 +38,7 @@ const SOURCES = {
   mainRules: 'config/source/guideline/cloudbase/SKILL.md',
   skillsDir: 'config/source/skills',
   guidelineReferences: 'config/source/guideline/cloudbase/references',
+  license: 'config/source/guideline/cloudbase/LICENSE.md',
 };
 
 // Skills to exclude from the bundle
@@ -204,11 +205,21 @@ function injectRoutingTable(skillContent: string): string {
 }
 
 // Recursively copy directory with optional SKILL.md rename
+//
+// 跳过子 skill 里的 LICENSE.md：仓库内 35 份 LICENSE.md 内容完全一致，也与仓库根
+// LICENSE 相同，bundle 根目录已写了一份。重复带上会让 all-in-one 达到 211 个文件，
+// 而 SkillHub 单包上限是 200 文件，超限时发布接口直接返回 400。
+// 跳过无损：许可证仍由 bundle 根目录那份承载。
 function copyDir(src: string, dest: string, renameSkillMd: boolean): void {
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     const srcPath = path.join(src, entry.name);
     let destName = entry.name;
+
+    // Sub-skill 级许可证重复，bundle 根目录已有一份
+    if (entry.isFile() && entry.name === "LICENSE.md") {
+      continue;
+    }
 
     // Rename SKILL.md to README.md if requested
     if (renameSkillMd && entry.name === "SKILL.md") {
@@ -268,6 +279,18 @@ export function buildAllInOneSkill(
 
   fs.writeFileSync(path.join(outputDir, "SKILL.md"), skillContent);
   console.log("✅ Created: cloudbase/SKILL.md");
+
+  // The marketplace reads the bundle's own LICENSE file sitting next to
+  // SKILL.md — a frontmatter field is not enough — so every generated bundle
+  // ships the same MIT text as the repository root.
+  const licenseSource = path.join(TOOLKIT_ROOT, SOURCES.license);
+  if (!fs.existsSync(licenseSource)) {
+    throw new Error(
+      `缺少 LICENSE 源文件 / missing LICENSE source: ${SOURCES.license}`,
+    );
+  }
+  fs.copyFileSync(licenseSource, path.join(outputDir, "LICENSE.md"));
+  console.log("✅ Created: cloudbase/LICENSE.md");
 
   // 4. Copy all sub-skills to references/
   const subSkillFile = noSubSkill

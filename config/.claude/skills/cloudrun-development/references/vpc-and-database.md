@@ -4,6 +4,32 @@ Use this reference when deploying **existing / third-party apps** (GitHub projec
 
 Official docs: [VPC configuration for CloudBase Run](https://docs.cloudbase.net/run/deploy/networking/vpc)
 
+## 先决策：真的需要 TCP 直连吗？（SDK 优先）
+
+进入本文件（VPC / 安全组 / 连接串）之前，先确认 TCP 直连是**必要**的，而不是默认的。SDK / 网关路径不经过 VPC、不需要数据库账号密码，天然避开直连的网络与凭证问题：
+
+| 维度 | SDK / 网关路径（优先） | TCP 直连（兜底） |
+| --- | --- | --- |
+| 网络配置 | 无需 `VpcConf` | 必须绑定同 VPC + 安全组放行 DB 端口 |
+| 数据库凭证 | 环境内置，无需注入**数据库**账号密码（≠ 不需要凭证，见下方注） | 需要生成 / 注入 / 轮换账号密码 |
+| 典型故障 | 基本没有 | `ETIMEDOUT`、安全组拦截、密码错误、VPC 未挂载 |
+| 适用场景 | 新应用 / CloudBase 原生数据（PG、NoSQL、storage） | 迁移已有应用、SDK 不覆盖的能力（特定 SQL 方言、Redis 原生协议等） |
+
+SDK 路径的具体形态：
+
+- CloudBase PG → `app.rdb()`（js-sdk v3 / node-sdk，走 PG HTTP 网关；见 `../../postgresql-development-cloudbase/SKILL.md`）
+- NoSQL → `app.database()`；对象存储 → `app.storage`
+- 若新应用只需要这些数据面，还可考虑直接用 HTTP 云函数（内置 SDK、免 VPC），不上云托管容器
+
+仅当应用是经典 TCP 客户端（mysql2 / pg / Prisma / SQLAlchemy / WordPress / Ghost 等迁移场景）且改造为 SDK 的方案被否决时，才继续往下走 VPC 流程。
+
+🔴 **前提：数据库端必须真的有 TCP 可达端点。** CloudBase PG 分**共享（shared）**与**独享（dedicated）**实例——**只有独享实例提供私网 host / TCP 直连**，共享实例只能走 SDK / 网关访问。所以在决定走这条路之前，**先确认实例类型**（`queryEnv(action="info")` 返回的 `EnvInfo.PostgreSQL[].TenantType`）：如果实例是共享的，`VpcConf` 怎么配都连不上（表现为 `ECONNREFUSED`、连接超时，网络类查询还会被平台以「资源检查失败」拒绝），需要先把实例**升级到独享**，或者改走 SDK。
+**不要向用户索要 VPC ID / 子网 ID，也不要让用户去找网络部** —— VPC 与子网从数据库实例自身的详情里读，让用户去别的部门要网络信息是一条走不通的路。
+
+**共享实例要升到独享，走现成的 recipe**：`../../cloud-api-operations/references/recipes/pg-instance-spec.md`（Recipe 3）。先看 `TenantType` 分流——`SHARED` 走「共享升独享」（`UpgradePGInstanceToDedicated`），`DEDICATED` 走调规格；提交后用返回的 `TaskId` 轮询进度，不要凭感觉估计要多久。⚠️ 该 recipe 的「共享升独享」分支**已跑通**（标准版环境 → `1 核 2 GiB` + 10 GB，约 2 分 49 秒到 `Succeed`）；recipe 整体仍标「部分实证」，因为其余分支（套餐准入逐档验证、`SwitchTag: 1` 指定时间、独享→共享）未跑，执行前先核对里面的前置条件。
+
+> ⚠️ **「无需数据库账号密码」≠「无需凭证」。** SDK / 网关路径省掉的是数据库账号密码与 `VpcConf`，但服务实例调用 CloudBase 资源（PG `app.rdb()` / NoSQL / storage）仍要带 CloudBase 资源访问凭证：由 `manageAppAuth(action="createApiKey", keyType="api_key")` 签发，经 `serverConfig.EnvParams` 注入 `CLOUDBASE_APIKEY`，不要从本地客户端登录态里取。完整步骤见 `../../cloud-functions/references/http-function-credentials.md`。
+
 ## Critical distinction
 
 | Concept | What it controls | Typical field |
@@ -115,7 +141,7 @@ Missing `VpcConf` here commonly yields deploy **success** followed by runtime `E
 ## Agent checklist (copy into plan before deploy)
 
 - [ ] DB dependency signals scanned
-- [ ] TCP vs CloudBase SDK/gateway path decided
+- [ ] TCP vs CloudBase SDK/gateway path decided — **SDK/网关优先，TCP 仅用于迁移类应用或 SDK 未覆盖的能力**（见开头决策表）
 - [ ] `VpcId` + `SubnetId` resolved (same region as DB)
 - [ ] Private connection string prepared
 - [ ] Security group / allowlist planned

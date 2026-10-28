@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   applyRepeatGuardToPayload,
+  getRepeatGuardSnapshot,
   resetRepeatGuard,
   REPEAT_GUARD_THRESHOLD,
   __resetRepeatGuardForTests,
@@ -88,6 +89,16 @@ describe("repeat-error-guard", () => {
     expect(passthrough).toBeNull();
   });
 
+  it("getter returns the live streak and not the error text", () => {
+    applyRepeatGuardToPayload(buildEnvRequiredPayload());
+    applyRepeatGuardToPayload(buildEnvRequiredPayload());
+    expect(getRepeatGuardSnapshot()).toEqual({ consecutiveCount: 2 });
+
+    resetRepeatGuard();
+    expect(getRepeatGuardSnapshot()).toEqual({ consecutiveCount: 0 });
+    expect(JSON.stringify(getRepeatGuardSnapshot())).not.toContain("尚未绑定环境");
+  });
+
   it("resetRepeatGuard should clear the streak", () => {
     for (let i = 1; i < REPEAT_GUARD_THRESHOLD; i += 1) {
       applyRepeatGuardToPayload(buildEnvRequiredPayload());
@@ -117,5 +128,45 @@ describe("repeat-error-guard", () => {
       message: `前缀相同 ${longSuffix}B`,
     }) as any;
     expect(result.repeat_guard.consecutive_count).toBe(3);
+  });
+
+  function serverFor(secretId: string) {
+    return { cloudBaseOptions: { secretId, token: "tok", site: "domestic" } };
+  }
+
+  it("keeps credential buckets separate so tenant A does not escalate tenant B", () => {
+    const tenantA = serverFor("secret-a");
+    const tenantB = serverFor("secret-b");
+    for (let i = 0; i < REPEAT_GUARD_THRESHOLD; i += 1) {
+      applyRepeatGuardToPayload(buildEnvRequiredPayload(), tenantA);
+    }
+    const escalated = applyRepeatGuardToPayload(buildEnvRequiredPayload(), tenantA) as any;
+    const other = applyRepeatGuardToPayload(buildEnvRequiredPayload(), tenantB) as any;
+    expect(escalated.repeat_guard).toBeDefined();
+    expect(other.repeat_guard).toBeUndefined();
+    expect(getRepeatGuardSnapshot(tenantB).consecutiveCount).toBe(1);
+  });
+
+  it("does not let tenant B's success clear tenant A's streak", () => {
+    const tenantA = serverFor("secret-a");
+    const tenantB = serverFor("secret-b");
+    applyRepeatGuardToPayload(buildEnvRequiredPayload(), tenantA);
+    applyRepeatGuardToPayload(buildEnvRequiredPayload(), tenantA);
+    resetRepeatGuard(tenantB);
+    expect(getRepeatGuardSnapshot(tenantA).consecutiveCount).toBe(2);
+    const escalated = applyRepeatGuardToPayload(buildEnvRequiredPayload(), tenantA) as any;
+    expect(escalated.repeat_guard.consecutive_count).toBe(3);
+  });
+
+  it("counts callers with no credential in one local bucket", () => {
+    const localA = {};
+    const localB = {};
+    applyRepeatGuardToPayload(buildEnvRequiredPayload(), localA);
+    applyRepeatGuardToPayload(buildEnvRequiredPayload(), localB);
+    const escalated = applyRepeatGuardToPayload(buildEnvRequiredPayload()) as any;
+    expect(escalated.repeat_guard.consecutive_count).toBe(REPEAT_GUARD_THRESHOLD);
+    expect(getRepeatGuardSnapshot().consecutiveCount).toBe(REPEAT_GUARD_THRESHOLD);
+    resetRepeatGuard(localA);
+    expect(getRepeatGuardSnapshot(localB).consecutiveCount).toBe(0);
   });
 });

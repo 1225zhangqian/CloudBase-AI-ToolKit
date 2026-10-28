@@ -22,14 +22,28 @@ import { registerAppTools } from "./tools/apps.js";
 import { registerLogTools } from "./tools/logs.js";
 import { registerPermissionTools } from "./tools/permissions.js";
 import { registerMsgPushTools } from "./tools/msg-push.js";
+import { registerFeedbackTools } from "./tools/feedback.js";
 import { CloudBaseOptions, Logger, PluginOptions } from "./types.js";
 import type { AuthOptions } from "./auth.js";
+import { isMessageKey, resolveInstanceLang, setInstanceLang, t, type Lang } from "./i18n/index.js";
+import { localizeZodSchemaShape } from "./i18n/schema.js";
+import { resolveServerInstructions } from "./prompts/server-instructions.js";
 import { enableCloudMode } from "./utils/cloud-mode.js";
+import { hasEnvSlot, runWithEnvSlot, type EnvSlot } from "./utils/env-binding.js";
 import { info } from './utils/logger.js';
 import { resolveSiteAndRegion, SITE_REGION_MAP } from "./utils/site-map.js";
 import { buildJsonToolResult, isToolPayloadError } from "./utils/tool-result.js";
 import { wrapServerWithTelemetry, applyCategoryAnnotationMeta, type ToolAnnotations } from "./utils/tool-wrapper.js";
-import { normalizeClientName } from "./utils/telemetry.js";
+import {
+  normalizeClientName,
+  readClientCapabilitiesFromServer,
+  readMcpClientInfoFromServer,
+  reportToolkitSessionInitialized,
+} from "./utils/telemetry.js";
+import { isMcpUiEnabled } from "./utils/mcp-ui.js";
+import { registerGetStartedResource } from "./resources/get-started.js";
+import { registerEnvCreditsResource } from "./resources/env-credits.js";
+import { registerArtifactCardResource } from "./resources/artifact-card.js";
 
 // 插件定义
 interface PluginDefinition {
@@ -58,6 +72,7 @@ const DEFAULT_PLUGINS = [
   "logs",
   "agents",
   "capi",
+  "feedback",
 ];
 
 function registerDatabase(server: ExtendedMcpServer) {
@@ -111,6 +126,7 @@ const AVAILABLE_PLUGINS: Record<string, PluginDefinition> = {
   deploy: { name: "deploy", register: registerDeployTools },
   capi: { name: "capi", register: registerCapiTools },
   "msg-push": { name: "msg-push", register: registerMsgPushTools },
+  feedback: { name: "feedback", register: registerFeedbackTools },
 };
 
 const PLUGIN_ALIASES: Record<string, string> = {
@@ -198,14 +214,24 @@ export type CloudBaseRegisterToolConfig = {
 export interface ExtendedMcpServer extends McpServer {
   cloudBaseOptions?: CloudBaseOptions;
   authOptions?: AuthOptions;
+  /** 实例输出语言（zh/en）：description 注册选择 + 工具输出文案默认语言 */
+  lang?: Lang;
   ide?: string;
   /** MCP client 来源标识（hosted 场景由上游解析注入，如 cursor / claude-code） */
   client?: string;
+  /**
+   * Metadata-only client identity used when this request has no handshake.
+   * `{ name, version }` only. Not a protocol object.
+   */
+  clientInfo?: { name: string; version?: string };
   logger?: Logger;
   enabledPlugins?: string[];
   pluginOptions?: PluginOptions;
   /** Registered tools for external hosts (e.g. WeChat IDE) to re-register. */
   toolDefs: Array<{ name: string; description: string; inputSchema: any; handler: (input: any) => Promise<any> }>;
+
+  /** Process (stdio) or unused when the caller already opened a request slot. */
+  envSlot: EnvSlot;
 
   setLogger(logger: Logger): void;
 
@@ -218,6 +244,14 @@ export interface ExtendedMcpServer extends McpServer {
     config: CloudBaseRegisterToolConfig,
     cb: (...args: any[]) => any,
   ): RegisteredTool;
+}
+
+/**
+ * 把工具 description / title 里写的词典 key 解析成实例语言的实际文案。
+ * 非 key 的字符串（存量动态拼出来的 description）原样返回，保证向后兼容。
+ */
+function resolveToolText(value: string, lang?: Lang): string {
+  return isMessageKey(value) ? t(value, undefined, lang) : value;
 }
 
 /**
@@ -249,10 +283,30 @@ export async function createCloudBaseMcpServer(options?: {
   cloudMode?: boolean;
   ide?: string;
   client?: string;
+  /**
+   * Client name/version to report when the MCP handshake clientInfo is empty.
+   * Metadata only. Hosted requests pass the value remembered for this credential.
+   */
+  clientInfo?: { name: string; version?: string };
+  /**
+   * 会话标识的取值入口（**调用点注入**，可选）。
+   *
+   * 有状态 HTTP / 托管路径把当前 transport 的 `sessionId` 传进来（那是公开 getter）；
+   * stdio、以及无状态托管（`sessionIdGenerator: undefined`）没有会话概念 ⇒ **不注入**，
+   * 会话级上报回落到常量，等价于"这个实例就是一个会话"。
+   * 只有会话级遥测用得到它；不注入时行为与"每实例一条"完全一致。
+   */
+  getSessionId?: () => string | undefined;
   logger?: Logger;
   pluginsEnabled?: string[];
   pluginsDisabled?: string[];
   pluginOptions?: PluginOptions;
+  /**
+   * 实例输出语言（zh/en）。解析链：本参数 > TCB_LANG 环境变量
+   * > `.cloudbase/project.json` 的 lang > 默认 zh。
+   * 影响：工具 description / title 里的词典 key 按本语言解析 + 工具输出文案默认语言。
+   */
+  lang?: Lang | string;
 }): Promise<ExtendedMcpServer> {
   const {
     name = "cloudbase-mcp",
@@ -263,10 +317,13 @@ export async function createCloudBaseMcpServer(options?: {
     cloudMode = false,
     ide,
     client,
+    clientInfo,
+    getSessionId,
     logger,
     pluginsEnabled,
     pluginsDisabled,
     pluginOptions,
+    lang,
   } = options ?? {};
 
   // Enable cloud mode if specified
@@ -275,6 +332,9 @@ export async function createCloudBaseMcpServer(options?: {
   }
 
   // Create server instance
+  // 实例语言必须在构造前解析：`instructions` 是 initialize 的返回字段，构造时就得定稿，
+  // 不能像工具 description 那样等注册包装层再按 lang 改写。
+  const instanceLang = resolveInstanceLang(lang);
   const server = new McpServer(
     {
       name,
@@ -283,17 +343,44 @@ export async function createCloudBaseMcpServer(options?: {
     {
       capabilities: {
         tools: {},
+        // MCP Apps 扩展声明：服务端按通用扩展机制用**空对象**（无 settings）。
+        // 注意不手写 `resources`——`registerResource` 会自己在 connect 前带上能力位。
+        extensions: { "io.modelcontextprotocol/ui": {} },
         ...(ide === "CodeBuddy" ? { logging: {} } : {}),
       },
+      // 免协商的「怎么用我」自述：不占 tools/list 的上下文，客户端不支持时自然忽略。
+      instructions: resolveServerInstructions(instanceLang),
     },
   ) as ExtendedMcpServer;
 
   // 初始化 toolDefs，用于外部提取工具列表（如微信 IDE）
   server.toolDefs = [];
+  const envSlot: EnvSlot = { binding: null };
+  server.envSlot = envSlot;
+
+  // 实例语言解析（须在工具注册前完成：registerTool 包装层按 lang 解析词典 key 形式的 description）
+  server.lang = instanceLang;
+  // 同步到 i18n 模块级 instanceLang：否则 t() 无 langOverride 时会退化成
+  // TCB_LANG/project.json/zh，导致 options.lang 只影响工具 description、不影响工具输出文案。
+  setInstanceLang(server.lang);
 
   const originalRegisterTool = server.registerTool.bind(server);
   server.registerTool = ((name: string, meta: any, handler: (args: any) => Promise<any>) => {
     const toolMeta = applyCategoryAnnotationMeta(meta ?? {});
+    // 国际化描述支持：description/title 写成词典 key 字符串（如 "storage.queryDescription"）时
+    // 按实例 lang 解析为实际文案；普通字符串（存量动态 description）原样透传，工具侧零改动。
+    if (typeof toolMeta?.description === "string") {
+      toolMeta.description = resolveToolText(toolMeta.description, server.lang);
+    }
+    if (typeof toolMeta?.title === "string") {
+      toolMeta.title = resolveToolText(toolMeta.title, server.lang);
+    }
+    if (toolMeta?.inputSchema && typeof toolMeta.inputSchema === "object") {
+      toolMeta.inputSchema = localizeZodSchemaShape(toolMeta.inputSchema, server.lang);
+    }
+    if (toolMeta?.outputSchema && typeof toolMeta.outputSchema === "object") {
+      toolMeta.outputSchema = localizeZodSchemaShape(toolMeta.outputSchema, server.lang);
+    }
     // 同步记录到 toolDefs
     server.toolDefs.push({
       name,
@@ -348,6 +435,14 @@ export async function createCloudBaseMcpServer(options?: {
     server.client = normalizedClient;
   }
 
+  const hintedName = typeof clientInfo?.name === "string" ? clientInfo.name.trim() : "";
+  if (hintedName) {
+    const hintedVersion = typeof clientInfo?.version === "string" ? clientInfo.version.trim() : "";
+    server.clientInfo = hintedVersion
+      ? { name: hintedName, version: hintedVersion }
+      : { name: hintedName };
+  }
+
   // Store logger in server instance for tools to access
   if (logger) {
     server.logger = logger;
@@ -360,6 +455,56 @@ export async function createCloudBaseMcpServer(options?: {
   // Enable telemetry if requested
   if (enableTelemetry) {
     wrapServerWithTelemetry(server);
+
+    // 会话建立后上报一次（补"分母"：进程 start 早于握手，拿不到 client 与能力声明）。
+    // **这一个 if 就是总闸**：`enableTelemetry: false` 时连这条会话事件也不发——
+    // 关掉遥测的调用方（测试环境分支、冒烟脚本、评审 harness）本来就是为了不出网。
+    // - **每会话只发一次**：幂等粒度是**会话**，不是 server 实例 —— 同一会话里重复的
+    //   initialized 通知只报一次；不同会话即使共用同一个实例也各报一次；
+    // - **fire-and-forget**：绝不 await、也不让上报失败冒泡到握手；
+    // - 字段拿不到就留空，不臆造（见 reportToolkitSessionInitialized 的注释）。
+    // 多会话同进程的场景（HTTP/托管路径的每会话回调）本期不接，留待后续。
+    //
+    // 会话身份的取值来源（不留含糊）：**由调用点注入的 `getSessionId()`**
+    //   - 有状态 HTTP / 托管路径：`hosted/handle-hosted-mcp-request.ts:154` 注入
+    //     `() => transport?.sessionId`（transport 在 `:134` 声明、`:164` 创建、`:171` connect，
+    //     与建 server（`:142`）同一作用域）；`StreamableHTTPServerTransport.sessionId` 是**公开 getter**；
+    //   - stdio（`cli.ts`）与**无状态**托管（`sessionIdGenerator: undefined`，`:165`）没有会话概念
+    //     ⇒ 不注入 ⇒ 回落到常量 `single-session`，等价于"这个实例就是一个会话"。
+    // 不读 SDK 的 `Protocol._transport`（那是私有的指针，本版也没有公开的 transport 访问器）。
+    //
+    // 为什么粒度是会话而不是实例：今天托管路径每个请求都新建实例（无缓存 Map），两种粒度等价；
+    // 一旦有人把实例按凭证缓存复用，"实例级幂等"就会让 N 个会话只报 1 条、分母漏计 N−1。
+    //
+    // 内存：这个 Set 只增不减。托管路径每请求一个实例、随请求消亡；被复用的长命实例则会按
+    // 会话数累积（每个键就是一个 sessionId 字符串）。要收紧得挂在 transport 的关闭钩子上，
+    // 但 `onclose` 由 SDK 的协议层持有（`shared/protocol.js:221`），这里不为它绕路 —— 记为后续项。
+    const reportedSessions = new Set<string>();
+    const currentSessionKey = (): string => {
+      let injected: string | undefined;
+      try {
+        injected = getSessionId?.();
+      } catch {
+        // 注入的取值抛错不该影响会话：按"没有会话标识"处理（回落常量）
+      }
+      return typeof injected === "string" && injected.length > 0 ? injected : "single-session";
+    };
+    server.server.oninitialized = () => {
+      const sessionKey = currentSessionKey();
+      if (reportedSessions.has(sessionKey)) {
+        return;
+      }
+      reportedSessions.add(sessionKey);
+      void reportToolkitSessionInitialized({
+        cloudBaseOptions,
+        ide: server.ide || process.env.INTEGRATION_IDE,
+        client: server.client || process.env.CLOUDBASE_MCP_CLIENT,
+        mcpClientInfo: readMcpClientInfoFromServer(server),
+        mcpClientCapabilities: readClientCapabilitiesFromServer(server),
+      }).catch(() => {
+        /* 遥测失败不影响会话 */
+      });
+    };
   }
 
   // Register plugins based on configuration
@@ -372,6 +517,37 @@ export async function createCloudBaseMcpServer(options?: {
       await plugin.register(server);
     }
   }
+
+  // MCP Apps 三张卡（get-started / env-credits / artifact-card）。与工具同生命周期、一次性注册；
+  // 必须在 connect 前完成，否则 registerCapabilities 会抛错。resources/list 仍为空。
+  // CLOUDBASE_MCP_UI=off 时整块跳过：工具也不再带 `_meta.ui`，宿主不会为卡片留位置。
+  if (isMcpUiEnabled()) {
+    registerGetStartedResource(server);
+
+    // 环境资源用量面板：只读用量与套餐，不执行计费（引导交给会话里的技能）。
+    registerEnvCreditsResource(server);
+
+    // 产物卡片：挂在三个部署类工具上，只读展示部署状态与访问地址，写意图一律交给会话。
+    registerArtifactCardResource(server);
+  }
+
+  const originalConnect = server.connect.bind(server);
+  server.connect = async (transport) => {
+    await originalConnect(transport);
+    const deliver = transport.onmessage;
+    if (!deliver) {
+      return;
+    }
+    transport.onmessage = (message, extra) => {
+      if (hasEnvSlot()) {
+        deliver(message, extra);
+        return;
+      }
+      runWithEnvSlot(envSlot, () => {
+        deliver(message, extra);
+      });
+    };
+  };
 
   return server;
 }

@@ -4,6 +4,13 @@ import type { ExtendedMcpServer } from "../server.js";
 import { jsonContent } from "../utils/json-content.js";
 import { isCloudMode } from "../utils/cloud-mode.js";
 import { preferGatewayOrFallback, resolveGatewayAccessUrls } from "../utils/gateway-access-urls.js";
+import { t } from "../i18n/index.js";
+import {
+  buildArtifactCardPayload,
+  errorTextOf,
+  resolveArtifactEnvContext,
+} from "./artifact-card-payload.js";
+import { mcpUiMeta } from "../utils/mcp-ui.js";
 
 const QUERY_APP_ACTIONS = ["listApps", "getApp", "listAppVersions", "getAppVersion", "getBuildLog", "getUploadUrl"] as const;
 const MANAGE_APP_ACTIONS = ["deployApp", "getUploadUrl", "deleteApp", "deleteAppVersion"] as const;
@@ -41,11 +48,8 @@ const CLOUD_MODE_UNSUPPORTED_ACTION = "CLOUD_MODE_UNSUPPORTED_ACTION";
 function buildCloudModeUnsupportedDeployEnvelope(serviceName: string, reason: "localPath" | "missingCosTimestamp"): ToolEnvelope {
   const message =
     reason === "localPath"
-      ? "CLOUD_MODE_UNSUPPORTED_ACTION: cloud mode does not support deployApp with localPath/filePath " +
-        "(server has no trusted local filesystem). Use getUploadUrl → HTTP PUT zip → deployApp(cosTimestamp), " +
-        "or run manageApps in local stdio mode / CLI."
-      : "CLOUD_MODE_UNSUPPORTED_ACTION: cloud mode deployApp requires cosTimestamp. " +
-        "Call getUploadUrl first, upload the zip to the pre-signed URL, then pass cosTimestamp.";
+      ? t("apps.cloudModeLocalPathUnsupported")
+      : t("apps.cloudModeCosTimestampRequired");
 
   return {
     success: false,
@@ -94,35 +98,40 @@ export function registerAppTools(server: ExtendedMcpServer) {
   server.registerTool?.(
     "queryApps",
     {
-      title: "查询 CloudBase 应用部署状态",
-      description:
-        "查询 CloudBase 应用部署的应用和版本。可查应用列表/详情、版本列表/详情；部署后用 getAppVersion 按 buildId 轮询构建状态；getBuildLog 可查询构建日志用于诊断失败原因。\n" +
-        "action=getUploadUrl（只读）可获取预签名上传 URL：无本地文件系统时（cloud mode），先拿到 uploadUrl 自行 PUT 代码 zip，再用返回的 unixTimestamp 调 manageApps(action=deployApp, cosTimestamp) 触发部署。",
+      title: "apps.queryTitle",
+      description: "apps.queryDescription",
       inputSchema: {
         action: z.enum(QUERY_APP_ACTIONS),
         serviceName: z
           .string()
           .optional()
-          .describe("CloudBase 应用服务名。getApp / listAppVersions / getAppVersion / getBuildLog / getUploadUrl 时必填；重新部署后复用同一个 serviceName 查询版本历史。"),
-        searchKey: z.string().optional().describe("按应用服务名模糊搜索关键词，仅 action=listApps 时使用。"),
-        pageNo: z.number().optional().describe("分页页码，从 1 开始。"),
-        pageSize: z.number().optional().describe("分页大小。"),
+          .describe("apps.schema.queryServiceName"),
+        searchKey: z.string().optional().describe("apps.schema.searchKey"),
+        pageNo: z.number().optional().describe("apps.schema.pageNo"),
+        pageSize: z.number().optional().describe("apps.schema.pageSize"),
         versionName: z
           .string()
           .optional()
-          .describe("版本名称。getAppVersion 时可与 buildId 二选一；已知版本号时优先传该值。"),
+          .describe("apps.schema.queryVersionName"),
         buildId: z
-          .string()
+          // ⚠️ 同一字段驱动两条链路、类型要求不同（F13）：
+          //   getAppVersion → SDK describeAppVersion，收 **string**
+          //   getBuildLog   → 云 API DescribeCloudBaseRunBuildLog，BuildId 是 **Integer(int64)**
+          // 收 string | number 并统一归一成 string（保证 getAppVersion 链路不回退），
+          // getBuildLog 分支再转 number 传给云 API。
+          .union([z.string(), z.number()])
+          .transform((value) => String(value).trim())
           .optional()
-          .describe("构建 ID。getAppVersion 时可与 versionName 二选一；部署返回 BuildId 后可直接用它轮询状态。getBuildLog 时必填。"),
+          .describe("apps.schema.buildId"),
         start: z
           .number()
           .optional()
-          .describe("构建日志偏移量，用于分页拉取后续日志。仅 action=getBuildLog 时使用，不传时从开头返回。"),
+          .describe("apps.schema.start"),
       },
       annotations: {
         readOnlyHint: true,
-        openWorldHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
         category: "apps",
       },
     },
@@ -142,14 +151,15 @@ export function registerAppTools(server: ExtendedMcpServer) {
       pageNo?: number;
       pageSize?: number;
       versionName?: string;
-      buildId?: string;
+      /** schema 已归一成 string；放宽为 string | number 兼容直接调用 handler 的内部/测试路径。 */
+      buildId?: string | number;
       start?: number;
     }) => {
       try {
         const cloudbase = await getManager();
         const appService = getCloudAppService(cloudbase);
         if (!appService) {
-          throw new Error("当前 manager 未提供 cloudAppService");
+          throw new Error(t("apps.noCloudAppService"));
         }
 
         if (action === "listApps") {
@@ -168,13 +178,13 @@ export function registerAppTools(server: ExtendedMcpServer) {
                 total: result.Total ?? 0,
                 raw: result,
               },
-              "CloudBase 应用列表查询成功",
+              t("apps.listSuccess"),
             ),
           );
         }
 
         if (!serviceName) {
-          throw new Error(`action=${action} 时必须提供 serviceName`);
+          throw new Error(t("apps.serviceNameRequired", { action }));
         }
 
         // getUploadUrl — 只读获取预签名上传 URL（cloud mode 上传通道第一步）
@@ -202,9 +212,9 @@ export function registerAppTools(server: ExtendedMcpServer) {
                   method: "PUT",
                   contentType: "application/zip",
                   steps: [
-                    "1. 将代码打包为 zip（排除 node_modules/.git）",
-                    "2. 用 PUT 方法把 zip 上传到 uploadUrl，请求头带 Content-Type: application/zip 以及 uploadHeaders 中的每个 header",
-                    `3. 调用 manageApps(action="deployApp", serviceName="${serviceName}", cosTimestamp=<unixTimestamp>) 触发部署`,
+                    t("apps.uploadStep1"),
+                    t("apps.uploadStep2"),
+                    t("apps.uploadStep3", { serviceName }),
                   ],
                   followup: {
                     tool: "manageApps",
@@ -216,7 +226,7 @@ export function registerAppTools(server: ExtendedMcpServer) {
                   },
                 },
               },
-              "预签名上传 URL 获取成功。请将代码 zip PUT 上传到 uploadUrl（携带 uploadHeaders 与 Content-Type: application/zip），然后用返回的 unixTimestamp 作为 cosTimestamp 调用 manageApps(action=deployApp) 触发部署。",
+              t("apps.getUploadUrlSuccess"),
             ),
           );
         }
@@ -234,7 +244,7 @@ export function registerAppTools(server: ExtendedMcpServer) {
                 serviceName,
                 app: result,
               },
-              "CloudBase 应用详情查询成功",
+              t("apps.getSuccess"),
             ),
           );
         }
@@ -256,21 +266,28 @@ export function registerAppTools(server: ExtendedMcpServer) {
                 total: result.Total ?? 0,
                 raw: result,
               },
-              "CloudBase 应用版本列表查询成功",
+              t("apps.listVersionsSuccess"),
             ),
           );
         }
 
         if (action === "getBuildLog") {
-          if (!buildId) {
-            throw new Error("action=getBuildLog 时必须提供 buildId");
+          if (buildId === undefined || buildId === null || String(buildId).trim() === "") {
+            throw new Error(t("apps.buildIdRequired"));
+          }
+          // DescribeCloudBaseRunBuildLog 的 BuildId 是 Integer(int64)（官方文档 876/135707），
+          // 传 string 会被后端拒：The value type of parameter BuildId is not valid, input type
+          // should be int64。schema 侧已归一成 string（getAppVersion 需要 string），此处转 number。
+          const numericBuildId = Number(String(buildId).trim());
+          if (!Number.isInteger(numericBuildId) || numericBuildId <= 0) {
+            throw new Error(t("apps.buildIdMustBeNumeric", { buildId: String(buildId) }));
           }
           const result = await cloudbase.commonService("tcb", "2018-06-08").call({
             Action: "DescribeCloudBaseRunBuildLog",
             Param: {
               EnvId: cloudBaseOptions?.envId || process.env.CLOUDBASE_ENV_ID,
               ServiceName: serviceName,
-              BuildId: buildId,
+              BuildId: numericBuildId,
               Start: start ?? 0,
             },
           });
@@ -281,15 +298,15 @@ export function registerAppTools(server: ExtendedMcpServer) {
               {
                 action,
                 serviceName,
-                buildId,
+                buildId: String(numericBuildId),
                 logs,
                 total: result.Response?.Total || logs.length,
                 nextStart: result.Response?.NextStart,
                 raw: result,
               },
               logs.length > 0
-                ? `查询到 ${logs.length} 条构建日志`
-                : "暂无构建日志",
+                ? t("apps.buildLogFound", { count: logs.length })
+                : t("apps.buildLogEmpty"),
             ),
           );
         }
@@ -298,7 +315,8 @@ export function registerAppTools(server: ExtendedMcpServer) {
           deployType: "static-hosting",
           serviceName,
           versionName,
-          buildId,
+          // 该链路要 string（SDK 类型 IDescribeCloudAppVersionParams.BuildId: string）
+          buildId: buildId === undefined ? undefined : String(buildId),
         });
         logCloudBaseResult(server.logger, result);
 
@@ -318,21 +336,27 @@ export function registerAppTools(server: ExtendedMcpServer) {
 
         if (isFailed) {
           payload.nextStep = {
-            action: "查询构建日志",
+            action: t("apps.nextStepQueryBuildLog"),
             tool: "queryApps",
             args: {
               action: "getBuildLog",
               serviceName,
               buildId: result.BuildId,
             },
-            hint: `构建失败。调用 queryApps(action="getBuildLog", serviceName="${serviceName}", buildId="${result.BuildId}") 查看构建日志，诊断失败原因。`,
+            hint: t("apps.buildFailedHint", {
+              serviceName,
+              buildId: result.BuildId,
+            }),
           };
         }
 
         return jsonContent(
           buildEnvelope(
             payload,
-          `CloudBase 应用版本详情查询成功（状态: ${result.Status}${result.FailReason ? `, 失败原因: ${result.FailReason}` : ""}${isFailed ? "，可查询构建日志" : ""}）`,
+            t("apps.getVersionSuccess", {
+              status: result.Status,
+              extra: `${result.FailReason ? t("apps.versionFailReason", { reason: result.FailReason }) : ""}${isFailed ? t("apps.versionBuildLogAvailable") : ""}`,
+            }),
           ),
         );
       } catch (error) {
@@ -344,93 +368,74 @@ export function registerAppTools(server: ExtendedMcpServer) {
   server.registerTool?.(
     "manageApps",
     {
-      title: "部署应用到 CloudBase（独立子域名）",
-      description:
-        "部署 Web 应用到 CloudBase（构建前后端，部署到独立子域名）。\n" +
-        "云端上传通道（cloud mode，无本地文件系统）：queryApps(action=getUploadUrl) 或 manageApps(action=getUploadUrl) 获取预签名上传 URL → agent 自行 PUT 代码 zip 到 uploadUrl（带 uploadHeaders 与 Content-Type: application/zip）→ 用返回的 unixTimestamp 作为 cosTimestamp 调 deployApp 触发部署。\n" +
-        "action=getUploadUrl 获取预签名上传 URL（cloud mode 下使用），返回上传地址和 cosTimestamp。\n" +
-        "action=deployApp 上传源码 ZIP 并触发远端构建部署管道：\n" +
-        "  1. 远端 npm install（可通过 installCmd=\"\" 跳过）\n" +
-        "  2. 远端 npm run build（可通过 buildCmd=\"\" 跳过）\n" +
-        "  3. 远端 tcb hosting deploy\n" +
-        "\n" +
-        "域名格式：`<serviceName>-<envId>.webapps.tcloudbase.com`（每个 serviceName 一个独立子域名）\n" +
-        "\n" +
-        "✅ 推荐用法（新项目／需要独立域名的 Web 应用，首选此工具）：\n" +
-        "  新建项目首次部署时，传 framework=static, installCmd=\"\", buildCmd=\"\" 跳过远端构建，\n" +
-        "  只执行 tcb hosting deploy。部署后获得独立子域名，支持版本管理。\n" +
-        "\n" +
-        "⚠️ 兼容性说明：\n" +
-        "- 已有项目若之前用 manageHosting 部署过（域名格式：`<envId>-<appId>.tcloudbaseapp.com`），\n" +
-        "  切换到 manageApps 会产生全新的 URL，老链接失效。请保持原部署方式不变。\n" +
-        "- 如需判断：调用 queryHosting 检查是否已有托管文件。\n" +
-        "\n" +
-        "与 manageHosting 对比：\n" +
-        "- manageApps（本工具，新项目首选）：域名 `<serviceName>-<envId>.webapps.tcloudbase.com`，独立子域名，支持版本管理\n" +
-        "- manageHosting（已有项目或 fallback）：域名 `<envId>-<appId>.tcloudbaseapp.com/<path>`，共享环境域名\n" +
-        "两者均可绑定自定义域名。\n" +
-        "\n" +
-        "⚠️ 如果 manageApps 构建失败，先用 queryApps(action=\"getBuildLog\") 查日志；仍不行再 fallback 到 manageHosting。",
+      title: "apps.manageTitle",
+      description: "apps.manageDescription",
       inputSchema: {
         action: z.enum(MANAGE_APP_ACTIONS),
         serviceName: z
           .string()
-          .describe("CloudBase 应用服务名，会体现在域名中：`<serviceName>-<envId>.webapps.tcloudbase.com`。deployApp 时复用现有 serviceName 会新增一个部署版本并触发重新部署，而不是删除重建。首次部署请用新名称。"),
+          .describe("apps.schema.manageServiceName"),
         filePath: z
           .string()
           .optional()
-          .describe("要上传并部署的本地项目根目录绝对路径。本地模式下 deployApp 时必填；通常传源码所在目录（含 package.json 和源码），不是 dist 目录。构建产物目录请用 buildPath 指定。cloud mode 下无需传此参数，改用 cosTimestamp。"),
+          .describe("apps.schema.filePath"),
         cosTimestamp: z
-          .coerce
-          .number()
-          .int()
-          .positive()
+          // ⚠️ 不能用 z.coerce.number()：SDK 的 StaticConfig.CosTimestamp（manager-node
+          // types/cloudApp/types.d.ts `CosTimestamp?: string | null`）与后端 CreateCloudApp
+          // 都要求 **string**。coerce 会把外部传入的值（含 getUploadUrl 返回的 unixTimestamp）
+          // 强制转成 number，后端直接拒绝：
+          //   The value type of parameter `StaticConfig.CosTimestamp` is not valid,
+          //   input type should be `string`
+          // 本地路径不受影响，是因为 cosTs 来自 SDK uploadCode() 的 string 返回值、不经 zod。
+          // 因此这里收 string | number，统一归一成 string 后再透传。
+          .union([z.string(), z.number()])
+          .transform((value) => String(value).trim())
+          .refine((value) => /^[1-9]\d*$/.test(value), {
+            message:
+              "cosTimestamp 必须是由数字组成的正整数时间戳，字符串或数字均可；直接使用 getUploadUrl 返回的 unixTimestamp 即可。",
+          })
           .optional()
-          .describe("COS 时间戳（正整数 number，来自 getUploadUrl 返回的 unixTimestamp）。传入此值则直接使用已上传的代码创建应用，跳过本地文件上传。需先调用 getUploadUrl 获取预签名 URL，上传 ZIP 包后再传此时间戳。cloud mode 下为必填；本地模式也可传此值代替 filePath。两个路径严格二选一：filePath（本地打包上传）或 cosTimestamp（预签名 URL 上传），同时提供或都不提供都会报错。"),
+          .describe("apps.schema.cosTimestamp"),
         appPath: z
           .string()
           .optional()
-          .describe("应用线上访问路径（hosting mount path），例如 /my-web-app。不是本地目录路径；CloudApp 已有独立子域名，省略时默认为 /（根路径）。"),
+          .describe("apps.schema.appPath"),
         buildPath: z
           .string()
           .optional()
-          .describe("构建产物目录，相对于 filePath，例如 dist 或 build。\n" +
-            "⚠️ 传此值后远端构建系统会 cd 到此目录再执行 tcb hosting deploy，因此 deployCmd 会自动使用 .（当前目录）而非目录名，避免路径重复（如 dist/dist 错误）。\n" +
-            "纯静态 HTML 如果在项目根目录可省略，但注意 deployCmd 默认用 dist。"),
+          .describe("apps.schema.buildPath"),
         framework: z
           .enum(APP_FRAMEWORKS)
           .optional()
-          .describe("前端框架类型。可选值：vue、react、next、nuxt、vite、angular、static。\n" +
-            "即使传 static，仍会经过远端构建管道。如果本地已构建好，建议改用 manageHosting 直接上传，可完全跳过远端构建。"),
+          .describe("apps.schema.framework"),
         nodeJsVersion: z
           .string()
           .optional()
-          .describe("构建时使用的 Node.js 版本；不传时由 CloudBase 使用默认值。"),
+          .describe("apps.schema.nodeJsVersion"),
         installCmd: z
           .string()
           .optional()
-          .describe("依赖安装命令，例如 npm install。不传时默认 npm install。本地已安装或无需安装可传空字符串 '' 跳过，但远端仍会执行 tcb hosting deploy。"),
+          .describe("apps.schema.installCmd"),
         buildCmd: z
           .string()
           .optional()
-          .describe("构建命令，例如 npm run build。不传时默认 npm run build。本地已构建好可传空字符串 '' 跳过构建步骤。若希望完全跳过远端管道，请改用 manageHosting。"),
+          .describe("apps.schema.buildCmd"),
         deployCmd: z
           .string()
           .optional()
-          .describe("自定义部署命令。通常无需填写，默认自动生成 tcb hosting deploy 命令。" +
-            "有 buildPath 时远端已 cd 到该目录，默认用 . 作为源码路径；无 buildPath 时默认用 dist。"),
-        ignore: z.array(z.string()).optional().describe("上传时忽略的文件/目录 glob 模式，例如 **/node_modules/**。\n" +
-          "⚠️ 打包的是项目根目录（filePath）而非 buildPath 产物目录：若项目根含 target/（Rust）、.next/、dist-old/、build/ 等大构建产物，必须加进 ignore（如 **/target/**），否则整个目录被打进上传 zip（实证 54GB target → 34GB zip）。默认已排除 node_modules/.git/.DS_Store/**/target/**/.next/**/.next.bak/**。"),
+          .describe("apps.schema.deployCmd"),
+        ignore: z.array(z.string()).optional().describe("apps.schema.ignore"),
         versionName: z
           .string()
           .optional()
-          .describe("要删除的历史版本名，仅 action=deleteAppVersion 时必填。"),
+          .describe("apps.schema.manageVersionName"),
       },
+      ...mcpUiMeta("ui://cloudbase/artifact-card"),
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
         idempotentHint: false,
-        openWorldHint: true,
+        openWorldHint: false,
         category: "apps",
       },
     },
@@ -452,7 +457,8 @@ export function registerAppTools(server: ExtendedMcpServer) {
       action: ManageAppAction;
       serviceName: string;
       filePath?: string;
-      cosTimestamp?: number;
+      /** schema 已归一成 string；此处放宽为 string | number 以兼容直接调用 handler 的内部/测试路径。 */
+      cosTimestamp?: string | number;
       appPath?: string;
       buildPath?: string;
       framework?: string;
@@ -467,7 +473,7 @@ export function registerAppTools(server: ExtendedMcpServer) {
         const cloudbase = await getManager();
         const appService = getCloudAppService(cloudbase);
         if (!appService) {
-          throw new Error("当前 manager 未提供 cloudAppService");
+          throw new Error(t("apps.noCloudAppService"));
         }
 
         // 默认排除的大目录（2026-08-14 实证：ato 项目 target/ 54GB 被整个打进 zip）
@@ -485,7 +491,7 @@ export function registerAppTools(server: ExtendedMcpServer) {
         // getUploadUrl — 获取预签名上传 URL（cloud mode 专用）
         if (action === "getUploadUrl") {
           if (!serviceName) {
-            throw new Error("action=getUploadUrl 时必须提供 serviceName");
+            throw new Error(t("apps.uploadServiceNameRequired"));
           }
           const cosInfoResult = await appService.describeCosInfo({
             deployType: "static-hosting",
@@ -515,12 +521,15 @@ export function registerAppTools(server: ExtendedMcpServer) {
                 ignore: defaultIgnore,
                 zipCommand: zipCmd,
                 nextAction: {
-                  action: "上传代码到预签名 URL",
-                  hint: "请先在本地打包项目代码（排除 node_modules/.git），再将其上传到预签名 URL，然后调用 deployApp 触发构建",
+                  action: t("apps.nextActionUploadTitle"),
+                  hint: t("apps.nextActionUploadHint"),
                   details: [
-                    `1. 打包: ${zipCmd}`,
-                    `2. 上传: curl -X PUT -T upload.zip '${cosInfoResult.UploadUrl}'`,
-                    `3. 触发构建: manageApps(action="deployApp", serviceName="${serviceName}", cosTimestamp="${cosInfoResult.UnixTimestamp}")`,
+                    t("apps.packDetail", { cmd: zipCmd }),
+                    t("apps.uploadDetail", { url: cosInfoResult.UploadUrl }),
+                    t("apps.deployDetail", {
+                      serviceName,
+                      cosTimestamp: cosInfoResult.UnixTimestamp,
+                    }),
                   ],
                   followup: {
                     tool: "manageApps",
@@ -528,7 +537,7 @@ export function registerAppTools(server: ExtendedMcpServer) {
                   },
                 },
               },
-              "预签名上传 URL 获取成功。请上传代码后调用 deployApp 触发构建。",
+              t("apps.getUploadUrlShort"),
             ),
           );
         }
@@ -548,18 +557,18 @@ export function registerAppTools(server: ExtendedMcpServer) {
           } else {
             // 本地模式：filePath 与 cosTimestamp 严格二选一，都传或都不传都报错
             if (filePath && cosTimestamp) {
-              throw new Error(
-                "action=deployApp 时 filePath 与 cosTimestamp 二选一，不能同时提供。" +
-                "本地目录上传请只传 filePath；预签名 URL 上传请只传 cosTimestamp。",
-              );
+              throw new Error(t("apps.bothPathAndTimestamp"));
             }
             if (!filePath && !cosTimestamp) {
-              throw new Error("action=deployApp 时必须提供 filePath（本地模式）或 cosTimestamp（cloud mode）。");
+              throw new Error(t("apps.pathOrTimestampRequired"));
             }
           }
 
           // Local stdio only: pack directory and upload. Cloud mode must never reach uploadCode.
-          let cosTs = cosTimestamp;
+          // ⚠️ 类型契约（F12）：SDK `StaticConfig.CosTimestamp` 与后端 CreateCloudApp 都要求
+          // **string**。本地路径拿到的 `uploadResult.cosTimestamp` 本就是 SDK 给的 string；
+          // 外部传入的可能是 number（MCP 客户端按 JSON Schema 传数字），这里统一归一。
+          let cosTs = cosTimestamp === undefined ? undefined : String(cosTimestamp);
           if (!isCloudMode() && filePath) {
             // Default excludes large build dirs (empirically target/ can be tens of GB).
             // Merge caller ignore with defaults so explicit ignore does not drop safety excludes.
@@ -574,7 +583,9 @@ export function registerAppTools(server: ExtendedMcpServer) {
               ignore: mergedIgnore,
             });
             logCloudBaseResult(server.logger, uploadResult);
-            cosTs = uploadResult.cosTimestamp;
+            cosTs = uploadResult.cosTimestamp === undefined
+              ? undefined
+              : String(uploadResult.cosTimestamp);
           }
 
           // 构建命令智能默认值
@@ -616,6 +627,9 @@ export function registerAppTools(server: ExtendedMcpServer) {
           let accessUrls: string[] = [];
           let accessUrlSource: string | undefined;
           let accessUrlLookupWarning: string | undefined;
+          // 这次部署已经解析出的 envId（那个 try 自带优雅降级）。产品卡片的身份复用它的结果，
+          // **不能**在外面再 `await getEnvId()`：那是未兜底的调用，抛了就把"已经成功的部署"丢掉。
+          let deployEnvId: string | undefined;
           try {
             appInfo = await appService.describeAppInfo({
               deployType: "static-hosting",
@@ -624,6 +638,7 @@ export function registerAppTools(server: ExtendedMcpServer) {
             logCloudBaseResult(server.logger, appInfo);
             ({ domain, accessUrl } = normalizeAccessUrlFromDomain(appInfo?.Domain));
             const envId = await getEnvId(cloudBaseOptions);
+            deployEnvId = envId;
             const gateway = await resolveGatewayAccessUrls({
               envId,
               upstreamResourceName: serviceName,
@@ -631,7 +646,7 @@ export function registerAppTools(server: ExtendedMcpServer) {
               getManager: async () => {
                 const manager = await getManager();
                 if (!manager) {
-                  throw new Error("cloudbase manager unavailable");
+                  throw new Error(t("apps.managerUnavailable"));
                 }
                 return manager as any;
               },
@@ -652,7 +667,7 @@ export function registerAppTools(server: ExtendedMcpServer) {
             }
           }
 
-          return jsonContent(
+          const deployResult = jsonContent(
             buildEnvelope(
               {
                 action,
@@ -673,7 +688,7 @@ export function registerAppTools(server: ExtendedMcpServer) {
                   deployCmd: resolvedDeployCmd,
                 },
                 nextStep: {
-                  action: "轮询构建状态",
+                  action: t("apps.nextStepPollTitle"),
                   tool: "queryApps",
                   args: {
                     action: "getAppVersion",
@@ -681,15 +696,46 @@ export function registerAppTools(server: ExtendedMcpServer) {
                     buildId: BuildId,
                   },
                   hint: accessUrl
-                    ? `调用 queryApps(action="getAppVersion", serviceName="${serviceName}", buildId="${BuildId}") 轮询构建状态，直到 status 变为 SUCCESS 或 FAILED。构建成功后，后续记录部署时必须使用本结果的 accessUrl=${accessUrl}，不要自行拼接域名。若状态为 FAILED，可继续调用 queryApps(action="getBuildLog", serviceName="${serviceName}", buildId="${BuildId}") 查看构建日志诊断失败原因。`
-                    : `调用 queryApps(action="getAppVersion", serviceName="${serviceName}", buildId="${BuildId}") 轮询构建状态，直到 status 变为 SUCCESS 或 FAILED；再调用 queryApps(action="getApp", serviceName="${serviceName}") 读取 app.Domain 作为 accessUrl，不能自行拼接域名。若状态为 FAILED，可继续调用 queryApps(action="getBuildLog", serviceName="${serviceName}", buildId="${BuildId}") 查看构建日志诊断失败原因。`,
+                    ? t("apps.deployHintWithUrl", {
+                        serviceName,
+                        buildId: BuildId,
+                        accessUrl,
+                      })
+                    : t("apps.deployHintNoUrl", { serviceName, buildId: BuildId }),
                 },
               },
               accessUrl
-                ? "CloudBase 应用构建已触发，已返回真实 accessUrl；请通过 queryApps 轮询构建状态。"
-                : "CloudBase 应用构建已触发，请通过 queryApps 轮询构建状态，并用 getApp 读取真实域名。",
+                ? t("apps.deploySuccessWithUrl")
+                : t("apps.deploySuccessNoUrl"),
             ),
           );
+
+          // MCP Apps：把这次部署的结果同时交给产物卡片面板（只读展示 + 把写意图交给会话）。
+          // 文本回执逐字不变，只多一个 structuredContent；环境上下文 best-effort，失败不冒泡。
+          // 实例与 envId 都复用上面已经拿到的：这里**不能**再 `await getManager()` /
+          // `await getEnvId()`——那些是未兜底的调用，抛了就会把"已经成功的部署"丢成失败卡。
+          const deployCardEnv = await resolveArtifactEnvContext({
+            manager: cloudbase,
+            envId: deployEnvId ?? null,
+            site: cloudBaseOptions?.site,
+            region: cloudBaseOptions?.region,
+          });
+
+          return {
+            ...deployResult,
+            structuredContent: buildArtifactCardPayload({
+              success: true,
+              accessUrl,
+              accessUrlSource,
+              kind: "apps",
+              artifactName: serviceName,
+              envAlias: deployCardEnv.envAlias,
+              ...(deployEnvId ? { envId: deployEnvId } : {}),
+              planRaw: deployCardEnv.planRaw,
+              site: deployCardEnv.site,
+              region: deployCardEnv.region,
+            }),
+          };
         }
 
         if (action === "deleteApp") {
@@ -705,13 +751,13 @@ export function registerAppTools(server: ExtendedMcpServer) {
                 serviceName,
                 raw: result,
               },
-              "CloudBase 应用删除成功",
+              t("apps.deleteSuccess"),
             ),
           );
         }
 
         if (!versionName) {
-          throw new Error("action=deleteAppVersion 时必须提供 versionName");
+          throw new Error(t("apps.versionNameRequired"));
         }
         const result = await appService.deleteAppVersion({
           deployType: "static-hosting",
@@ -727,11 +773,32 @@ export function registerAppTools(server: ExtendedMcpServer) {
               versionName,
               raw: result,
             },
-            "CloudBase 应用版本删除成功",
+            t("apps.deleteVersionSuccess"),
           ),
         );
       } catch (error) {
-        return jsonContent(buildErrorEnvelope(error));
+        const failureResult = jsonContent(buildErrorEnvelope(error));
+        if (action === "deployApp") {
+          // MCP Apps：部署失败时把失败态（含**后端原文**）也交给产物卡片，文本回执逐字不变。
+          // 失败路径不再为了品牌条去初始化 manager：别名 / 套餐降级到配置那一级（逐字段降级）。
+          const failureCardEnv = await resolveArtifactEnvContext({
+            envId: cloudBaseOptions?.envId ?? null,
+            site: cloudBaseOptions?.site,
+            region: cloudBaseOptions?.region,
+          });
+          return {
+            ...failureResult,
+            structuredContent: buildArtifactCardPayload({
+              success: false,
+              errorText: errorTextOf(error),
+              kind: "apps",
+              artifactName: serviceName,
+              envId: cloudBaseOptions?.envId ?? null,
+              ...failureCardEnv,
+            }),
+          };
+        }
+        return failureResult;
       }
     },
   );

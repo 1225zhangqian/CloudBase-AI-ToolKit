@@ -3,6 +3,7 @@ import { getCloudBaseManager, getEnvId, logCloudBaseResult } from "../cloudbase-
 import type { ExtendedMcpServer } from "../server.js";
 import { jsonContent } from "../utils/json-content.js";
 import { isToolPayloadError } from "../utils/tool-result.js";
+import { t } from "../i18n/index.js";
 
 const QUERY_APP_AUTH_ACTIONS = [
   "getLoginConfig",
@@ -57,9 +58,15 @@ const SUPABASE_LIKE_SDK_HINTS = {
   verifyOtp:
     "const { data, error } = await auth.signInWithOtp({ email })\nconst { data: loginData, error: loginError } = await data.verifyOtp({ token })",
   anonymous: "auth.signInAnonymously()",
-  caution:
-    "verifyOtp is a callback on the signInWithOtp / signUp result: call data.verifyOtp({ token }) with only the token. Do NOT call a standalone auth.verifyOtp({ token }) — it requires an extra messageId and fails with 'messageId is required' when the messageId is missing. Error 'messageId is required' means you used the standalone call instead of the callback.",
 } as const;
+
+/** 输出用 SDK 提示：调用时经 t() 解析 caution，避免把词典 key 直接写入 JSON 输出 */
+function buildSdkHints() {
+  return {
+    ...SUPABASE_LIKE_SDK_HINTS,
+    caution: t("appAuth.sdkHintCaution"),
+  };
+}
 
 function buildErrorEnvelope(error: unknown) {
   return {
@@ -91,7 +98,7 @@ function normalizePlainObject(
     return undefined;
   }
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new Error(`${label} 必须是对象`);
+    throw new Error(t("appAuth.mustBeObject", { label }));
   }
   return value as Record<string, unknown>;
 }
@@ -114,7 +121,7 @@ function normalizeLocalizedMessage(
     return { Message: fallback };
   }
 
-  throw new Error(`${label} 必须是字符串或对象`);
+  throw new Error(t("appAuth.mustBeStringOrObject", { label }));
 }
 
 function omitKeys(
@@ -182,7 +189,7 @@ function buildWebSdkHint(loginMethods: ReturnType<typeof buildLoginMethods>) {
   if (!loginMethods.usernamePassword) {
     return {
       blocked: true,
-      reason: "plain username-style identifiers require usernamePassword auth",
+      reason: t("appAuth.webSdkBlockedReason"),
       nextStep: 'manageAppAuth({ action: "patchLoginStrategy", patch: { usernamePassword: true } })',
       accountInputType: "text",
       avoidEmailHelpers: true,
@@ -191,8 +198,7 @@ function buildWebSdkHint(loginMethods: ReturnType<typeof buildLoginMethods>) {
 
   return {
     blocked: false,
-    register:
-      "direct username/password signUp is SDK/provider dependent; verify before use, otherwise create users through a backend or management API boundary",
+    register: t("appAuth.webSdkRegisterHint"),
     login: "auth.signInWithPassword({ username, password })",
     accountInputType: "text",
     avoidEmailHelpers: true,
@@ -225,10 +231,7 @@ function buildSmsHint(loginMethods: ReturnType<typeof buildLoginMethods>) {
 
   return {
     defaultChannelReady: true,
-    message:
-      "短信验证码登录已开启，可直接使用云开发默认短信通道收发验证码，无需配置短信签名/模板/自定义 Provider。" +
-      "前端调用 auth.getVerification({ phone_number }) 发送验证码、auth.signInWithSms({ verificationInfo, verificationCode, phoneNum }) 登录。" +
-      "仅当需要自定义短信模板/签名或更换短信服务商时，才需要配置 SmsVerificationConfig 或接入自定义短信通道。",
+    message: t("appAuth.smsHint"),
   };
 }
 
@@ -284,7 +287,7 @@ function buildPublishableKeyResponse(
     success: true,
     envId,
     sdkStyle: "supabase-like",
-    sdkHints: SUPABASE_LIKE_SDK_HINTS,
+    sdkHints: buildSdkHints(),
     publishableKey:
       typeof record?.ApiKey === "string" ? record.ApiKey : null,
     keyId: typeof record?.KeyId === "string" ? record.KeyId : null,
@@ -306,7 +309,7 @@ function buildSupabaseLikeAuthResponse(payload: Record<string, unknown>) {
   return {
     ...payload,
     sdkStyle: "supabase-like",
-    sdkHints: SUPABASE_LIKE_SDK_HINTS,
+    sdkHints: buildSdkHints(),
   };
 }
 
@@ -332,12 +335,12 @@ async function getActiveEnvId(cloudBaseOptions?: Record<string, unknown>) {
         ? error.payload
         : normalizePlainObject((error as any)?.payload, "error.payload");
     if (payload?.code === "ENV_REQUIRED") {
-      const nextError = new Error("no active environment selected");
+      const nextError = new Error(t("appAuth.noActiveEnv"));
       (nextError as Error & { code?: string }).code = "ENV_REQUIRED";
       throw nextError;
     }
     if (payload?.code === "AUTH_REQUIRED") {
-      const nextError = new Error("authentication required");
+      const nextError = new Error(t("appAuth.authRequired"));
       (nextError as Error & { code?: string }).code = "AUTH_REQUIRED";
       throw nextError;
     }
@@ -366,7 +369,7 @@ export function registerAppAuthTools(server: ExtendedMcpServer) {
     try {
       return jsonContent(await handler());
     } catch (error) {
-      if (error instanceof Error && (error.message === "no active environment selected" || error.message === "authentication required")) {
+      if (error instanceof Error && (error.message === t("appAuth.noActiveEnv") || error.message === t("appAuth.authRequired"))) {
         const code = (error as Error & { code?: string }).code;
         if (code) {
           return jsonContent(buildShortErrorWithCode(error.message, code));
@@ -423,26 +426,26 @@ export function registerAppAuthTools(server: ExtendedMcpServer) {
   server.registerTool?.(
     "queryAppAuth",
     {
-      title: "查询 CloudBase 应用认证配置",
-      description:
-        "CloudBase 应用侧认证配置只读入口。用于查询登录方式、provider、publishable key、API key、client 配置和静态域名等认证准备状态。⚠️ 本工具为管理端配置查询工具，不执行用户登录。当任务要求编写客户端登录代码时（例如「用 JS SDK 登录」），应先通过本工具确认配置状态，再在项目代码中编写 @cloudbase/js-sdk 客户端登录代码（如 auth.signInWithPassword()），而非使用本工具完成登录。若业务要接受普通用户名样式标识符，先查询 action=getLoginConfig；若 usernamePassword=false，下一步应立即调用 manageAppAuth(action=patchLoginStrategy, patch={ usernamePassword: true })，不要直接写 email 登录 API。",
+      title: "appAuth.queryTitle",
+      description: "appAuth.queryDescription",
       inputSchema: {
         action: z.enum(QUERY_APP_AUTH_ACTIONS),
-        providerId: z.string().optional().describe("provider 标识，如 email、google"),
+        providerId: z.string().optional().describe("appAuth.schema.queryProviderId"),
         clientId: z
           .string()
           .optional()
-          .describe("OAuth client_id / DescribeClient 的 Id；省略时默认使用当前环境 ID（默认客户端）"),
+          .describe("appAuth.schema.queryClientId"),
         keyType: z
           .enum(APP_AUTH_KEY_TYPES)
           .optional()
-          .describe("API key 类型过滤，可选 publish_key 或 api_key"),
-        pageNumber: z.number().int().positive().optional().describe("API key 列表页码，从 1 开始"),
-        pageSize: z.number().int().positive().optional().describe("API key 列表每页条数"),
+          .describe("appAuth.schema.queryKeyType"),
+        pageNumber: z.number().int().positive().optional().describe("appAuth.schema.pageNumber"),
+        pageSize: z.number().int().positive().optional().describe("appAuth.schema.pageSize"),
       },
       annotations: {
         readOnlyHint: true,
-        openWorldHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
         category: "auth",
       },
     },
@@ -492,7 +495,7 @@ export function registerAppAuthTools(server: ExtendedMcpServer) {
           }
           case "getProvider": {
             if (!providerId) {
-              throw new Error("action=getProvider 时必须提供 providerId");
+              throw new Error(t("appAuth.paramRequired", { action: "getProvider", param: "providerId" }));
             }
 
             const result = await cloudbase.env.getProviders();
@@ -565,54 +568,49 @@ export function registerAppAuthTools(server: ExtendedMcpServer) {
   server.registerTool?.(
     "manageAppAuth",
     {
-      title: "管理 CloudBase 应用认证配置",
-      description:
-        "CloudBase 应用侧认证配置写入口。用于修改登录方式、provider、client 配置，确保 publishable key，以及创建或删除 API key、自定义登录密钥。⚠️ 本工具为管理端配置工具，不执行用户登录。当任务要求编写客户端登录代码时（例如「用 JS SDK 登录」），应先通过本工具完成配置（如启用 usernamePassword、获取 publishable key），再在项目代码中编写 @cloudbase/js-sdk 客户端登录代码（如 auth.signInWithPassword()），而非使用本工具完成登录。若前端要接受普通用户名样式标识符，应先执行 action=patchLoginStrategy 并传入 patch={ usernamePassword: true }，再实现对应前端登录逻辑。⚠️ 短信验证码登录（patch={ phone: true }）使用云开发默认短信通道，开启后即可收发验证码，不需要配置短信签名/模板/自定义 Provider；仅当需要自定义模板/签名或更换短信服务商时才需配置 SmsVerificationConfig 或自定义短信通道。⚠️ action=createApiKey 返回体中的 created 字段表示是否真正新建：created=false 说明复用了环境中已存在的 key，此时 keyName/expireIn 入参不会生效，返回的 keyName/expireAt 均为服务端真实值，并会附带 warnings，切勿把它当作临时凭证分发。",
+      title: "appAuth.manageTitle",
+      description: "appAuth.manageDescription",
       inputSchema: {
         action: z.enum(MANAGE_APP_AUTH_ACTIONS),
         patch: z
           .record(z.any())
           .optional()
-          .describe("patchLoginStrategy 使用的简化登录策略 patch，如 { usernamePassword: true }"),
-        providerId: z.string().optional().describe("provider 标识，如 email、google；addProvider 时也可作为自定义 provider Id"),
+          .describe("appAuth.schema.patch"),
+        providerId: z.string().optional().describe("appAuth.schema.manageProviderId"),
         providerType: z
           .enum(APP_AUTH_PROVIDER_TYPES)
           .optional()
-          .describe("addProvider 时的 provider 协议类型"),
+          .describe("appAuth.schema.providerType"),
         displayName: z
           .union([z.string(), z.record(z.any())])
           .optional()
-          .describe("addProvider 时的展示名称，可传字符串或多语言对象"),
+          .describe("appAuth.schema.displayName"),
         clientId: z
           .string()
           .optional()
-          .describe("updateClientConfig 时的客户端 Id；省略时默认使用当前环境 ID"),
-        config: z.record(z.any()).optional().describe("provider / client 的配置对象"),
+          .describe("appAuth.schema.manageClientId"),
+        config: z.record(z.any()).optional().describe("appAuth.schema.config"),
         keyType: z
           .enum(APP_AUTH_KEY_TYPES)
           .optional()
-          .describe("createApiKey 时的 API key 类型，默认 publish_key"),
+          .describe("appAuth.schema.manageKeyType"),
         keyName: z
           .string()
           .optional()
-          .describe(
-            "createApiKey 时的 API key 名称；服务端可能忽略该值（如 publish_key 每环境唯一时），返回体中的 keyName 一律为服务端实际存储的名称",
-          ),
+          .describe("appAuth.schema.keyName"),
         expireIn: z
           .number()
           .int()
           .min(0)
           .optional()
-          .describe(
-            "createApiKey 时的有效期，单位秒；0 表示不过期。复用已有 key 时该值不生效，此时返回体会带 created=false 与 warnings",
-          ),
-        keyId: z.string().optional().describe("deleteApiKey 时的 API key 唯一标识"),
+          .describe("appAuth.schema.expireIn"),
+        keyId: z.string().optional().describe("appAuth.schema.keyId"),
       },
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
         idempotentHint: false,
-        openWorldHint: true,
+        openWorldHint: false,
         category: "auth",
       },
     },
@@ -650,7 +648,7 @@ export function registerAppAuthTools(server: ExtendedMcpServer) {
             const input = normalizePlainObject(patch, "patch");
             const normalized = input ? normalizeLoginConfigPatch(input) : undefined;
             if (!normalized) {
-              throw new Error("action=patchLoginStrategy 时必须提供 patch");
+              throw new Error(t("appAuth.paramRequired", { action: "patchLoginStrategy", param: "patch" }));
             }
 
             const current = await cloudbase.env.getLoginConfig();
@@ -679,7 +677,7 @@ export function registerAppAuthTools(server: ExtendedMcpServer) {
           case "addProvider": {
             const normalized = omitKeys(normalizePlainObject(config, "config"), ["EnvId"]);
             if (!providerType) {
-              throw new Error("action=addProvider 时必须提供 providerType");
+              throw new Error(t("appAuth.paramRequired", { action: "addProvider", param: "providerType" }));
             }
 
             const localizedDisplayName = normalizeLocalizedMessage(
@@ -708,10 +706,10 @@ export function registerAppAuthTools(server: ExtendedMcpServer) {
           case "updateProvider": {
             const normalized = omitKeys(normalizePlainObject(config, "config"), ["EnvId", "Id"]);
             if (!providerId) {
-              throw new Error("action=updateProvider 时必须提供 providerId");
+              throw new Error(t("appAuth.paramRequired", { action: "updateProvider", param: "providerId" }));
             }
             if (!normalized) {
-              throw new Error("action=updateProvider 时必须提供 config");
+              throw new Error(t("appAuth.paramRequired", { action: "updateProvider", param: "config" }));
             }
 
             await cloudbase.env.modifyProvider({ Id: providerId, ...normalized });
@@ -724,7 +722,7 @@ export function registerAppAuthTools(server: ExtendedMcpServer) {
           }
           case "deleteProvider": {
             if (!providerId) {
-              throw new Error("action=deleteProvider 时必须提供 providerId");
+              throw new Error(t("appAuth.paramRequired", { action: "deleteProvider", param: "providerId" }));
             }
 
             const result = await cloudbase.env.deleteProvider(providerId);
@@ -740,7 +738,7 @@ export function registerAppAuthTools(server: ExtendedMcpServer) {
           case "updateClientConfig": {
             const normalized = omitKeys(normalizePlainObject(config, "config"), ["EnvId", "Id"]);
             if (!normalized) {
-              throw new Error("action=updateClientConfig 时必须提供 config");
+              throw new Error(t("appAuth.paramRequired", { action, param: "config" }));
             }
 
             const clientRecordId = clientId ?? envId;
@@ -816,17 +814,20 @@ export function registerAppAuthTools(server: ExtendedMcpServer) {
             const warnings: string[] = [];
             if (created === false) {
               warnings.push(
-                `keyType=${effectiveKeyType} 未创建新的 key，返回的是环境中已存在的 key（keyId=${resultKeyId}）。若该类型每个环境唯一，请改用 action=ensurePublishableKey 语义理解此结果。`,
+                t("appAuth.warnKeyReused", { keyType: effectiveKeyType, keyId: resultKeyId ?? "unknown" }),
               );
             }
             if (keyName && resolvedKeyName !== null && resolvedKeyName !== keyName) {
               warnings.push(
-                `请求的 keyName="${keyName}" 未生效，服务端实际存储的名称为 "${resolvedKeyName}"。`,
+                t("appAuth.warnKeyNameIgnored", { keyName, resolvedKeyName }),
               );
             }
             if (typeof expireIn === "number" && created === false) {
               warnings.push(
-                `请求的 expireIn=${expireIn} 未生效，返回的 key 使用其原有过期时间 ${resolvedExpireAt ?? "unknown"}。请勿将其视为临时凭证。`,
+                t("appAuth.warnExpireInIgnored", {
+                  expireIn,
+                  expireAt: resolvedExpireAt ?? "unknown",
+                }),
               );
             }
 
@@ -846,7 +847,7 @@ export function registerAppAuthTools(server: ExtendedMcpServer) {
           }
           case "deleteApiKey": {
             if (!keyId) {
-              throw new Error("action=deleteApiKey 时必须提供 keyId");
+              throw new Error(t("appAuth.paramRequired", { action: "deleteApiKey", param: "keyId" }));
             }
 
             const result = await cloudbase.env.deleteApiKey(keyId);

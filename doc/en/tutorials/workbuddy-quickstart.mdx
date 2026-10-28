@@ -1,0 +1,96 @@
+# Tutorial: Build a Full-Stack App in WorkBuddy
+
+This tutorial will guide you through building a complete full-stack web application (a todo list manager) from scratch using WorkBuddy + CloudBase, and deploying it to production.
+
+## Estimated Time
+
+About 15 minutes
+
+## Prerequisites
+
+- [WorkBuddy](https://www.codebuddy.cn/docs/workbuddy) installed, with CloudBase enabled via the **Connect App** button or by typing `/cloudbase` (see the [configuration guide](../ide-setup/workbuddy))
+- A [CloudBase environment](https://docs.cloudbase.net/quick-start/create-env) set up
+
+## Step 1: Enable CloudBase
+
+Type `/cloudbase` in the WorkBuddy conversation, select the CloudBase Skill, and you're ready to go.
+
+## Step 2: Create the Project
+
+Open an empty directory as your project root in WorkBuddy, then tell the AI:
+
+```
+Create a web todo list management app using React + Vite
+```
+
+The AI will automatically generate the project code. The project structure will look like:
+
+```
+my-todo-app/
+├── src/
+│   ├── App.jsx
+│   ├── App.css
+│   ├── main.jsx
+│   └── index.html
+├── package.json
+└── vite.config.js
+```
+
+## Step 3: Create the Database
+
+Before deploying, create a database collection through CloudBase. Type in the WorkBuddy AI conversation:
+
+```
+Create a database collection called "todos" in my cloud environment
+```
+
+On success, the AI will return a confirmation message.
+
+## Step 3: Integrate Backend Features
+
+Next, have the AI connect the todo data to the cloud database. Continue typing in WorkBuddy:
+
+```
+Add cloud database integration to the todo app using CloudBase Web SDK:
+1. Install @cloudbase/js-sdk
+2. Connect CRUD operations for todos to the "todos" database collection
+3. Auto-load the todo list from the database on page load
+```
+
+The AI will automatically modify the code to add database integration logic.
+
+## Step 4: Local Preview
+
+After the AI finishes modifying the code, run:
+
+```bash
+npm install
+npm run dev
+```
+
+Preview the app in your browser and verify that adding, completing, and deleting todos all work correctly.
+
+## Step 5: Deploy to Production
+
+Once the app is working, type in WorkBuddy:
+
+```
+Deploy this project to CloudBase with a custom subdomain
+```
+
+The AI will automatically:
+
+1. Build the frontend project
+2. Create an app via `manageApps` and deploy it to a custom subdomain
+3. Configure SPA routing
+4. Return a publicly accessible deployment URL
+
+## Done
+
+Congratulations! You have built and deployed a full-stack application using WorkBuddy + CloudBase.
+
+## Next Steps
+
+- Try adding user authentication
+- Add search and filter functionality
+- Explore more [CloudBase tools](../mcp-tools)

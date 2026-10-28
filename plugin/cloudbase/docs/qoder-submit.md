@@ -35,7 +35,7 @@ Tone: product listing, not marketing. Write as a backend platform shipping an of
 |-------|-------|
 | Display name | CloudBase |
 | Technical `name` | `cloudbase` |
-| Version | From zip / `.qoder-plugin/plugin.json` (currently `0.2.0`) |
+| Version | From zip / `.qoder-plugin/plugin.json` (currently `0.2.1`) |
 | Category | Coding / DevOps / Database (if multi-select) |
 | Author | Tencent CloudBase |
 | Homepage | https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ |
@@ -177,4 +177,4 @@ Guidelines: https://docs.qoder.com/zh/qoderwork/skill-marketplace-guidelines
 ## Notes
 
 - Prefer Plugin + MCP over QoderWork **Connector** (Connector needs public HTTPS MCP + OAuth).
-- After listing goes live, update `specs/plugin-marketplace-listing/markets.yaml` (`qoderwork-marketplace` / `qoder-plugin` → `listed`).
+- After listing goes live, record it in the internal marketplace matrix (`qoderwork-marketplace` / `qoder-plugin` → `listed`).

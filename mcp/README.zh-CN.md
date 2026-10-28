@@ -63,13 +63,20 @@ IDE 支持时优先用 Plugin；只需 MCP 配置时用本包即可。
 | Official MCP Registry `io.github.TencentCloudBase/cloudbase-mcp` | [registry search=cloudbase](https://registry.modelcontextprotocol.io/v0/servers?search=cloudbase) 发现 |
 | `npx plugins add TencentCloudBase/cloudbase-plugin` | 支持 Open Plugin Spec 的工具 |
 | `npm i -g @cloudbase/cli && tcb ai` | [CloudBase AI CLI](https://docs.cloudbase.net/cli-v1/ai/introduce) 统一配置多种 IDE |
-| Marketplace / 内置插件 | Claude Code、Codex、CodeBuddy、WorkBuddy、Kimi Code、Kimi Work、ZCode 等 |
+| Marketplace / 内置插件 | Claude Code、Codex、CodeBuddy、WorkBuddy、豆包、MiniMax Code、DeepSeek Harness、Kimi Code、Kimi Work、ZCode 等 |
 
 ## 连接方式
 
-**本地**（默认）：本机 `npx`，功能最全（含本地文件上传/模板）。需 Node.js v18.15.0+。
+**远端**（推荐）：IDE 通过 HTTP 连接腾讯云 MCP，无需本机 Node，交互式客户端在浏览器里完成授权。
 
-**托管**：IDE 通过 HTTP 连接腾讯云 MCP，无需本机 Node。部分依赖本地文件的能力不可用。
+| 站点 | MCP 地址 |
+|------|----------|
+| 国内站 | `https://tcb-api.cloud.tencent.com/mcp/v1` |
+| 国际站 | `https://tcb-api.tencentcloud.com/mcp/v1` |
+
+按环境所在站点选择地址——两个站点账号与凭证相互独立。
+
+**本地**：在本机运行 `npx @cloudbase/cloudbase-mcp@latest`，功能最全（含本地文件上传、模板下载）。需 Node.js v18.15.0+。
 
 ```json
 {
@@ -86,15 +93,29 @@ IDE 支持时优先用 Plugin；只需 MCP 配置时用本包即可。
 }
 ```
 
-托管 URL 可用 `site=domestic` 指定登录站点（国内站新加坡需 `site=domestic`），也可用 `enable_plugins` / `disable_plugins`（逗号分隔）裁剪工具集。插件名见本包 `src/server.ts`（如 `env`、`database`、`functions`、`hosting`、`storage`、`pg_database`、`cloudrun`、`logs`）。
+远端模式有两种鉴权路径：
+
+- **OAuth（交互式，推荐）**：只填 URL，IDE 会打开浏览器完成登录与授权，密钥不落配置文件。
+- **静态凭证（CI/CD）**：补上 `env_id` 与上面的 `X-TencentCloud-*` 请求头。
+
+远端的取舍：依赖本地文件系统的能力（上传、模板下载）不可用；国际站暂未提供 NoSQL 相关工具。
+
+远端 URL 可用 `site`，仅用于国内站账号的 `ap-singapore` 环境（该地域两站都有、服务端无法归属），另可用 `enable_plugins` / `disable_plugins`（逗号分隔）裁剪工具集。插件名见本包 `src/server.ts`（如 `env`、`database`、`functions`、`hosting`、`storage`、`pg_database`、`cloudrun`、`logs`）。
 
 **自建 Cloud Mode**：设置 `CLOUDBASE_MCP_CLOUD_MODE=true`（或 `MCP_CLOUD_MODE=true`），禁用面向远程调用方的本地文件/进程类工具。
 
 | 场景 | 建议 |
 |------|------|
-| 个人开发 | 本地 `npx` |
-| 团队 / 免运维 | 托管 HTTP |
+| 个人开发 / 最快上手 | 远端 URL（OAuth） |
+| 需要本地文件能力 | 本地 `npx` |
+| CI / 自动化 | 远端 + 静态凭证 |
 | 自建 MCP | 必须开 Cloud Mode |
+
+### 站点与地域
+
+用 `TCB_SITE`（`domestic` / `intl`）选择登录与凭证站点，`TCB_REGION` 控制 API 走哪个地域。国内站与国际站是两套独立账号体系。`ap-singapore` 在两个站点都存在，所以**国内站新加坡的用户必须显式设置 `TCB_SITE=domestic`**，否则会默认走国际站。也支持项目级 `.cloudbase/project.json`（`{ site, region, envId }`）。
+
+**远端模式下，站点由地址本身决定**——`tcb-api.cloud.tencent.com` 是国内站，`tcb-api.tencentcloud.com` 是国际站，不需要也不应该再选。国内站环境落在 `ap-singapore` 也照样用国内站地址——远端没有 `site` 参数，站点只由域名决定。自建 Cloud Mode 部署仍可用 `TCB_SITE` 环境变量。
 
 ## 能力
 
@@ -106,6 +127,49 @@ IDE 支持时优先用 Plugin；只需 MCP 配置时用本包即可。
 - **发布与运维**：静态托管 / 小程序发布；日志与重新部署
 
 工具目录：[MCP 工具](../doc/mcp-tools.md) · [tools.json](../scripts/tools.json)
+
+## 破坏性操作的执行前确认
+
+删除云函数、集合、集合内的文档、云存储文件、云托管服务或 MySQL 实例时，调用会在执行前暂停，等你在确认框里选一次——框里写清**这次要动什么**（例如「即将删除云函数 `hello`（环境 `env-abc`）」），而不是只问一句"确定吗"。同一批删除如果改走 `callCloudApi`，也按写死的 `service` + `Action` 停下来确认：`tcb`/`scf` 的 `DeleteFunction`、`tcb.DeleteTable`、`tcb.DeleteItem`、`tcb.DestroyEnv`、`tcb.DestroyPlatformEnv`、`tcb.DestroyMySQL`、`tcbr.DeleteCloudRunServer`，以及 `tcbr.DeleteCloudRunVersions` 且 `IsDeleteServer` 为 true。不会按 `Delete` 前缀去拦其它云 API。云存储删除不走 `callCloudApi`。PostgreSQL 的 `execute` / `applyMigration` 只在语句本身是 `DELETE`、`DROP`、`TRUNCATE` 或 `ALTER … DROP` 时才停下来；`INSERT` / `UPDATE` / `CREATE TABLE` 不拦。它基于 MCP 的表单式 elicitation，所以只在**声明了该能力、并且真的会问用户**的客户端里出现。
+
+| 情况 | 行为 |
+| --- | --- |
+| 客户端会问你 | 出现确认框；只有你选了"确认删除"才执行 |
+| 客户端处于完全访问 / 不询问模式 | 它会在几毫秒内自己应答。这被当作"你没被问到"处理，调用照常执行 |
+| 客户端渲染不了表单 | 不弹窗，照常执行——与本次改动前完全一致 |
+| 你点了取消、关掉，或 45 秒没作答 | 什么都不执行，返回里写明"未执行"，且**不会被标记成错误**（避免模型把"被拒绝"当成出错然后重试同一个删除） |
+
+被拒绝不等于失败：工具返回"未执行"以及可以改用别的做法。两个环境变量可以调整这套行为，它们都**不绕过**认证、权限或只读限制，只决定"问不问"：
+
+| 变量 | 作用 |
+| --- | --- |
+| `CLOUDBASE_MCP_SKIP_ELICITATIONS` | 逗号分隔。可写工具名（`manageFunctions`、`callCloudApi`）或单个动作（`manageFunctions.deleteFunction`、`callCloudApi.tcb.DeleteFunction`）；区分大小写、无通配。无法识别的条目会记日志并忽略，不会让服务起不来 |
+| `CLOUDBASE_MCP_ELICIT_AUTO_APPROVE` | `allow`（默认）：客户端自己应答时放行；`block`：这种情况也按"未确认"处理 |
+
+客户端自己的"工具审批"框**不是**这个确认：它问的是"允不允许这个工具运行"，不是"你要删的就是这个资源吗"。
+
+### 参数里出现凭证：写入前先做一次真实核对
+
+当一次调用的参数里出现凭证形态的字符串——三段式 JWT，或 `cb_secret_…` / `cb_publishable_…` 开头的密钥——服务端会在写入前向客户端要一次核对：把这串与你手上的**原始来源**逐字比对，一致再确认。消息里**刻意不放明文**，只给总长度、分段长度（JWT）与指纹（sha256 的前 12 位十六进制）：这几样足够看出"复制或转写时被改过"，又不会把密钥带进对话或日志。
+
+**这不是什么。** 我们**不判断凭证是否有效**：没有验签，不查 `certs`/JWKS，**不发任何网络请求**，服务端也不做比对——用户最初粘进来的那份服务端永远拿不到，能做比对的只有客户端。它只是"写入前要一次真实的确认"，不是有效性校验。
+
+**边界。** 只有参数里**真的**出现凭证形态字符串时才会走到这一步（否则调用零变化：一次浅扫描、无网络）；只有客户端支持交互式表单 elicitation 时才生效，不支持干预式确认的客户端照常执行（不会把无人值守的客户端整个封死）；另外，**几百毫秒内返回的核对一律按"没人看过"处理**——与删除确认相反（那边客户端自己应答会被当作"你没被问到"而放行），凭证写入**不执行**，因为"没人比对过"正是它要挡的情况。被拦下时返回"未执行"，且**不会被标记成错误**，避免模型盲目重试。
+
+| 变量 | 作用 |
+| --- | --- |
+| `CLOUDBASE_MCP_SKIP_CREDENTIAL_GUARD` | 逗号分隔。可写工具名（`manageCloudRun`）或单个动作（`manageCloudRun.updateConfig`）；区分大小写、无通配。无法识别的条目会记日志并忽略，不会让服务起不来 |
+
+## 起步面板（MCP Apps）
+
+当客户端声明了 `io.modelcontextprotocol/ui` 扩展时，`auth` 会额外打开一个小型只读面板
+（`ui://cloudbase/get-started`）：它直接消费这次 `auth` 调用已经送回来的结构化结果，用人话展示连接状态
+——位置（站点 + 地域，如「上海（中国站）」）、可访问范围与环境 ID——并只给出一个当前该做的主行动
+（未登录给登录、已登录未绑定给选环境、已就绪给接一个示例项目）。面板唯一会发出的调用是只读的
+`auth(status)`（点「重新检查」触发），其余操作只是把一句话交给会话。原始返回折在「查看原始返回」里。
+
+不渲染 MCP Apps 的客户端不受影响：`auth` 的标题、描述、参数与输出保持不变，`resources/list` 仍为空数组，
+资源面板里不会多出任何新条目。
 
 ## IDE 配置片段
 

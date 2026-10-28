@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { t } from "../i18n/index.js";
 import {
   getCloudBaseManager,
   getEnvId,
@@ -22,6 +23,7 @@ const QUERY_GATEWAY_ACTIONS = [
   "getRoute",
   "listCustomDomains",
   "getPrivilege",
+  "cachePurgeTask",
 ] as const;
 
 const MANAGE_GATEWAY_ACTIONS = [
@@ -34,6 +36,7 @@ const MANAGE_GATEWAY_ACTIONS = [
   "deleteCustomDomain",
   "enableService",
   "authSwitch",
+  "purgeCache",
 ] as const;
 
 /** DomainType of the environment default HTTP service (gateway) domain. */
@@ -45,11 +48,37 @@ const UPSTREAM_RESOURCE_TYPES = [
   "CBR",
   "STATIC_STORE",
   "LH",
+  "STORAGE",
+] as const;
+
+/** Domain-level protocol accepted by HTTPServiceDomainParam. */
+const DOMAIN_PROTOCOLS = [
+  "HTTP",
+  "HTTPS",
+  "HTTP_AND_HTTPS",
+  "HTTP_TO_HTTPS",
+  "HTTPS_TO_HTTP",
+] as const;
+
+/** Cache layer that owns the purged objects (CDN vs EdgeOne). */
+const CACHE_TYPES = ["CDN", "EO"] as const;
+
+const PURGE_TYPES = ["PURGE_URL", "PURGE_PREFIX", "PURGE_HOST"] as const;
+
+const HEADER_ADD_ACTIONS = [
+  "APPEND_IF_EXISTS_OR_ADD",
+  "ADD_IF_ABSENT",
+  "OVERWRITE_IF_EXISTS_OR_ADD",
+  "OVERWRITE_IF_EXISTS",
 ] as const;
 
 type QueryGatewayAction = (typeof QUERY_GATEWAY_ACTIONS)[number];
 type ManageGatewayAction = (typeof MANAGE_GATEWAY_ACTIONS)[number];
 type UpstreamResourceType = (typeof UPSTREAM_RESOURCE_TYPES)[number];
+type DomainProtocol = (typeof DOMAIN_PROTOCOLS)[number];
+type CacheType = (typeof CACHE_TYPES)[number];
+type PurgeType = (typeof PURGE_TYPES)[number];
+type HeaderAddAction = (typeof HEADER_ADD_ACTIONS)[number];
 
 type GatewayToolEnvelope = {
   success: boolean;
@@ -68,6 +97,67 @@ type QueryGatewayInput = {
   routeId?: string;
   path?: string;
   domain?: string;
+  /** cachePurgeTask only */
+  cacheType?: CacheType;
+  taskId?: string;
+  purgeType?: PurgeType;
+  startTime?: string;
+  endTime?: string;
+  offset?: number;
+  limit?: number;
+};
+
+type HeaderToAddInput = {
+  key: string;
+  value: string;
+  action?: HeaderAddAction;
+};
+
+type HeadersHandlerInput = {
+  requestHeadersToAdd?: HeaderToAddInput[];
+  requestHeadersToRemove?: string[];
+  responseHeadersToAdd?: HeaderToAddInput[];
+  responseHeadersToRemove?: string[];
+};
+
+type CacheRuleInput = {
+  description?: string;
+  enable?: boolean;
+  condition?: {
+    target?: "url_path" | "file_extension" | "full_uri";
+    matchType?: "prefix" | "suffix" | "contains" | "exact";
+    values?: string[];
+  };
+  actions?: Array<{
+    type?: "Cache" | "CacheKey";
+    cache?: {
+      followOrigin?: boolean;
+      noCache?: boolean;
+      cacheTime?: number;
+      maxAgeTime?: number;
+    };
+    cacheKey?: {
+      fullUrlCache?: "on" | "off";
+      queryStringSwitch?: "on" | "off";
+      queryStringAction?: "includeCustom" | "excludeCustom";
+      queryStringValues?: string[];
+    };
+  }>;
+};
+
+type ExtensionInput = {
+  headersHandler?: HeadersHandlerInput;
+  cache?: { rules?: CacheRuleInput[] };
+};
+
+type PathRewriteInput = {
+  prefix?: string;
+  staticStorePrefix?: string;
+};
+
+type QpsPolicyInput = {
+  total?: number;
+  perClient?: { limitBy?: "ClientIP" | "UserID"; limitValue?: number };
 };
 
 type ManageGatewayInput = {
@@ -77,12 +167,24 @@ type ManageGatewayInput = {
   upstreamResourceType?: UpstreamResourceType;
   auth?: boolean;
   enablePathTransmission?: boolean;
+  enableSafeDomain?: boolean;
+  pathRewrite?: PathRewriteInput;
+  qpsPolicy?: QpsPolicyInput;
+  extension?: ExtensionInput;
+  /** Domain-level Extension (HeadersHandler / Cache), applies to createRoute/updateRoute/bindCustomDomain. */
+  domainExtension?: ExtensionInput;
+  /** Domain-level Protocol, applies to createRoute/updateRoute/bindCustomDomain. */
+  protocol?: DomainProtocol;
   route?: {
     path?: string;
     serviceName?: string;
     upstreamResourceType?: UpstreamResourceType;
     auth?: boolean;
     enablePathTransmission?: boolean;
+    enableSafeDomain?: boolean;
+    pathRewrite?: PathRewriteInput;
+    qpsPolicy?: QpsPolicyInput;
+    extension?: ExtensionInput;
     /** Route-level Enable (createRoute / updateRoute). */
     enable?: boolean;
   };
@@ -91,6 +193,10 @@ type ManageGatewayInput = {
   accessType?: "DIRECT" | "CDN" | "CUSTOM";
   customCname?: string;
   enable?: boolean;
+  /** purgeCache only */
+  cacheType?: CacheType;
+  purgeType?: PurgeType;
+  targets?: string[];
 };
 
 /** HTTP 网关总开关与访问鉴权状态（DescribeCloudBaseGWPrivilege）。 */
@@ -120,6 +226,253 @@ function normalizeAccessPath(path: string | undefined): string {
   }
 
   return path.startsWith("/") ? path : `/${path}`;
+}
+
+// ---------------------------------------------------------------------------
+// Route/Domain extension schemas (aligned with manager-node HTTPServiceRouteParam)
+// ---------------------------------------------------------------------------
+
+const headerToAddSchema = z.object({
+  key: z.string().describe("gateway.schema.manage.extension.header.key"),
+  value: z.string().describe("gateway.schema.manage.extension.header.value"),
+  action: z
+    .enum(HEADER_ADD_ACTIONS)
+    .optional()
+    .describe("gateway.schema.manage.extension.header.action"),
+});
+
+const headersHandlerSchema = z.object({
+  requestHeadersToAdd: z.array(headerToAddSchema).optional(),
+  requestHeadersToRemove: z.array(z.string()).optional(),
+  responseHeadersToAdd: z.array(headerToAddSchema).optional(),
+  responseHeadersToRemove: z.array(z.string()).optional(),
+});
+
+const cacheRuleSchema = z.object({
+  description: z.string().optional(),
+  enable: z.boolean().optional(),
+  condition: z
+    .object({
+      target: z.enum(["url_path", "file_extension", "full_uri"]).optional(),
+      matchType: z.enum(["prefix", "suffix", "contains", "exact"]).optional(),
+      values: z.array(z.string()).optional(),
+    })
+    .describe("gateway.schema.manage.extension.cacheCondition"),
+  actions: z
+    .array(
+      z.object({
+        type: z.enum(["Cache", "CacheKey"]).optional(),
+        cache: z
+          .object({
+            followOrigin: z.boolean().optional(),
+            noCache: z.boolean().optional(),
+            cacheTime: z.number().int().min(0).optional(),
+            maxAgeTime: z.number().int().min(0).optional(),
+          })
+          .optional(),
+        cacheKey: z
+          .object({
+            fullUrlCache: z.enum(["on", "off"]).optional(),
+            queryStringSwitch: z.enum(["on", "off"]).optional(),
+            queryStringAction: z.enum(["includeCustom", "excludeCustom"]).optional(),
+            queryStringValues: z.array(z.string()).optional(),
+          })
+          .optional(),
+      }),
+    )
+    .describe("gateway.schema.manage.extension.cacheActions"),
+});
+
+const extensionSchema = z.object({
+  headersHandler: headersHandlerSchema.optional(),
+  cache: z.object({ rules: z.array(cacheRuleSchema).optional() }).optional(),
+});
+
+const pathRewriteSchema = z.object({
+  prefix: z.string().optional(),
+  staticStorePrefix: z.string().optional(),
+});
+
+const qpsPolicySchema = z.object({
+  total: z.number().int().min(0).optional(),
+  perClient: z
+    .object({
+      limitBy: z.enum(["ClientIP", "UserID"]).optional(),
+      limitValue: z.number().int().min(1).optional(),
+    })
+    .optional(),
+});
+
+function toHeadersHandler(input?: HeadersHandlerInput) {
+  if (!input) {
+    return undefined;
+  }
+  const output: {
+    RequestHeadersToAdd?: Array<{ Key: string; Value: string; Action?: HeaderAddAction }>;
+    RequestHeadersToRemove?: string[];
+    ResponseHeadersToAdd?: Array<{ Key: string; Value: string; Action?: HeaderAddAction }>;
+    ResponseHeadersToRemove?: string[];
+  } = {};
+  const toHeader = (item: HeaderToAddInput) =>
+    item.action
+      ? { Key: item.key, Value: item.value, Action: item.action }
+      : { Key: item.key, Value: item.value };
+  if (input.requestHeadersToAdd?.length) {
+    output.RequestHeadersToAdd = input.requestHeadersToAdd.map(toHeader);
+  }
+  if (input.requestHeadersToRemove?.length) {
+    output.RequestHeadersToRemove = input.requestHeadersToRemove;
+  }
+  if (input.responseHeadersToAdd?.length) {
+    output.ResponseHeadersToAdd = input.responseHeadersToAdd.map(toHeader);
+  }
+  if (input.responseHeadersToRemove?.length) {
+    output.ResponseHeadersToRemove = input.responseHeadersToRemove;
+  }
+  return Object.keys(output).length ? output : undefined;
+}
+
+function toCacheSet(input?: { rules?: CacheRuleInput[] }) {
+  if (!input?.rules?.length) {
+    return undefined;
+  }
+  return {
+    Rules: input.rules.map((rule) => ({
+      ...(rule.description !== undefined ? { Description: rule.description } : {}),
+      ...(rule.enable !== undefined ? { Enable: rule.enable } : {}),
+      Condition: {
+        ...(rule.condition?.target ? { Target: rule.condition.target } : {}),
+        ...(rule.condition?.matchType ? { MatchType: rule.condition.matchType } : {}),
+        ...(rule.condition?.values ? { Values: rule.condition.values } : {}),
+      },
+      Actions: (rule.actions ?? []).map((action) => ({
+        ...(action.type ? { Type: action.type } : {}),
+        ...(action.cache
+          ? {
+              Cache: {
+                ...(action.cache.followOrigin !== undefined
+                  ? { FollowOrigin: action.cache.followOrigin }
+                  : {}),
+                ...(action.cache.noCache !== undefined
+                  ? { NoCache: action.cache.noCache }
+                  : {}),
+                ...(action.cache.cacheTime !== undefined
+                  ? { CacheTime: action.cache.cacheTime }
+                  : {}),
+                ...(action.cache.maxAgeTime !== undefined
+                  ? { MaxAgeTime: action.cache.maxAgeTime }
+                  : {}),
+              },
+            }
+          : {}),
+        ...(action.cacheKey
+          ? {
+              CacheKey: {
+                ...(action.cacheKey.fullUrlCache
+                  ? { FullURLCache: action.cacheKey.fullUrlCache }
+                  : {}),
+                ...(action.cacheKey.queryStringSwitch
+                  ? { QueryStringSwitch: action.cacheKey.queryStringSwitch }
+                  : {}),
+                ...(action.cacheKey.queryStringAction
+                  ? { QueryStringAction: action.cacheKey.queryStringAction }
+                  : {}),
+                ...(action.cacheKey.queryStringValues
+                  ? { QueryStringValues: action.cacheKey.queryStringValues }
+                  : {}),
+              },
+            }
+          : {}),
+      })),
+    })),
+  };
+}
+
+function toExtension(input?: ExtensionInput) {
+  if (!input) {
+    return undefined;
+  }
+  const output: Record<string, unknown> = {};
+  const headersHandler = toHeadersHandler(input.headersHandler);
+  if (headersHandler) {
+    output.HeadersHandler = headersHandler;
+  }
+  const cache = toCacheSet(input.cache);
+  if (cache) {
+    output.Cache = cache;
+  }
+  return Object.keys(output).length ? output : undefined;
+}
+
+function toPathRewrite(input?: PathRewriteInput) {
+  if (!input) {
+    return undefined;
+  }
+  const output: { Prefix?: string; StaticStorePrefix?: string } = {};
+  if (typeof input.prefix === "string") {
+    output.Prefix = input.prefix;
+  }
+  if (typeof input.staticStorePrefix === "string") {
+    output.StaticStorePrefix = input.staticStorePrefix;
+  }
+  return Object.keys(output).length ? output : undefined;
+}
+
+function toQpsPolicy(input?: QpsPolicyInput) {
+  if (!input) {
+    return undefined;
+  }
+  const output: {
+    QPSTotal?: number;
+    QPSPerClient?: { LimitBy?: "ClientIP" | "UserID"; LimitValue?: number };
+  } = {};
+  if (typeof input.total === "number") {
+    output.QPSTotal = input.total;
+  }
+  if (input.perClient) {
+    const perClient: { LimitBy?: "ClientIP" | "UserID"; LimitValue?: number } = {};
+    if (input.perClient.limitBy) {
+      perClient.LimitBy = input.perClient.limitBy;
+    }
+    if (typeof input.perClient.limitValue === "number") {
+      perClient.LimitValue = input.perClient.limitValue;
+    }
+    if (Object.keys(perClient).length) {
+      output.QPSPerClient = perClient;
+    }
+  }
+  return Object.keys(output).length ? output : undefined;
+}
+
+/**
+ * Route fields that ModifyHTTPServiceRoute replaces wholesale. When an update
+ * omits one of them, the existing value must be carried over — otherwise a
+ * partial update (e.g. only bumping QPS) would silently wipe CORS / rewrite /
+ * headers / cache rules.
+ */
+const PRESERVED_ROUTE_FIELDS = [
+  "EnableAuth",
+  "EnableSafeDomain",
+  "EnablePathTransmission",
+  "PathRewrite",
+  "QPSPolicy",
+  "Extension",
+  "Enable",
+] as const;
+
+function carryOverRouteFields(
+  route: Record<string, unknown>,
+  existing: Record<string, unknown> | undefined,
+) {
+  if (!existing) {
+    return route;
+  }
+  for (const field of PRESERVED_ROUTE_FIELDS) {
+    if (route[field] === undefined && existing[field] !== undefined) {
+      route[field] = existing[field];
+    }
+  }
+  return route;
 }
 
 /** Single check item from VerifyHTTPServiceRoute. */
@@ -207,6 +560,143 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
     message: error instanceof Error ? error.message : String(error),
   });
 
+  /**
+   * 上游目标存在性校验（F1）。
+   *
+   * 背景：`createHttpServiceRoute` 不校验 `UpstreamResourceName` 是否存在，预检
+   * （VerifyHTTPServiceRoute）也只查域名归属/证书/配额，因此**不存在的上游也能真实落库并
+   * 返回 success**，形成悬空路由（path 被占用、指向不存在的目标）。实测两站复现。
+   *
+   * 设计原则：**只在能证明「不存在」时拒绝**。
+   * - 列表接口报错、分页未扫全、类型不支持 → `unknown`，放行并记日志（fail-open）。
+   *   校验失败绝不该阻塞用户创建合法路由。
+   * - 只有扫完全量且确实没有该名称时，才返回 `missing`。
+   *
+   * 覆盖范围：SCF / WEB_SCF（函数列表）、CBR（云托管服务列表）。
+   * NOT covered：STATIC_STORE 的 UpstreamResourceName 是静态托管**实例名/固定别名
+   * staticstore**（不是 CloudApp 应用名），可靠列举要额外走 DescribeStaticStore，且该资源
+   * 随托管启用必然存在、悬空风险低；LH（轻量应用服务器）无列举接口。两者一律 fail-open。
+   */
+  const UPSTREAM_PROBE_PAGE_SIZE = 100;
+  const UPSTREAM_PROBE_MAX_PAGES = 5;
+  const UPSTREAM_PROBE_CANDIDATE_LIMIT = 10;
+
+  type UpstreamProbeResult =
+    | { status: "exists" }
+    | { status: "missing"; candidates: string[] }
+    | { status: "unknown"; reason: string };
+
+  const probeUpstreamResource = async (
+    cloudbase: any,
+    params: {
+      upstreamResourceType: UpstreamResourceType;
+      upstreamResourceName: string;
+    },
+  ): Promise<UpstreamProbeResult> => {
+    const wanted = params.upstreamResourceName.trim();
+    const upstreamResourceType = params.upstreamResourceType;
+    try {
+      if (upstreamResourceType === "SCF" || upstreamResourceType === "WEB_SCF") {
+        // fail-open：老 SDK / mock 没有该 API 时不校验，绝不让「拿不到列表」变成「判定不存在」。
+        if (typeof cloudbase.functions?.getFunctionList !== "function") {
+          return { status: "unknown", reason: "function-list-api-unavailable" };
+        }
+        const names = new Set<string>();
+        let scanned = 0;
+        let total = Number.POSITIVE_INFINITY;
+        for (let page = 0; page < UPSTREAM_PROBE_MAX_PAGES; page += 1) {
+          const res = await cloudbase.functions.getFunctionList(
+            UPSTREAM_PROBE_PAGE_SIZE,
+            scanned,
+          );
+          const list: unknown[] = Array.isArray(res?.Functions) ? res.Functions : [];
+          for (const item of list) {
+            const name = (item as { FunctionName?: unknown } | null)?.FunctionName;
+            if (typeof name === "string" && name) {
+              names.add(name);
+            }
+          }
+          scanned += list.length;
+          total = typeof res?.TotalCount === "number" ? res.TotalCount : scanned;
+          if (names.has(wanted) || list.length === 0 || scanned >= total) {
+            break;
+          }
+        }
+        if (names.has(wanted)) {
+          return { status: "exists" };
+        }
+        if (scanned >= total) {
+          return {
+            status: "missing",
+            candidates: [...names].slice(0, UPSTREAM_PROBE_CANDIDATE_LIMIT),
+          };
+        }
+        return { status: "unknown", reason: "function-list-partially-scanned" };
+      }
+
+      if (upstreamResourceType === "CBR") {
+        // fail-open：同上，`cloudrun?.list` 缺失时会短路成 undefined，若不显式拦截会被
+        // 误判成「列表为空 = 目标不存在」，从而错误拒绝合法路由。
+        if (typeof cloudbase.cloudrun?.list !== "function") {
+          return { status: "unknown", reason: "cloudrun-list-api-unavailable" };
+        }
+        const names = new Set<string>();
+        for (let page = 1; page <= UPSTREAM_PROBE_MAX_PAGES; page += 1) {
+          const res = await cloudbase.cloudrun.list({
+            pageSize: UPSTREAM_PROBE_PAGE_SIZE,
+            pageNum: page,
+          });
+          const list: unknown[] = Array.isArray(res?.ServerList) ? res.ServerList : [];
+          for (const item of list) {
+            const record = item as { ServerName?: unknown; Name?: unknown } | null;
+            const name = record?.ServerName ?? record?.Name;
+            if (typeof name === "string" && name) {
+              names.add(name);
+            }
+          }
+          const total = typeof res?.Total === "number" ? res.Total : names.size;
+          if (names.has(wanted) || list.length === 0 || names.size >= total) {
+            break;
+          }
+        }
+        if (names.has(wanted)) {
+          return { status: "exists" };
+        }
+        return {
+          status: "missing",
+          candidates: [...names].slice(0, UPSTREAM_PROBE_CANDIDATE_LIMIT),
+        };
+      }
+
+      // STATIC_STORE / LH：无可靠的实例列举通路，不校验（见上方说明）。
+      return { status: "unknown", reason: `unsupported-upstream-type:${upstreamResourceType}` };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { status: "unknown", reason: message };
+    }
+  };
+
+  /** 上游缺失时的候选列举工具，按类型给出下一步可用的只读入口。 */
+  const upstreamProbeNextAction = (
+    upstreamResourceType: UpstreamResourceType,
+  ): { tool: string; action: string; reason: string } | null => {
+    if (upstreamResourceType === "SCF" || upstreamResourceType === "WEB_SCF") {
+      return {
+        tool: "queryFunctions",
+        action: "listFunctions",
+        reason: t("gateway.create.upstreamNotFoundReason"),
+      };
+    }
+    if (upstreamResourceType === "CBR") {
+      return {
+        tool: "queryCloudRun",
+        action: "list",
+        reason: t("gateway.create.upstreamNotFoundReason"),
+      };
+    }
+    return null;
+  };
+
   const verifyHttpServiceRouteOrFail = async (params: {
     envId: string;
     domainParam: HTTPServiceDomainParam;
@@ -258,15 +748,15 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
         ...(result.RequestId ? { requestId: result.RequestId } : {}),
       },
       message: hasDns
-        ? "HTTP 服务域名配置预检未通过：域名归属权校验失败。请按 data.checks 中 ownership.dnsRecords 配置 DNS TXT 记录后重试。"
-        : "HTTP 服务域名配置预检未通过。请根据 data.checks 修复问题后重试。",
+        ? t("gateway.verify.failWithDns")
+        : t("gateway.verify.fail"),
       nextActions: [
         {
           tool: "manageGateway",
           action: params.action,
           reason: hasDns
-            ? "配置 DNS TXT（主机记录/记录类型/记录值见 data.checks[].dnsRecords）后重新调用本 action"
-            : "根据 data.checks 修复预检失败项后重新调用本 action",
+            ? t("gateway.verify.failWithDnsReason")
+            : t("gateway.verify.failReason"),
         },
       ],
     };
@@ -302,7 +792,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       throw new Error(
-        `获取 SSL 证书列表失败：${message}。请传入 certificateId，或确认账号有 SSL 证书服务权限。`,
+        t("gateway.cert.listFailed", { message }),
       );
     }
 
@@ -312,13 +802,12 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
         envelope: {
           success: false,
           data: { action: "bindCustomDomain", domain, certificates: [] },
-          message: `未找到域名 [${domain}] 相关的可用 SSL 证书。请在腾讯云 SSL 证书控制台上传/申请后传入 certificateId 重试。`,
+          message: t("gateway.cert.noneFound", { domain }),
           nextActions: [
             {
               tool: "manageGateway",
               action: "bindCustomDomain",
-              reason:
-                "上传或申请匹配该域名的证书后，传入 certificateId 再调用 bindCustomDomain",
+              reason: t("gateway.cert.noneFoundReason"),
             },
           ],
         },
@@ -329,7 +818,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
       const only = certificates[0]?.CertificateId;
       if (!only) {
         throw new Error(
-          `域名 [${domain}] 匹配到证书但缺少 CertificateId，请显式传入 certificateId。`,
+          t("gateway.cert.missingId", { domain }),
         );
       }
       return { ok: true, certificateId: only };
@@ -351,13 +840,17 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
           domain,
           certificates: options,
         },
-        message: `找到 ${certificates.length} 个匹配证书，请选择其中一个 certificateId 后重试 bindCustomDomain（MCP 非交互，不会自动选择）。`,
+        message: t("gateway.cert.multiSelect", { count: certificates.length }),
         nextActions: options
           .filter((c) => c.certificateId)
           .map((c) => ({
             tool: "manageGateway",
             action: "bindCustomDomain",
-            reason: `使用 certificateId=${c.certificateId}（domain=${c.domain ?? "-"}, 到期=${c.certEndTime ?? "-"}）重试`,
+            reason: t("gateway.cert.multiReason", {
+              certificateId: c.certificateId ?? "-",
+              domain: c.domain ?? "-",
+              certEndTime: c.certEndTime ?? "-",
+            }),
           })),
       },
     };
@@ -502,17 +995,17 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
   const buildPrivilegeDescription = (privilege: GatewayPrivilege) => {
     const serviceStatus =
       privilege.EnableService === undefined
-        ? "未知"
+        ? t("gateway.privilege.unknown")
         : privilege.EnableService === true
-          ? "已开启"
-          : "未开启";
+          ? t("gateway.privilege.on")
+          : t("gateway.privilege.off");
     const authStatus =
       privilege.EnableAuth === undefined
-        ? "未知"
+        ? t("gateway.privilege.unknown")
         : privilege.EnableAuth === true
-          ? "已开启"
-          : "未开启";
-    return `HTTP 网关${serviceStatus}，访问鉴权${authStatus}`;
+          ? t("gateway.privilege.on")
+          : t("gateway.privilege.off");
+    return t("gateway.privilege.description", { serviceStatus, authStatus });
   };
 
   const resolveDefaultHttpDomain = async () => {
@@ -540,7 +1033,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
 
     if (!preferred?.Domain) {
       throw new Error(
-        "环境默认 HTTP 访问域名未就绪或未开通。请先在控制台开通 HTTP 访问服务，或用 queryGateway(action=\"listRoutes\") 确认 Domains 中是否存在 DomainType=HTTPSERVICE 且 IsDefault=true 的域名（形如 *.{region}.app.tcloudbase.com）；不要使用静态托管域名（*.tcloudbaseapp.com）。也可以显式传入 domain 后重试 createRoute/updateRoute/deleteRoute。",
+        t("gateway.defaultDomain.notReady"),
       );
     }
 
@@ -565,9 +1058,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
     }
 
     throw new Error(
-      "必须提供 upstreamResourceType（或 route.upstreamResourceType）：" +
-        "WEB_SCF=HTTP云函数，SCF=Event云函数，CBR=云托管，STATIC_STORE=静态托管，LH=轻量应用服务器。" +
-        "禁止仅凭 targetName/serviceName 推断上游类型。",
+      t("gateway.upstreamTypeRequired"),
     );
   };
 
@@ -577,12 +1068,21 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
     EnvId: string;
     Domain: {
       Domain: string;
+      Protocol?: DomainProtocol;
+      Extension?: Record<string, unknown>;
       Routes: Array<{
         Path: string;
         UpstreamResourceType: UpstreamResourceType;
         UpstreamResourceName: string;
         EnableAuth?: boolean;
+        EnableSafeDomain?: boolean;
         EnablePathTransmission?: boolean;
+        PathRewrite?: { Prefix?: string; StaticStorePrefix?: string };
+        QPSPolicy?: {
+          QPSTotal?: number;
+          QPSPerClient?: { LimitBy?: "ClientIP" | "UserID"; LimitValue?: number };
+        };
+        Extension?: Record<string, unknown>;
         Enable?: boolean;
       }>;
     };
@@ -592,6 +1092,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
       upstreamResourceType: UpstreamResourceType;
       upstreamResourceName: string;
       enableAuth?: boolean;
+      enableSafeDomain?: boolean;
       enablePathTransmission?: boolean;
       enable?: boolean;
     };
@@ -600,8 +1101,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
       input.route?.serviceName ?? input.targetName;
     if (!upstreamResourceName) {
       throw new Error(
-        "必须提供 targetName 或 route.serviceName 作为上游资源名称：" +
-          "云函数名、云托管服务名，或静态托管实例名（常见为 staticstore）。",
+        t("gateway.upstreamNameRequired"),
       );
     }
 
@@ -614,18 +1114,24 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
       input.route?.path ?? input.path ?? `/${upstreamResourceName}`,
     );
     const domain = await resolveRouteDomain(input.domain);
-    const enableAuth =
-      input.route?.auth !== undefined
-        ? input.route.auth
-        : input.auth !== undefined
-          ? input.auth
-          : undefined;
-    const enablePathTransmission =
-      input.route?.enablePathTransmission !== undefined
-        ? input.route.enablePathTransmission
-        : input.enablePathTransmission !== undefined
-          ? input.enablePathTransmission
-          : undefined;
+    const pick = <T,>(routeValue: T | undefined, topValue: T | undefined) =>
+      routeValue !== undefined ? routeValue : topValue;
+    const enableAuth = pick(input.route?.auth, input.auth);
+    const enableSafeDomain = pick(
+      input.route?.enableSafeDomain,
+      input.enableSafeDomain,
+    );
+    const enablePathTransmission = pick(
+      input.route?.enablePathTransmission,
+      input.enablePathTransmission,
+    );
+    const routePathRewrite = toPathRewrite(
+      pick(input.route?.pathRewrite, input.pathRewrite),
+    );
+    const routeQpsPolicy = toQpsPolicy(
+      pick(input.route?.qpsPolicy, input.qpsPolicy),
+    );
+    const routeExtension = toExtension(pick(input.route?.extension, input.extension));
     // Route enable: prefer route.enable. For updateRoute only, top-level
     // enable also maps to Route.Enable (enableService/authSwitch use the
     // same field name but different actions).
@@ -642,25 +1148,50 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
       UpstreamResourceType: UpstreamResourceType;
       UpstreamResourceName: string;
       EnableAuth?: boolean;
+      EnableSafeDomain?: boolean;
       EnablePathTransmission?: boolean;
+      PathRewrite?: { Prefix?: string; StaticStorePrefix?: string };
+      QPSPolicy?: {
+        QPSTotal?: number;
+        QPSPerClient?: { LimitBy?: "ClientIP" | "UserID"; LimitValue?: number };
+      };
+      Extension?: Record<string, unknown>;
       Enable?: boolean;
     } = {
       Path: path,
       UpstreamResourceType: upstreamResourceType,
       UpstreamResourceName: upstreamResourceName,
-      EnableAuth: enableAuth,
     };
+    if (enableAuth !== undefined) {
+      route.EnableAuth = enableAuth;
+    }
+    if (enableSafeDomain !== undefined) {
+      route.EnableSafeDomain = enableSafeDomain;
+    }
     if (enablePathTransmission !== undefined) {
       route.EnablePathTransmission = enablePathTransmission;
+    }
+    if (routePathRewrite) {
+      route.PathRewrite = routePathRewrite;
+    }
+    if (routeQpsPolicy) {
+      route.QPSPolicy = routeQpsPolicy;
+    }
+    if (routeExtension) {
+      route.Extension = routeExtension;
     }
     if (routeEnable !== undefined) {
       route.Enable = routeEnable;
     }
 
+    const domainExtension = toExtension(input.domainExtension);
+
     return {
       EnvId: await resolveEnvId(),
       Domain: {
         Domain: domain,
+        ...(input.protocol ? { Protocol: input.protocol } : {}),
+        ...(domainExtension ? { Extension: domainExtension } : {}),
         Routes: [route],
       },
       resolved: {
@@ -669,6 +1200,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
         upstreamResourceType,
         upstreamResourceName,
         enableAuth,
+        enableSafeDomain,
         enablePathTransmission,
         enable: routeEnable,
       },
@@ -685,7 +1217,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
     const routePath = input.routePath ?? input.path;
     if (!routePath) {
       throw new Error(
-        "action=enableRoute/disableRoute 时必须提供 path 或 route.path（例如 \"/\" 或 \"/api\"）",
+        t("gateway.toggle.pathRequired"),
       );
     }
 
@@ -713,23 +1245,100 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
 
     if (matches.length === 0) {
       throw new Error(
-        `未找到路径 ${normalizedPath} 的路由` +
-          (preferredDomain ? `（域名 ${preferredDomain}）` : "") +
-          (upstreamName ? `（上游 ${upstreamName}）` : "") +
-          "。请先用 queryGateway(action=\"listRoutes\") 确认 Domain / Path，再调用 enableRoute/disableRoute。" +
-          "关闭静态托管默认域名（*.tcloudbaseapp.com）时，请显式传 domain=该 STATIC_STORE IsDefault 域名，并通常 path=\"/\"。",
+        t("gateway.toggle.notFound", {
+          path: normalizedPath,
+          domainSuffix: preferredDomain
+            ? t("gateway.toggle.notFoundDomainSuffix", { domain: preferredDomain })
+            : "",
+          upstreamSuffix: upstreamName
+            ? t("gateway.toggle.notFoundUpstreamSuffix", { upstreamName })
+            : "",
+        }),
       );
     }
 
     if (matches.length > 1) {
       const domains = [...new Set(matches.map((item) => item.Domain))];
       throw new Error(
-        `路径 ${normalizedPath} 匹配到 ${matches.length} 条路由（域名：${domains.join(", ")}）。` +
-          "请补充 domain（必要时再加 targetName/route.serviceName）精确定位后再 enableRoute/disableRoute。",
+        t("gateway.toggle.ambiguous", {
+          path: normalizedPath,
+          count: matches.length,
+          domains: domains.join(", "),
+        }),
       );
     }
 
     return matches[0]!;
+  };
+
+  /**
+   * Locate the live record (domain + route) so partial updates can carry over
+   * fields the caller did not touch.
+   */
+  const findExistingRouteRecord = async (domain: string, path: string) => {
+    const result = await listHttpServiceRoutes({ domain });
+    const domainRecord = (result.Domains ?? []).find(
+      (item) => item.Domain === domain,
+    );
+    const route = (domainRecord?.Routes ?? []).find(
+      (item) =>
+        normalizeAccessPath(String((item as { Path?: string }).Path ?? "")) ===
+        path,
+    );
+    return {
+      domainRecord,
+      route: route as unknown as Record<string, unknown> | undefined,
+    };
+  };
+
+  /** CDN vs EO is decided by the domain's access type; default to CDN. */
+  /**
+   * 缓存层由域名的接入方式决定，不能猜。
+   *
+   * - EO / CDN → 对应缓存层
+   * - DIRECT / CUSTOM / NONE → CloudBase 侧没有托管缓存，刷新不适用。
+   *   实测（2026-10-21）对 DIRECT 域发 CDN 刷新，PurgeHTTPServiceCache 会「成功」登记
+   *   一个任务，而 DescribeHTTPServiceCachePurgeTask 随后抛 Third Service Error ——
+   *   即后端对 DIRECT 域缺校验、返回不可读错误。这里提前拦住并说明原因。
+   */
+  const resolveDomainCacheType = async (
+    domain: string,
+    preferred?: CacheType,
+  ): Promise<CacheType> => {
+    const findDomain = (result: { Domains?: Array<{ Domain?: string }> }) =>
+      (result.Domains ?? []).find((item) => item.Domain === domain);
+    let record = findDomain(await listHttpServiceRoutes({ domain }));
+    if (!record) {
+      // 域名下暂时没有路由时，筛 Domain 可能查不到，退回全量再找一次。
+      record = findDomain(await listHttpServiceRoutes());
+    }
+    if (!record) {
+      throw new Error(t("gateway.cache.domainNotFound", { domain }));
+    }
+
+    const accessType = String(
+      (record as { AccessType?: string }).AccessType ?? "",
+    );
+    const boundCacheType: CacheType | undefined =
+      accessType === "EO" ? "EO" : accessType === "CDN" ? "CDN" : undefined;
+    if (!boundCacheType) {
+      throw new Error(
+        t("gateway.cache.notManaged", {
+          domain,
+          accessType: accessType || "UNKNOWN",
+        }),
+      );
+    }
+    if (preferred && preferred !== boundCacheType) {
+      throw new Error(
+        t("gateway.cache.typeMismatch", {
+          domain,
+          accessType: boundCacheType,
+          requested: preferred,
+        }),
+      );
+    }
+    return boundCacheType;
   };
 
   const routeMutationNextActions = (
@@ -738,20 +1347,17 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
     {
       tool: "queryGateway",
       action: "getRoute",
-      reason:
-        "创建后通常数秒到约 30 秒内生效；请立刻轮询 getRoute 或探测 accessUrl，勿盲等 60 秒以上",
+      reason: t("gateway.mutation.pollGetRoute"),
     },
     {
       tool: "queryPermissions",
       action: "getResourcePermission",
-      reason:
-        "确认函数安全规则是否允许预期访问方；网关 EnableAuth/auth=false 不等于函数已允许匿名访问",
+      reason: t("gateway.mutation.checkPermission"),
     },
     {
       tool: "managePermissions",
       action: "updateResourcePermission",
-      reason:
-        "只有在确认需要匿名或浏览器直连访问时，才按实际安全要求更新函数权限",
+      reason: t("gateway.mutation.updatePermission"),
     },
   ];
 
@@ -772,7 +1378,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
             total: customDomains.length,
             raw: result,
           },
-          `已获取 ${customDomains.length} 个自定义域名`,
+          t("gateway.query.listCustomDomains", { count: customDomains.length }),
         );
       }
       case "listRoutes": {
@@ -788,13 +1394,13 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
             total: result.TotalCount ?? routes.length,
             raw: result,
           },
-          `已获取 ${result.TotalCount ?? routes.length} 条 HTTP 路由`,
+          t("gateway.query.listRoutes", { count: result.TotalCount ?? routes.length }),
         );
       }
       case "getRoute": {
         if (!input.routeId && !input.targetName && !input.path) {
           throw new Error(
-            "action=getRoute 时至少需要提供 routeId、targetName 或 path",
+            t("gateway.query.getRouteRequired"),
           );
         }
 
@@ -842,15 +1448,15 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
             raw: result,
           },
           matches.length === 0
-            ? "未找到对应路由"
+            ? t("gateway.query.getRouteNotFound")
             : matches.length === 1
-              ? "已获取路由详情"
-              : `匹配到 ${matches.length} 条路由，请补充 path 或 domain 精确定位`,
+              ? t("gateway.query.getRouteSingle")
+              : t("gateway.query.getRouteMulti", { count: matches.length }),
           [
             {
               tool: "manageGateway",
               action: "createRoute",
-              reason: "为该目标新增 Domain/Route 访问路径",
+              reason: t("gateway.query.getRouteCreateReason"),
             },
           ],
         );
@@ -868,23 +1474,55 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
             raw: privilege,
           },
           buildPrivilegeDescription(privilege) +
-            (enableService
-              ? ""
-              : "；若路由创建成功但访问报 HTTPSERVICE_NONACTIVATED（403），请先开启 HTTP 网关"),
+            (enableService ? "" : t("gateway.privilege.nonActivatedHint")),
           enableService
             ? undefined
             : [
                 {
                   tool: "manageGateway",
                   action: "enableService",
-                  reason:
-                    "开启 HTTP 网关总开关（EnableService），开启后路由即可通过默认域访问",
+                  reason: t("gateway.privilege.enableServiceReason"),
                 },
               ],
         );
       }
+      case "cachePurgeTask": {
+        if (!input.domain) {
+          throw new Error(t("gateway.query.cachePurgeTaskDomainRequired"));
+        }
+        const cacheType = await resolveDomainCacheType(
+          input.domain,
+          input.cacheType,
+        );
+        const cloudbase = await getManager();
+        const result = await cloudbase.env.describeHttpServiceCachePurgeTask({
+          EnvId: await resolveEnvId(),
+          Domain: input.domain,
+          CacheType: cacheType,
+          ...(input.taskId ? { TaskId: input.taskId } : {}),
+          ...(input.purgeType ? { PurgeType: input.purgeType } : {}),
+          ...(input.startTime ? { StartTime: input.startTime } : {}),
+          ...(input.endTime ? { EndTime: input.endTime } : {}),
+          ...(input.offset !== undefined ? { Offset: input.offset } : {}),
+          ...(input.limit !== undefined ? { Limit: input.limit } : {}),
+        } as any);
+        logCloudBaseResult(server.logger, result);
+        const tasks = Array.isArray(result?.Tasks) ? result.Tasks : [];
+
+        return buildEnvelope(
+          {
+            action: input.action,
+            domain: input.domain,
+            cacheType,
+            tasks,
+            total: result?.TotalCount ?? tasks.length,
+            raw: result,
+          },
+          t("gateway.query.cachePurgeTask", { count: tasks.length }),
+        );
+      }
       default:
-        throw new Error(`不支持的操作类型: ${input.action}`);
+        throw new Error(t("gateway.error.unsupportedAction", { action: input.action }));
     }
   };
 
@@ -895,6 +1533,47 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
       case "createRoute": {
         const cloudbase = await getManager();
         const payload = await normalizeRoutePayload(input);
+
+        // 上游目标存在性校验（F1）：平台侧不校验 UpstreamResourceName，不存在的目标也会
+        // 真实落库形成悬空路由并返回 success。能证明不存在就拒绝，校验不了就放行（fail-open）。
+        const upstreamProbe = await probeUpstreamResource(cloudbase, {
+          upstreamResourceType: payload.resolved.upstreamResourceType,
+          upstreamResourceName: payload.resolved.upstreamResourceName,
+        });
+        if (upstreamProbe.status === "missing") {
+          const nextAction = upstreamProbeNextAction(payload.resolved.upstreamResourceType);
+          return {
+            success: false,
+            data: {
+              action: "createRoute",
+              upstreamResourceType: payload.resolved.upstreamResourceType,
+              targetName: payload.resolved.upstreamResourceName,
+              path: payload.resolved.path,
+              candidates: upstreamProbe.candidates,
+              ...(upstreamProbe.candidates.length
+                ? {
+                    candidateHint: t("gateway.create.upstreamCandidates", {
+                      type: payload.resolved.upstreamResourceType,
+                      candidates: upstreamProbe.candidates.join("、"),
+                    }),
+                  }
+                : {}),
+            },
+            message: t("gateway.create.upstreamNotFound", {
+              type: payload.resolved.upstreamResourceType,
+              name: payload.resolved.upstreamResourceName,
+            }),
+            ...(nextAction ? { nextActions: [nextAction] } : {}),
+          };
+        }
+        if (upstreamProbe.status === "unknown") {
+          // 校验不了不阻塞创建，但要留痕，便于排查「为什么这次没拦住」。
+          server.logger?.({
+            type: "errorToolCall",
+            toolName: "manageGateway",
+            message: `createRoute upstream probe skipped (${payload.resolved.upstreamResourceType}/${payload.resolved.upstreamResourceName}): ${upstreamProbe.reason}`,
+          });
+        }
 
         // Probe → create: ownership / cert / quota / conflict checks before create.
         const verifyFailure = await verifyHttpServiceRouteOrFail({
@@ -916,16 +1595,14 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err);
           if (message.includes("An error has occurred")) {
-            let hint =
-              "为目标资源配置访问路由失败（后端内部错误）。请确保：1) 目标云函数已成功创建并处于 Active 状态；2) 环境默认 HTTP 域名已完成初始化（IsDefault）；3) 该访问路径未被占用。";
+            let hint = t("gateway.create.backendError");
             if (
               payload.resolved.upstreamResourceType === "WEB_SCF" ||
               payload.resolved.upstreamResourceType === "SCF"
             ) {
-              hint +=
-                "此外注意：HTTP 云函数必须用 upstreamResourceType=WEB_SCF，Event 云函数必须用 SCF；互标会导致此错误。";
+              hint += t("gateway.create.backendErrorScfHint");
             }
-            throw new Error(`${hint} 原始错误：${message}`);
+            throw new Error(`${hint}${t("gateway.create.backendErrorSuffix", { message })}`);
           }
           throw err;
         }
@@ -940,20 +1617,17 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
         try {
           const privilege = await getGatewayPrivilege();
           if (privilege.EnableService !== true) {
-            privilegeHint =
-              "⚠️ HTTP 网关总开关未开启，路由创建成功后访问仍将返回 HTTPSERVICE_NONACTIVATED（403）；请先调用 manageGateway(action=\"enableService\", enable=true) 开启，再立刻探测 accessUrl（通常数秒到约 30 秒内生效，勿盲等 60 秒以上）。";
+            privilegeHint = t("gateway.create.privilegeOffHint");
             privilegeNextActions = [
               {
                 tool: "manageGateway",
                 action: "enableService",
-                reason:
-                  "开启 HTTP 网关总开关（EnableService），否则访问路由会报 HTTPSERVICE_NONACTIVATED（403）",
+                reason: t("gateway.create.privilegeOffReason"),
               },
             ];
           }
         } catch {
-          privilegeHint =
-            "（无法确认 HTTP 网关开关状态；若访问报 HTTPSERVICE_NONACTIVATED，请用 queryGateway(action=\"getPrivilege\") 查询后用 manageGateway(action=\"enableService\") 开启）";
+          privilegeHint = t("gateway.create.privilegeUnknownHint");
         }
 
         return buildEnvelope(
@@ -966,6 +1640,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
             upstreamResourceType: payload.resolved.upstreamResourceType,
             upstreamResourceName: payload.resolved.upstreamResourceName,
             auth: payload.resolved.enableAuth ?? null,
+            enableSafeDomain: payload.resolved.enableSafeDomain ?? null,
             enablePathTransmission:
               payload.resolved.enablePathTransmission ?? null,
             accessUrl: `https://${payload.resolved.domain}${payload.resolved.path}`,
@@ -976,13 +1651,18 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
                 : "gateway.default",
             raw: result,
           },
-          `已为目标 ${payload.resolved.upstreamResourceName} 在域名 ${payload.resolved.domain} 创建路由 ${payload.resolved.path}（${payload.resolved.upstreamResourceType}）` +
+          t("gateway.create.message", {
+            upstreamResourceName: payload.resolved.upstreamResourceName,
+            domain: payload.resolved.domain,
+            path: payload.resolved.path,
+            upstreamResourceType: payload.resolved.upstreamResourceType,
+          }) +
             (payload.resolved.enablePathTransmission === true
-              ? "；已开启路径透传（后端收到完整请求路径）"
+              ? t("gateway.create.pathTransmissionOn")
               : payload.resolved.enablePathTransmission === false
-                ? "；路径透传关闭（网关会剥掉触发路径前缀后再转发给后端）"
-                : "；路径透传未显式设置（平台默认 false，会剥掉触发路径前缀）") +
-            `。注意：路由配置传播通常数秒到约 30 秒；请立刻用 queryGateway(getRoute) 或探测 accessUrl 确认，勿盲等 60 秒以上。该操作只创建网关入口，不会自动放开上游权限；若上游是云函数且需要匿名或浏览器直接访问，请继续检查函数资源权限。` +
+                ? t("gateway.create.pathTransmissionOff")
+                : t("gateway.create.pathTransmissionUnset")) +
+            t("gateway.create.messageTail") +
             (privilegeHint ? ` ${privilegeHint}` : ""),
           [
             ...privilegeNextActions,
@@ -994,6 +1674,20 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
       case "updateRoute": {
         const cloudbase = await getManager();
         const payload = await normalizeRoutePayload(input);
+        // Preserve untouched route/domain fields from the live record: the
+        // backend replaces the whole route entry, so a partial update would
+        // otherwise wipe CORS / rewrite / QPS / headers / cache settings.
+        const existing = await findExistingRouteRecord(
+          payload.resolved.domain,
+          payload.resolved.path,
+        );
+        carryOverRouteFields(
+          payload.Domain.Routes[0] as unknown as Record<string, unknown>,
+          existing.route,
+        );
+        if (!payload.Domain.Protocol && existing.domainRecord?.Protocol) {
+          payload.Domain.Protocol = existing.domainRecord.Protocol as DomainProtocol;
+        }
         const result = await cloudbase.env.modifyHttpServiceRoute({
           EnvId: payload.EnvId,
           Domain: payload.Domain,
@@ -1013,6 +1707,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
             upstreamResourceType: payload.resolved.upstreamResourceType,
             upstreamResourceName: payload.resolved.upstreamResourceName,
             auth: payload.resolved.enableAuth ?? null,
+            enableSafeDomain: payload.resolved.enableSafeDomain ?? null,
             enablePathTransmission:
               payload.resolved.enablePathTransmission ?? null,
             enable: payload.resolved.enable ?? null,
@@ -1036,18 +1731,21 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
                 : "gateway.default",
             raw: result,
           },
-          `HTTP 路由更新成功（${payload.resolved.domain}${payload.resolved.path}` +
+          t("gateway.update.message", {
+            domain: payload.resolved.domain,
+            path: payload.resolved.path,
+          }) +
             (payload.resolved.enable === false
-              ? "，路由已禁用 Enable=false"
+              ? t("gateway.update.enableOff")
               : payload.resolved.enable === true
-                ? "，路由已启用 Enable=true"
+                ? t("gateway.update.enableOn")
                 : "") +
             (payload.resolved.enablePathTransmission === true
-              ? "，路径透传=开启"
+              ? t("gateway.update.transmissionOn")
               : payload.resolved.enablePathTransmission === false
-                ? "，路径透传=关闭"
+                ? t("gateway.update.transmissionOff")
                 : "") +
-            `）`,
+            t("gateway.update.messageEnd"),
           routeMutationNextActions(payload.resolved.upstreamResourceName),
         );
       }
@@ -1074,7 +1772,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
           String(existing.UpstreamResourceName ?? "");
         if (!upstreamResourceName) {
           throw new Error(
-            `action=${input.action} 无法解析上游资源名；请用 queryGateway(listRoutes) 确认后传入 targetName 或 route.serviceName。`,
+            t("gateway.toggle.upstreamNameRequired", { action: input.action }),
           );
         }
 
@@ -1095,14 +1793,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
               ? input.enablePathTransmission
               : (existing.EnablePathTransmission as boolean | undefined);
 
-        const route: {
-          Path: string;
-          UpstreamResourceType: UpstreamResourceType;
-          UpstreamResourceName: string;
-          Enable: boolean;
-          EnableAuth?: boolean;
-          EnablePathTransmission?: boolean;
-        } = {
+        const route: Record<string, unknown> = {
           Path: normalizedPath,
           UpstreamResourceType: upstreamResourceType,
           UpstreamResourceName: upstreamResourceName,
@@ -1114,6 +1805,11 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
         if (enablePathTransmission !== undefined) {
           route.EnablePathTransmission = enablePathTransmission;
         }
+        if (input.enableSafeDomain !== undefined) {
+          route.EnableSafeDomain = input.enableSafeDomain;
+        }
+        // Toggling Enable must not drop CORS / rewrite / QPS / headers / cache.
+        carryOverRouteFields(route, existing as unknown as Record<string, unknown>);
 
         const cloudbase = await getManager();
         const result = await cloudbase.env.modifyHttpServiceRoute({
@@ -1125,7 +1821,9 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
         } as any);
         logCloudBaseResult(server.logger, result);
 
-        const verb = enable ? "启用" : "禁用";
+        const verb = enable
+          ? t("gateway.toggle.verbEnable")
+          : t("gateway.toggle.verbDisable");
         const accessUrl = enable
           ? `https://${domain}${normalizedPath}`
           : undefined;
@@ -1157,16 +1855,16 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
               : "gateway.custom",
             raw: result,
           },
-          `HTTP 路由已${verb}（${domain}${normalizedPath}，Enable=${enable}）。` +
+          t("gateway.toggle.title", { verb, domain, path: normalizedPath, enable: String(enable) }) +
             (enable
-              ? "启用后通常数秒到约 30 秒内可访问；请用 queryGateway(getRoute) 或探测 accessUrl 确认。"
-              : "禁用后该路径将不可公网访问（GATEWAY_ROUTE_DISABLED）；关闭静态托管默认域名（*.tcloudbaseapp.com）时，请确认 DomainType=STATIC_STORE 且 IsDefault=true。") +
-            " 底层对应 tcb ModifyHTTPServiceRoute（不是 ModifyGatewayRoute）。",
+              ? t("gateway.toggle.enabledTail")
+              : t("gateway.toggle.disabledTail")) +
+            t("gateway.toggle.messageEnd"),
           [
             {
               tool: "queryGateway",
               action: "getRoute",
-              reason: `复核路由 Enable=${enable} 是否已生效`,
+              reason: t("gateway.toggle.verifyReason", { enable: String(enable) }),
             },
           ],
         );
@@ -1174,7 +1872,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
       case "deleteRoute": {
         const routePath = input.route?.path ?? input.path;
         if (!routePath) {
-          throw new Error("action=deleteRoute 时必须提供 route.path 或 path");
+          throw new Error(t("gateway.deleteRoute.pathRequired"));
         }
         const cloudbase = await getManager();
         const domain = await resolveRouteDomain(input.domain);
@@ -1194,24 +1892,22 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
             path: normalizedPath,
             raw: result,
           },
-          "HTTP 路由删除成功",
+          t("gateway.deleteRoute.message"),
         );
       }
       case "bindCustomDomain": {
         if (!input.domain) {
-          throw new Error("action=bindCustomDomain 时必须提供 domain");
+          throw new Error(t("gateway.bind.domainRequired"));
         }
         const accessType = input.accessType ?? "DIRECT";
         if (accessType === "CUSTOM" && !input.customCname) {
           throw new Error(
-            "action=bindCustomDomain 且 accessType=CUSTOM 时必须提供 customCname（自有 CDN/WAF 的回源/回填地址，不是 DNS 解析目标）。" +
-              "说明：https://docs.cloudbase.net/service/custom-domain",
+            t("gateway.bind.customCnameRequired"),
           );
         }
         if (accessType !== "CUSTOM" && input.customCname) {
           throw new Error(
-            "customCname 仅在 accessType=CUSTOM 时可用；普通绑定用默认 DIRECT，不要传 customCname。" +
-              "说明：https://docs.cloudbase.net/service/custom-domain",
+            t("gateway.bind.customCnameNotAllowed"),
           );
         }
 
@@ -1224,6 +1920,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
           CertId: input.certificateId || "",
           AccessType: accessType,
           Enable: input.enable !== undefined ? input.enable : true,
+          ...(input.protocol ? { Protocol: input.protocol } : {}),
           ...(input.customCname ? { CustomCname: input.customCname } : {}),
         };
         const verifyFailure = await verifyHttpServiceRouteOrFail({
@@ -1250,6 +1947,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
             Domain: input.domain,
             CertId: certificateId,
             AccessType: accessType,
+            ...(input.protocol ? { Protocol: input.protocol } : {}),
             ...(input.enable !== undefined
               ? { Enable: input.enable }
               : {}),
@@ -1274,20 +1972,19 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
               : {}),
             raw: result,
           },
-          `自定义域名绑定成功（${accessType}）`,
+          t("gateway.bind.message", { accessType }),
           [
             {
               tool: "manageGateway",
               action: "createRoute",
-              reason:
-                "绑定后需 createRoute 添加访问路径，并完成 DNS CNAME 解析后才可访问",
+              reason: t("gateway.bind.createRouteReason"),
             },
           ],
         );
       }
       case "deleteCustomDomain": {
         if (!input.domain) {
-          throw new Error("action=deleteCustomDomain 时必须提供 domain");
+          throw new Error(t("gateway.deleteCustomDomain.domainRequired"));
         }
         const cloudbase = await getManager();
         try {
@@ -1303,7 +2000,7 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
               domain: input.domain,
               raw: result,
             },
-            "自定义域名删除成功",
+            t("gateway.deleteCustomDomain.message"),
           );
         } catch (error) {
           const message =
@@ -1313,20 +2010,20 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
             return {
               success: false,
               data: { action: input.action, domain: input.domain },
-              message:
-                `域名 ${input.domain} 下仍有路由绑定，需先删除路由再删除域名。` +
-                `原始错误：${message}`,
+              message: t("gateway.deleteCustomDomain.routeBinding", {
+                domain: input.domain,
+                message,
+              }),
               nextActions: [
                 {
                   tool: "queryGateway",
                   action: "listRoutes",
-                  reason: "查看该域名下的路由，确认需要删除的路径",
+                  reason: t("gateway.deleteCustomDomain.listRoutesReason"),
                 },
                 {
                   tool: "manageGateway",
                   action: "deleteRoute",
-                  reason:
-                    "先删除该域名下的全部路由（逐个 deleteRoute），再重试 deleteCustomDomain",
+                  reason: t("gateway.deleteCustomDomain.deleteRoutesReason"),
                 },
               ],
             };
@@ -1336,36 +2033,33 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
       }
       case "enableService": {
         if (typeof input.enable !== "boolean") {
-          throw new Error(
-            'action=enableService 时必须提供 enable 参数（boolean），如 enable=true 开启 HTTP 网关总开关、enable=false 关闭；禁止省略或传非布尔值。',
-          );
+          throw new Error(t("gateway.enableService.enableRequired"));
         }
         const cloudbase = await getManager();
         const result = await cloudbase.access.switchAuth(input.enable);
         logCloudBaseResult(server.logger, result);
 
-        const serviceText = input.enable ? "开启" : "关闭";
         return buildEnvelope(
           {
             action: input.action,
             enable: input.enable,
             raw: result,
           },
-          `HTTP 网关总开关${serviceText}成功`,
+          input.enable
+            ? t("gateway.enableService.onMessage")
+            : t("gateway.enableService.offMessage"),
           [
             {
               tool: "queryGateway",
               action: "getPrivilege",
-              reason: "复核 HTTP 网关总开关与访问鉴权状态",
+              reason: t("gateway.enableService.verifyReason"),
             },
           ],
         );
       }
       case "authSwitch": {
         if (typeof input.enable !== "boolean") {
-          throw new Error(
-            'action=authSwitch 时必须提供 enable 参数（boolean），如 enable=true 开启访问鉴权、enable=false 关闭；禁止省略或传非布尔值。',
-          );
+          throw new Error(t("gateway.authSwitch.enableRequired"));
         }
         const cloudbase = await getManager();
         const result = await cloudbase
@@ -1385,65 +2079,108 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
           });
         logCloudBaseResult(server.logger, result);
 
-        const serviceText = input.enable ? "开启" : "关闭";
         return buildEnvelope(
           {
             action: input.action,
             enable: input.enable,
             raw: result,
           },
-          `HTTP 访问服务鉴权${serviceText}成功`,
+          input.enable
+            ? t("gateway.authSwitch.onMessage")
+            : t("gateway.authSwitch.offMessage"),
           [
             {
               tool: "queryGateway",
               action: "getPrivilege",
-              reason: "复核 HTTP 网关总开关与访问鉴权状态",
+              reason: t("gateway.authSwitch.verifyReason"),
+            },
+          ],
+        );
+      }
+      case "purgeCache": {
+        if (!input.domain) {
+          throw new Error(t("gateway.purgeCache.domainRequired"));
+        }
+        const targets = (input.targets ?? [])
+          .map((item) => (typeof item === "string" ? item.trim() : ""))
+          .filter(Boolean);
+        if (!targets.length) {
+          throw new Error(t("gateway.purgeCache.targetsRequired"));
+        }
+        const purgeType = input.purgeType ?? "PURGE_URL";
+        const cacheType = await resolveDomainCacheType(
+          input.domain,
+          input.cacheType,
+        );
+        const cloudbase = await getManager();
+        const result = await cloudbase.env.purgeHttpServiceCache({
+          EnvId: await resolveEnvId(),
+          Domain: input.domain,
+          CacheType: cacheType,
+          PurgeType: purgeType,
+          Targets: targets,
+        } as any);
+        logCloudBaseResult(server.logger, result);
+
+        return buildEnvelope(
+          {
+            action: input.action,
+            domain: input.domain,
+            cacheType,
+            purgeType,
+            targets,
+            taskId: (result as { TaskId?: string } | undefined)?.TaskId ?? null,
+            raw: result,
+          },
+          t("gateway.purgeCache.message", { count: targets.length }),
+          [
+            {
+              tool: "queryGateway",
+              action: "cachePurgeTask",
+              reason: t("gateway.purgeCache.verifyReason"),
             },
           ],
         );
       }
       default:
-        throw new Error(`不支持的操作类型: ${input.action}`);
+        throw new Error(t("gateway.error.unsupportedAction", { action: input.action }));
     }
   };
 
   server.registerTool?.(
     "queryGateway",
     {
-      title: "查询 CloudBase 网关",
-      description:
-        "CloudBase HTTP 网关统一只读入口（Domain/Route）。查询域名下路径路由及其上游：" +
-        "WEB_SCF/SCF=云函数，CBR=云托管，STATIC_STORE=静态托管，LH=轻量应用服务器。" +
-        "主键为 Domain + Path；listRoutes / getRoute / listCustomDomains / getPrivilege。" +
-        "getPrivilege 查询 HTTP 网关总开关（enableService）与访问鉴权（enableAuth）状态。" +
-        "实现自定义域名访问前，先 listCustomDomains：若已有自定义域名，优先 createRoute 挂路由（无需证书 ID）；仅在没有可用自定义域名时才 bindCustomDomain。",
+      title: "gateway.query.title",
+      description: "gateway.query.description",
       inputSchema: {
         action: z
           .enum(QUERY_GATEWAY_ACTIONS)
-          .describe(
-            "只读操作类型：listRoutes、getRoute、listCustomDomains、getPrivilege。" +
-              "getPrivilege 无需其他参数，直接返回 HTTP 网关总开关与访问鉴权状态。" +
-              "自定义域名访问场景先 listCustomDomains 确认是否已有域名可复用。",
-          ),
+          .describe("gateway.schema.query.action"),
         targetName: z
           .string()
           .optional()
-          .describe(
-            "上游资源名过滤（UpstreamResourceName）：云函数名、云托管服务名，或静态托管实例名（常见 staticstore）。",
-          ),
-        routeId: z.string().optional().describe("路由 ID。getRoute 时可选"),
-        path: z
-          .string()
+          .describe("gateway.schema.query.targetName"),
+        routeId: z.string().optional().describe("gateway.schema.query.routeId"),
+        path: z.string().optional().describe("gateway.schema.query.path"),
+        domain: z.string().optional().describe("gateway.schema.query.domain"),
+        cacheType: z
+          .enum(CACHE_TYPES)
           .optional()
-          .describe("路由路径。getRoute / listRoutes 过滤时可选"),
-        domain: z
-          .string()
+          .describe("gateway.schema.query.cacheType"),
+        taskId: z.string().optional().describe("gateway.schema.query.taskId"),
+        purgeType: z
+          .enum(PURGE_TYPES)
           .optional()
-          .describe("域名。getRoute / listRoutes 过滤时可选"),
+          .describe("gateway.schema.query.purgeType"),
+        startTime: z.string().optional().describe("gateway.schema.query.startTime"),
+        endTime: z.string().optional().describe("gateway.schema.query.endTime"),
+        offset: z.number().int().min(0).optional().describe("gateway.schema.query.offset"),
+        limit: z.number().int().min(1).optional().describe("gateway.schema.query.limit"),
       },
       annotations: {
         readOnlyHint: true,
-        openWorldHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
         category: "gateway",
       },
     },
@@ -1454,167 +2191,114 @@ export function registerGatewayTools(server: ExtendedMcpServer) {
   server.registerTool?.(
     "manageGateway",
     {
-      title: "管理 CloudBase 网关",
-      description:
-        "CloudBase HTTP 网关统一写入口（Domain/Route）。createRoute/updateRoute/deleteRoute 把域名下的 path 转到上游；" +
-        "enableRoute/disableRoute 启用或禁用已有路由（底层 ModifyHTTPServiceRoute 的 Routes[].Enable，不是 ModifyGatewayRoute）。" +
-        "未传 domain 时用 DomainType=HTTPSERVICE 的 IsDefault 默认 HTTP 域名（形如 *.{region}.app.tcloudbase.com），不会使用静态托管 CDN 域名（*.tcloudbaseapp.com，DomainType=STATIC_STORE）。" +
-        "这是网关默认域上的路径路由，不是 STATIC_STORE 上游绑定；STATIC_STORE 上游必须显式传 upstreamResourceType=STATIC_STORE。" +
-        "关闭静态托管默认域名（*.tcloudbaseapp.com）：先 queryGateway(listRoutes) 找到 DomainType=STATIC_STORE 且 IsDefault=true 的 domain，再 manageGateway(action=\"disableRoute\", domain=该域名, path=\"/\")；勿用 manageHosting。" +
-        "创建后可用 queryGateway(action=\"listRoutes\") 核对 Domain / DomainType / Path / UpstreamResourceType。" +
-        "上游类型只用一个参数 upstreamResourceType（也可写在 route.upstreamResourceType，route 优先）：" +
-        "WEB_SCF=HTTP云函数，SCF=Event云函数，CBR=云托管，STATIC_STORE=静态托管，LH=轻量应用服务器；" +
-        "配合 targetName 或 route.serviceName（云函数名/云托管服务名/静态托管实例名，常见 staticstore）。" +
-        "createRoute 只建网关入口，不改上游权限。" +
-        "enablePathTransmission：默认 false 剥触发路径前缀；true 透传完整路径（CBR 多路由、WEB_SCF 自管子路径常需 true；STATIC_STORE 自定义触发路径映射站点根通常 false）。" +
-        "⚠️ 自定义域名访问：若环境已有自定义域名（先 queryGateway listCustomDomains），优先 createRoute 并显式传入该 domain，无需 certificateId；" +
-        "仅首次绑定全新自定义域名时用 bindCustomDomain（certificateId 可选：未传时按域名自动检索证书，单证书自动选用、多证书返回选择指引）。" +
-        "createRoute / bindCustomDomain 创建前会调用 VerifyHTTPServiceRoute 做归属权等预检（探测→创建）；失败时返回 data.checks 与 DNS TXT 指引，配置后重试。CORS/安全域名（浏览器跨域白名单，与本工具的网关自定义域名无关）用 manageEnv(action=addSecurityDomain/removeSecurityDomain)。" +
-        "enableService/authSwitch：HTTP 网关总开关与访问鉴权开关；createRoute 后若访问报 HTTPSERVICE_NONACTIVATED，通常是总开关未开启（用 queryGateway getPrivilege 查询、enableService 开启）。",
+      title: "gateway.manage.title",
+      description: "gateway.manage.description",
       inputSchema: {
         action: z
           .enum(MANAGE_GATEWAY_ACTIONS)
-          .describe(
-            "写操作：createRoute/updateRoute/deleteRoute 管理路由；enableRoute/disableRoute 启用或禁用已有路由（需 path，建议显式传 domain）；" +
-              "bindCustomDomain/deleteCustomDomain 管理自定义域名；" +
-              "enableService/authSwitch 开关 HTTP 网关总开关与访问鉴权（需配合 enable 参数）。" +
-              "createRoute/updateRoute 必须提供 upstreamResourceType；enableRoute/disableRoute 会先 listRoutes 定位已有路由，通常不必重填上游。" +
-              "updateRoute 也可传 enable/route.enable 直接改 Routes[].Enable。" +
-              "关闭 *.tcloudbaseapp.com 默认静态托管域：disableRoute + domain=该 STATIC_STORE IsDefault 域名 + path=\"/\"。" +
-              "已有自定义域名时优先 createRoute(domain=已有域名) 实现访问，不必再次 bindCustomDomain / 传入 certificateId；" +
-              "bindCustomDomain 仅用于首次绑定新域名（certificateId 可选，未传则按域名自动检索；可选 accessType=DIRECT|CDN|CUSTOM，CUSTOM 需 customCname；普通场景用默认 DIRECT）。" +
-              "createRoute/bindCustomDomain 创建前会 VerifyHTTPServiceRoute 预检；失败时按返回的 DNS TXT 指引配置后重试。" +
-              "接入说明：https://docs.cloudbase.net/service/custom-domain",
-          ),
+          .describe("gateway.schema.manage.action"),
         targetName: z
           .string()
           .optional()
-          .describe(
-            "上游资源名称（UpstreamResourceName），与 route.serviceName 二选一（route 优先）。" +
-              "云函数=函数名；云托管=服务名；静态托管=实例名（常见 staticstore）。不会自动推断上游类型。",
-          ),
-        path: z
-          .string()
-          .optional()
-          .describe(
-            "触发路径（网关匹配前缀），默认 /{上游名}。例：云函数 /api/hello、云托管 /api、静态托管 / 或 /app。" +
-              "只建网关入口；与 enablePathTransmission 共同决定上游实际收到的路径。",
-          ),
+          .describe("gateway.schema.manage.targetName"),
+        path: z.string().optional().describe("gateway.schema.manage.path"),
         upstreamResourceType: z
           .enum(UPSTREAM_RESOURCE_TYPES)
           .optional()
-          .describe(
-            "上游类型（与 route.upstreamResourceType 二选一，route 优先）。" +
-              "WEB_SCF=HTTP云函数，SCF=Event云函数，CBR=云托管，STATIC_STORE=静态托管，LH=轻量应用服务器。" +
-              "createRoute/updateRoute 必填其一；勿把 manageFunctions 的 type=HTTP|Event 传到本字段。",
-          ),
-        auth: z
-          .boolean()
-          .optional()
-          .describe(
-            "网关路径鉴权（EnableAuth）。匿名/浏览器公网访问通常 false。" +
-              "只控制网关入口；云函数安全规则、云托管鉴权、静态托管权限需各自工具另行配置。",
-          ),
+          .describe("gateway.schema.manage.upstreamResourceType"),
+        auth: z.boolean().optional().describe("gateway.schema.manage.auth"),
         enablePathTransmission: z
           .boolean()
           .optional()
-          .describe(
-            "路径透传（EnablePathTransmission），平台默认 false。例 path=/api 且请求 /api/users：" +
-              "false→上游收到 /users；true→上游收到 /api/users。" +
-              "CBR 云托管（Express 等自管子路由）与 WEB_SCF 多路径函数常需 true；" +
-              "STATIC_STORE 把触发路径映射到站点根目录（如 /app → 托管 /）时通常 false；" +
-              "单入口/根路径处理保持 false。也可用 route.enablePathTransmission（route 优先）。",
-          ),
+          .describe("gateway.schema.manage.enablePathTransmission"),
+        enableSafeDomain: z
+          .boolean()
+          .optional()
+          .describe("gateway.schema.manage.enableSafeDomain"),
+        pathRewrite: pathRewriteSchema
+          .optional()
+          .describe("gateway.schema.manage.pathRewrite"),
+        qpsPolicy: qpsPolicySchema
+          .optional()
+          .describe("gateway.schema.manage.qpsPolicy"),
+        extension: extensionSchema
+          .optional()
+          .describe("gateway.schema.manage.extension"),
+        domainExtension: extensionSchema
+          .optional()
+          .describe("gateway.schema.manage.domainExtension"),
+        protocol: z
+          .enum(DOMAIN_PROTOCOLS)
+          .optional()
+          .describe("gateway.schema.manage.protocol"),
         route: z
           .object({
             path: z.string().optional(),
             serviceName: z
               .string()
               .optional()
-              .describe(
-                "上游实例名：云函数名 / 云托管服务名 / 静态托管实例名（常见 staticstore）/ LH 实例。优先于顶层 targetName。",
-              ),
+              .describe("gateway.schema.manage.route.serviceName"),
             upstreamResourceType: z
               .enum(UPSTREAM_RESOURCE_TYPES)
               .optional()
-              .describe(
-                "同顶层 upstreamResourceType。route 内设置时优先于顶层。",
-              ),
+              .describe("gateway.schema.manage.route.upstreamResourceType"),
             auth: z.boolean().optional(),
             enablePathTransmission: z
               .boolean()
               .optional()
-              .describe(
-                "同顶层 enablePathTransmission。route 内设置时优先于顶层。",
-              ),
+              .describe("gateway.schema.manage.route.enablePathTransmission"),
+            enableSafeDomain: z
+              .boolean()
+              .optional()
+              .describe("gateway.schema.manage.route.enableSafeDomain"),
+            pathRewrite: pathRewriteSchema
+              .optional()
+              .describe("gateway.schema.manage.route.pathRewrite"),
+            qpsPolicy: qpsPolicySchema
+              .optional()
+              .describe("gateway.schema.manage.route.qpsPolicy"),
+            extension: extensionSchema
+              .optional()
+              .describe("gateway.schema.manage.route.extension"),
             enable: z
               .boolean()
               .optional()
-              .describe(
-                "路由级开关（Routes[].Enable / Route.Enable）。createRoute/updateRoute 可用：" +
-                  "enable=false 禁用该 Domain+Path（访问返回 GATEWAY_ROUTE_DISABLED）；" +
-                  "enable=true 重新启用。updateRoute 也可用顶层 enable 表达同一语义；" +
-                  "也可用专用 action enableRoute/disableRoute。route.enable 优先于顶层 enable。",
-              ),
+              .describe("gateway.schema.manage.route.enable"),
           })
           .optional()
-          .describe(
-            "路由对象（可选写法）。例：云函数 {upstreamResourceType:\"WEB_SCF\",serviceName:\"fn\",path:\"/api\"}；" +
-              "云托管 {upstreamResourceType:\"CBR\",serviceName:\"svc\",path:\"/api\"}；" +
-              "静态托管 {upstreamResourceType:\"STATIC_STORE\",serviceName:\"staticstore\",path:\"/\"}；" +
-              "禁用路由 {path:\"/\",enable:false}（配合 updateRoute，或直接用 disableRoute）。",
-          ),
-        domain: z
-          .string()
-          .optional()
-          .describe(
-            "域名。省略时自动使用环境 DomainType=HTTPSERVICE 的 IsDefault 默认 HTTP 域名（*.{region}.app.tcloudbase.com），不会回退到静态托管 CDN 域名（*.tcloudbaseapp.com，DomainType=STATIC_STORE）；也不是 STATIC_STORE 上游绑定。" +
-              "可用 queryGateway(action=\"listRoutes\") 核对实际 Domain / DomainType。" +
-              "enableRoute/disableRoute 操作 *.tcloudbaseapp.com 时必须显式传入该域名。" +
-              "已有自定义域名时请显式传入该域名并 createRoute/updateRoute/deleteRoute，即可实现自定义域名访问且无需证书 ID；" +
-              "仅 bindCustomDomain 时表示要新绑定的域名。",
-          ),
+          .describe("gateway.schema.manage.route"),
+        domain: z.string().optional().describe("gateway.schema.manage.domain"),
         certificateId: z
           .string()
           .optional()
-          .describe(
-            "证书 ID。仅 bindCustomDomain 使用：显式传入时跳过自动检索；" +
-              "省略时按 domain 调用 describeCertificates(SearchKey=domain)——" +
-              "单证书自动选用，无证书报错，多证书返回结构化选择指引（MCP 非交互）。" +
-              "在已有自定义域名上 createRoute / updateRoute / deleteRoute 不需要 certificateId。",
-          ),
+          .describe("gateway.schema.manage.certificateId"),
         accessType: z
           .enum(["DIRECT", "CDN", "CUSTOM"])
           .optional()
-          .describe(
-            "绑定类型（仅 bindCustomDomain，默认 DIRECT）。" +
-              "DIRECT=直连（普通绑域名用这个）；CDN=云开发 CDN；CUSTOM=自有 CDN/WAF（需 customCname）。" +
-              "详见 https://docs.cloudbase.net/service/custom-domain",
-          ),
+          .describe("gateway.schema.manage.accessType"),
         customCname: z
           .string()
           .optional()
-          .describe(
-            "自有 CDN/WAF 的回源/回填地址（仅 bindCustomDomain 且 accessType=CUSTOM）。" +
-              "不是 DNS 里用户域名要解析到的那个 CNAME；DIRECT/CDN 不要传。" +
-              "详见 https://docs.cloudbase.net/service/custom-domain",
-          ),
-        enable: z
-          .boolean()
+          .describe("gateway.schema.manage.customCname"),
+        enable: z.boolean().optional().describe("gateway.schema.manage.enable"),
+        cacheType: z
+          .enum(CACHE_TYPES)
           .optional()
-          .describe(
-            "开关目标状态：enableService / authSwitch 必填（true 开启 / false 关闭）；" +
-              "bindCustomDomain 可选：enable=false 表示绑定后禁用域名（默认启用）；" +
-              "updateRoute 可选：映射到 Routes[].Enable（也可用 route.enable，route 优先；" +
-              "也可用专用 action enableRoute/disableRoute）。" +
-              "省略或非布尔值在 enableService/authSwitch 会返回参数错误。",
-          ),
+          .describe("gateway.schema.manage.cacheType"),
+        purgeType: z
+          .enum(PURGE_TYPES)
+          .optional()
+          .describe("gateway.schema.manage.purgeType"),
+        targets: z
+          .array(z.string())
+          .optional()
+          .describe("gateway.schema.manage.targets"),
       },
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
         idempotentHint: false,
-        openWorldHint: true,
+        openWorldHint: false,
         category: "gateway",
       },
     },

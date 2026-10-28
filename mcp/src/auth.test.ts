@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const {
@@ -7,22 +9,52 @@ const {
   mockAuthLogout,
   mockAuthStore,
   authStoreData,
-} = vi.hoisted(() => ({
-  mockAuthGetLoginState: vi.fn(),
-  mockAuthLoginByWebAuth: vi.fn(),
-  mockAuthLoginByApiKey: vi.fn(),
-  mockAuthLogout: vi.fn(),
-  authStoreData: {} as Record<string, any>,
-  mockAuthStore: {
-    get: vi.fn(async (key: string) => authStoreData[key]),
+  cliConfigDir,
+  mockCheckAndGetCredential,
+  projectAuthDir,
+} = vi.hoisted(() => {
+  const { tmpdir } = require("node:os") as typeof import("node:os");
+  const { join: joinPath } = require("node:path") as typeof import("node:path");
+  const authStoreData: Record<string, any> = {};
+  /**
+   * 忠实模拟 @cloudbase/toolbox 的 LocalStore：文件解析结果缓存在 `db` 上，此后只读缓存，
+   * 清掉 `db` 才会重新读盘——这正是被测代码要在 mtime 变化时触发的那一步。
+   * 未设置 `db` 时行为与「每次都读 authStoreData」完全一致，既有用例不受影响。
+   */
+  const mockAuthStore = {
+    db: undefined as Record<string, any> | undefined,
+    get: vi.fn(async (key: string) => {
+      const source = mockAuthStore.db ?? authStoreData;
+      return source[key];
+    }),
     set: vi.fn(async (key: string, value: any) => {
       authStoreData[key] = value;
+      const cache = mockAuthStore.db;
+      if (cache) {
+        cache[key] = value;
+      }
     }),
     delete: vi.fn(async (key: string) => {
       delete authStoreData[key];
+      const cache = mockAuthStore.db;
+      if (cache) {
+        delete cache[key];
+      }
     }),
-  },
-}));
+  };
+  return {
+    mockAuthGetLoginState: vi.fn(),
+    mockAuthLoginByWebAuth: vi.fn(),
+    mockAuthLoginByApiKey: vi.fn(),
+    mockAuthLogout: vi.fn(),
+    authStoreData,
+    cliConfigDir: joinPath(tmpdir(), `cb-mcp-auth-flat-${process.pid}`),
+    mockCheckAndGetCredential: vi.fn(),
+    // 项目级凭据目录：默认不存在 ⇒ 探测一律落空、回落到全局登录态
+    projectAuthDir: joinPath(tmpdir(), `cb-mcp-auth-project-${process.pid}`),
+    mockAuthStore,
+  };
+});
 
 vi.mock("@cloudbase/toolbox", () => ({
   AuthSupervisor: {
@@ -34,8 +66,11 @@ vi.mock("@cloudbase/toolbox", () => ({
     })),
   },
   authStore: mockAuthStore,
+  cloudbaseConfigDir: cliConfigDir,
   resolveCredential: (data: any) => data,
   refreshTmpToken: vi.fn(),
+  checkAndGetCredential: mockCheckAndGetCredential,
+  getProjectDir: vi.fn(() => projectAuthDir),
 }));
 
 vi.mock("./utils/logger.js", () => ({
@@ -67,6 +102,10 @@ vi.mock("./utils/site-map.js", () => {
       const site = normalizeSite(opts?.site) ?? normalizeSite(process.env.TCB_SITE);
       return site === "intl" ? "ap-singapore" : undefined;
     },
+    resolveSiteAndRegion: (opts?: { site?: string; region?: string }) => {
+      const site = normalizeSite(opts?.site) ?? normalizeSite(process.env.TCB_SITE) ?? "domestic";
+      return { site, region: opts?.region ?? "ap-shanghai" };
+    },
     SITE_REGION_MAP: {
       domestic: {
         authHost: "tcb.cloud.tencent.com",
@@ -86,8 +125,13 @@ vi.mock("./utils/tencent-cloud.js", () => ({
 
 beforeEach(() => {
   Object.keys(authStoreData).forEach((key) => delete authStoreData[key]);
+  mockAuthStore.db = undefined;
+  mkdirSync(cliConfigDir, { recursive: true });
+  rmSync(join(cliConfigDir, "config.json"), { force: true });
+  rmSync(projectAuthDir, { recursive: true, force: true });
   vi.clearAllMocks();
   mockAuthGetLoginState.mockResolvedValue(null);
+  mockCheckAndGetCredential.mockResolvedValue(null);
   mockAuthLoginByWebAuth.mockResolvedValue({
     secretId: "sid",
     secretKey: "skey",
@@ -401,7 +445,7 @@ describe("CloudBase API Key env resolution", () => {
     // 国际站腾讯云密钥直登：密钥凭据与站点无关，原样透传，不触发 API Key 换取或 device flow
     process.env.TENCENTCLOUD_SECRETID = "intl-secret-id";
     process.env.TENCENTCLOUD_SECRETKEY = "intl-secret-key";
-    process.env.CLOUDBASE_ENV_ID = "soroli-i2gzw04ic6518ac3a";
+    process.env.CLOUDBASE_ENV_ID = "test-env-0000000000000000";
     process.env.TCB_SITE = "intl";
 
     const { peekLoginState } = await import("./auth.js");
@@ -412,7 +456,7 @@ describe("CloudBase API Key env resolution", () => {
     expect(loginState).toMatchObject({
       secretId: "intl-secret-id",
       secretKey: "intl-secret-key",
-      envId: "soroli-i2gzw04ic6518ac3a",
+      envId: "test-env-0000000000000000",
     });
   });
 
@@ -492,28 +536,26 @@ describe("device auth challenge helpers", () => {
   });
 });
 
-describe("multi-site credential slots", () => {
-  it("should read credential from the intl slot when site=intl", async () => {
+describe("flat credential storage", () => {
+  it("should read the same flat credential for an explicit intl site", async () => {
     authStoreData.credential = {
-      domestic: { secretId: "dom-sid", secretKey: "dom-skey" },
-      intl: {
-        secretId: "intl-sid",
-        secretKey: "intl-skey",
-        envId: "booker-ai-i0gygeljs622ffd23",
-      },
+      secretId: "flat-sid",
+      secretKey: "flat-skey",
+      refreshToken: "rt",
     };
 
     const { peekLoginState } = await import("./auth.js");
     const loginState = await peekLoginState({ site: "intl" });
 
     expect(loginState).toMatchObject({
-      secretId: "intl-sid",
-      secretKey: "intl-skey",
-      envId: "booker-ai-i0gygeljs622ffd23",
+      secretId: "flat-sid",
+      secretKey: "flat-skey",
     });
+    expect(authStoreData.credential).not.toHaveProperty("domestic");
+    expect(authStoreData.credential).not.toHaveProperty("intl");
   });
 
-  it("should treat legacy flat credential as domestic slot", async () => {
+  it("should read a flat credential when no site is requested", async () => {
     authStoreData.credential = {
       secretId: "legacy-sid",
       secretKey: "legacy-skey",
@@ -528,8 +570,35 @@ describe("multi-site credential slots", () => {
     });
   });
 
-  it("should fall back to the only usable slot for ambiguous region without explicit site (issue #960)", async () => {
-    // 国内站账号 device 登录后凭证为 flat（等价 domestic 槽），绑定 ap-singapore 环境
+  it("should keep uin when refreshing an expired temp credential", async () => {
+    authStoreData.credential = {
+      secretId: "old-sid",
+      secretKey: "old-skey",
+      refreshToken: "rt",
+      uin: 123811017,
+      accessTokenExpired: Date.now() - 60_000,
+      expired: Date.now() + 10 * 60_000,
+    };
+    const toolbox = await import("@cloudbase/toolbox");
+    vi.mocked(toolbox.refreshTmpToken).mockResolvedValueOnce({
+      secretId: "new-sid",
+      secretKey: "new-skey",
+      accessTokenExpired: Date.now() + 60 * 60_000,
+    } as any);
+
+    const { peekLoginState } = await import("./auth.js");
+    const loginState = await peekLoginState();
+
+    expect(loginState?.secretId).toBe("new-sid");
+    expect(loginState?.uin).toBe(123811017);
+    expect(authStoreData.credential).toMatchObject({
+      secretId: "new-sid",
+      uin: 123811017,
+    });
+    expect(authStoreData.credential).not.toHaveProperty("domestic");
+  });
+
+  it("should return the flat credential for an ambiguous region", async () => {
     authStoreData.credential = {
       secretId: "flat-sid",
       secretKey: "flat-skey",
@@ -544,88 +613,98 @@ describe("multi-site credential slots", () => {
     });
   });
 
-  it("should fall back to domestic slotted credential for ambiguous region (issue #960)", async () => {
+  it("should keep the flat credential when site is explicit", async () => {
     authStoreData.credential = {
-      domestic: { secretId: "dom-sid", secretKey: "dom-skey" },
-    };
-
-    const { peekLoginState } = await import("./auth.js");
-    const loginState = await peekLoginState({ region: "ap-singapore" });
-
-    expect(loginState).toMatchObject({
-      secretId: "dom-sid",
-      secretKey: "dom-skey",
-    });
-  });
-
-  it("should keep resolved intl slot when both slots have credentials", async () => {
-    authStoreData.credential = {
-      domestic: { secretId: "dom-sid", secretKey: "dom-skey" },
-      intl: { secretId: "intl-sid", secretKey: "intl-skey" },
-    };
-
-    const { peekLoginState } = await import("./auth.js");
-    const loginState = await peekLoginState({ region: "ap-singapore" });
-
-    expect(loginState).toMatchObject({ secretId: "intl-sid" });
-  });
-
-  it("should not fall back across slots when site is explicit (issue #960)", async () => {
-    authStoreData.credential = {
-      domestic: { secretId: "dom-sid", secretKey: "dom-skey" },
+      secretId: "flat-sid",
+      secretKey: "flat-skey",
     };
 
     const { peekLoginState } = await import("./auth.js");
     await expect(
       peekLoginState({ region: "ap-singapore", site: "intl" }),
-    ).resolves.toBeNull();
+    ).resolves.toMatchObject({ secretId: "flat-sid" });
   });
 
-  it("should not fall back across slots when TCB_SITE is set", async () => {
+  it("should collapse a slotted credential to the domestic slot by default", async () => {
+    authStoreData.credential = {
+      domestic: { secretId: "dom-sid", secretKey: "dom-skey" },
+      intl: { secretId: "intl-sid", secretKey: "intl-skey" },
+    };
+
+    const { peekLoginState } = await import("./auth.js");
+    const loginState = await peekLoginState();
+
+    expect(loginState).toMatchObject({ secretId: "dom-sid", secretKey: "dom-skey" });
+    expect(authStoreData.credential).toEqual({
+      secretId: "dom-sid",
+      secretKey: "dom-skey",
+    });
+  });
+
+  it("should collapse a slotted credential to the site selected by TCB_SITE", async () => {
     process.env.TCB_SITE = "intl";
     try {
       authStoreData.credential = {
         domestic: { secretId: "dom-sid", secretKey: "dom-skey" },
+        intl: { secretId: "intl-sid", secretKey: "intl-skey" },
       };
 
       const { peekLoginState } = await import("./auth.js");
-      await expect(peekLoginState({ region: "ap-singapore" })).resolves.toBeNull();
+      const loginState = await peekLoginState();
+
+      expect(loginState).toMatchObject({ secretId: "intl-sid", secretKey: "intl-skey" });
+      expect(authStoreData.credential).toEqual({
+        secretId: "intl-sid",
+        secretKey: "intl-skey",
+      });
     } finally {
       delete process.env.TCB_SITE;
     }
   });
 
-  it("should list only sites with usable credentials", async () => {
-    authStoreData.credential = {
-      domestic: { secretId: "dom-sid", secretKey: "dom-skey" },
-      intl: {},
-    };
+  it("should prefer the intl slot when config.json isIntl is true", async () => {
+    writeFileSync(join(cliConfigDir, "config.json"), JSON.stringify({ isIntl: true, lang: "zh" }));
+    process.env.TCB_SITE = "domestic";
+    try {
+      authStoreData.credential = {
+        domestic: { secretId: "dom-sid", secretKey: "dom-skey" },
+        intl: { secretId: "intl-sid", secretKey: "intl-skey" },
+      };
 
-    const { listUsableCredentialSites } = await import("./auth.js");
-    await expect(listUsableCredentialSites()).resolves.toEqual(["domestic"]);
-  });
+      const { peekLoginState } = await import("./auth.js");
+      const loginState = await peekLoginState();
 
-  it("should not fall back to intl credential when reading default domestic", async () => {
-    authStoreData.credential = {
-      intl: { secretId: "intl-sid", secretKey: "intl-skey" },
-    };
-    mockAuthGetLoginState.mockResolvedValue(null);
-
-    const { peekLoginState } = await import("./auth.js");
-    await expect(peekLoginState()).resolves.toBeNull();
-  });
-
-  it("should write login credential into resolved site slot preserving other slots", async () => {
-    mockAuthGetLoginState
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
+      expect(loginState).toMatchObject({ secretId: "intl-sid" });
+      expect(authStoreData.credential).toEqual({
         secretId: "intl-sid",
         secretKey: "intl-skey",
       });
+    } finally {
+      delete process.env.TCB_SITE;
+    }
+  });
+
+  it("should keep the only usable slot when the preferred slot is empty", async () => {
+    authStoreData.credential = {
+      domestic: {},
+      intl: { secretId: "intl-sid", secretKey: "intl-skey" },
+    };
+
+    const { peekLoginState } = await import("./auth.js");
+    const loginState = await peekLoginState();
+
+    expect(loginState).toMatchObject({ secretId: "intl-sid", secretKey: "intl-skey" });
+    expect(authStoreData.credential).toEqual({
+      secretId: "intl-sid",
+      secretKey: "intl-skey",
+    });
+  });
+
+  it("should leave the toolbox flat credential in place after login", async () => {
     mockAuthLoginByWebAuth.mockImplementation(async () => {
       authStoreData.credential = {
-        secretId: "new-intl-sid",
-        secretKey: "new-intl-skey",
+        tmpSecretId: "new-intl-sid",
+        tmpSecretKey: "new-intl-skey",
         refreshToken: "rt",
       };
       return {
@@ -634,35 +713,56 @@ describe("multi-site credential slots", () => {
         refreshToken: "rt",
       };
     });
-    authStoreData.credential = {
-      domestic: { secretId: "dom-sid", secretKey: "dom-skey" },
-    };
 
     const { ensureLogin } = await import("./auth.js");
     await ensureLogin({ site: "intl" });
 
     expect(authStoreData.credential).toEqual({
-      domestic: { secretId: "dom-sid", secretKey: "dom-skey" },
-      intl: {
-        secretId: "new-intl-sid",
-        secretKey: "new-intl-skey",
-        refreshToken: "rt",
-      },
+      tmpSecretId: "new-intl-sid",
+      tmpSecretKey: "new-intl-skey",
+      refreshToken: "rt",
+    });
+    const { resolveCredential } = await import("@cloudbase/toolbox");
+    expect(resolveCredential(authStoreData.credential)).toMatchObject({
+      tmpSecretId: "new-intl-sid",
+      tmpSecretKey: "new-intl-skey",
     });
   });
 
-  it("should delete only the intl slot on logout and keep domestic", async () => {
+  it("resolveDeviceLoginSite should prefer explicit site over TCB_SITE and region", async () => {
+    const { resolveDeviceLoginSite } = await import("./auth.js");
+
+    process.env.TCB_SITE = "intl";
+    try {
+      // 显式 site 优先
+      expect(
+        resolveDeviceLoginSite({ site: "domestic", region: "ap-singapore" }),
+      ).toBe("domestic");
+      // 无显式 site 时回落 TCB_SITE
+      expect(resolveDeviceLoginSite({ region: "ap-shanghai" })).toBe("intl");
+    } finally {
+      delete process.env.TCB_SITE;
+    }
+    // 均未提供时按 region 映射（ap-singapore 歧义默认 intl），缺省 domestic
+    expect(resolveDeviceLoginSite({ region: "ap-singapore" })).toBe("intl");
+    expect(resolveDeviceLoginSite({ region: "ap-shanghai" })).toBe("domestic");
+    expect(resolveDeviceLoginSite()).toBe("domestic");
+  });
+
+  it("should log out the single credential instead of deleting one slot", async () => {
+    rmSync(projectAuthDir, { recursive: true, force: true });
     authStoreData.credential = {
-      domestic: { secretId: "dom-sid", secretKey: "dom-skey" },
-      intl: { secretId: "intl-sid", secretKey: "intl-skey" },
+      secretId: "flat-sid",
+      secretKey: "flat-skey",
+      refreshToken: "rt",
     };
 
     const { logout } = await import("./auth.js");
     await logout({ site: "intl" });
 
-    expect(authStoreData.credential).toEqual({
-      domestic: { secretId: "dom-sid", secretKey: "dom-skey" },
-    });
+    // 只退账号登录：不传 cwd，避免 toolbox 顺手把项目级凭据一起删掉
+    expect(mockAuthLogout.mock.calls[0]).toHaveLength(0);
+    expect(mockAuthStore.set).not.toHaveBeenCalled();
   });
 
   it("should keep domestic auth host for domestic site with ap-singapore region", async () => {
@@ -759,5 +859,435 @@ describe("multi-site credential slots", () => {
     const getAuthUrl = mockAuthLoginByWebAuth.mock.calls.at(-1)![0].getAuthUrl;
     const url = getAuthUrl("https://tcb.cloud.tencent.com/oauth/authorize?client_id=x");
     expect(url).toContain("https://tcb.cloud.tencent.com/login?_redirect_uri=");
+  });
+});
+
+describe("project-level credential priority", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    delete process.env.CLOUDBASE_API_KEY;
+    delete process.env.CLOUDBASE_APIKEY;
+    delete process.env.CLOUDBASE_ENV_ID;
+    mockAuthGetLoginState.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    delete process.env.CLOUDBASE_API_KEY;
+    delete process.env.CLOUDBASE_APIKEY;
+    delete process.env.CLOUDBASE_ENV_ID;
+  });
+
+  function writeProjectCredential(credential: Record<string, unknown>) {
+    mkdirSync(projectAuthDir, { recursive: true });
+    writeFileSync(join(projectAuthDir, "auth.json"), JSON.stringify({ credential }));
+  }
+
+  it("should prefer the project credential over the global login state", async () => {
+    writeProjectCredential({
+      secretId: "proj-sid",
+      secretKey: "proj-skey",
+      token: "proj-token",
+      envId: "env-project",
+      authSource: "api_key",
+      apiKey: "proj-key",
+    });
+    mockCheckAndGetCredential.mockResolvedValue({
+      secretId: "proj-sid",
+      secretKey: "proj-skey",
+      token: "proj-token",
+      envId: "env-project",
+      authSource: "api_key",
+      apiKey: "proj-key",
+    });
+    // 全局登录态指向另一个环境：项目级必须压过它
+    authStoreData.credential = {
+      secretId: "global-sid",
+      secretKey: "global-skey",
+      envId: "env-global",
+    };
+
+    const { peekLoginState, getCredentialSource } = await import("./auth.js");
+    const loginState = await peekLoginState();
+
+    expect(loginState?.envId).toBe("env-project");
+    expect(getCredentialSource()).toBe("project");
+    // 回填进进程 env，下游 credential_scope / auth_mode 才会跟着变成环境级
+    expect(process.env.CLOUDBASE_API_KEY).toBe("proj-key");
+    expect(process.env.CLOUDBASE_ENV_ID).toBe("env-project");
+  });
+
+  it("should keep reporting project after the env backfill is re-read", async () => {
+    writeProjectCredential({
+      secretId: "proj-sid",
+      secretKey: "proj-skey",
+      envId: "env-project",
+      authSource: "api_key",
+      apiKey: "proj-key",
+    });
+    mockCheckAndGetCredential.mockResolvedValue({
+      secretId: "proj-sid",
+      secretKey: "proj-skey",
+      envId: "env-project",
+      authSource: "api_key",
+      apiKey: "proj-key",
+    });
+    mockAuthLoginByApiKey.mockResolvedValue({
+      secretId: "proj-sid",
+      secretKey: "proj-skey",
+      envId: "env-project",
+    });
+
+    const { peekLoginState, getCredentialSource } = await import("./auth.js");
+    await peekLoginState();
+    // 第二次调用会走 env 分支（env 已被回填），来源不能说成 env
+    await peekLoginState();
+
+    expect(getCredentialSource()).toBe("project");
+  });
+
+  it("should fall back to the global credential when no project file exists", async () => {
+    authStoreData.credential = {
+      secretId: "global-sid",
+      secretKey: "global-skey",
+      envId: "env-global",
+    };
+
+    const { peekLoginState, getCredentialSource } = await import("./auth.js");
+    const loginState = await peekLoginState();
+
+    expect(loginState?.envId).toBe("env-global");
+    expect(getCredentialSource()).toBe("global");
+    expect(mockCheckAndGetCredential).not.toHaveBeenCalled();
+  });
+
+  it("should fall back to the global credential when the project credential is unusable", async () => {
+    writeProjectCredential({
+      secretId: "proj-sid",
+      secretKey: "proj-skey",
+      envId: "env-project",
+      authSource: "api_key",
+      apiKey: "proj-key",
+    });
+    // 换取失败：toolbox 返回 null
+    mockCheckAndGetCredential.mockResolvedValue(null);
+    authStoreData.credential = {
+      secretId: "global-sid",
+      secretKey: "global-skey",
+      envId: "env-global",
+    };
+
+    const { peekLoginState, getCredentialSource } = await import("./auth.js");
+    const loginState = await peekLoginState();
+
+    expect(loginState?.envId).toBe("env-global");
+    expect(getCredentialSource()).toBe("global");
+    expect(process.env.CLOUDBASE_API_KEY).toBeUndefined();
+  });
+
+  it("should ignore a project file without authSource (web/device credential)", async () => {
+    writeProjectCredential({
+      secretId: "proj-sid",
+      secretKey: "proj-skey",
+      envId: "env-project",
+      refreshToken: "rt",
+    });
+    authStoreData.credential = {
+      secretId: "global-sid",
+      secretKey: "global-skey",
+      envId: "env-global",
+    };
+
+    const { peekLoginState, getCredentialSource } = await import("./auth.js");
+    const loginState = await peekLoginState();
+
+    expect(loginState?.envId).toBe("env-global");
+    expect(getCredentialSource()).toBe("global");
+    expect(mockCheckAndGetCredential).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * `logout` 能不能清掉环境变量里那份凭据：只有来自项目级文件的那份才清得掉。
+ * 用户自己在 shell / 宿主配置里设的变量，进程删不掉，工具层只能提示他去源头改。
+ */
+describe("env credential removability for logout", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    delete process.env.CLOUDBASE_API_KEY;
+    delete process.env.CLOUDBASE_APIKEY;
+    delete process.env.CLOUDBASE_ENV_ID;
+    mockAuthGetLoginState.mockResolvedValue(null);
+    mockCheckAndGetCredential.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    rmSync(projectAuthDir, { recursive: true, force: true });
+    delete process.env.CLOUDBASE_API_KEY;
+    delete process.env.CLOUDBASE_APIKEY;
+    delete process.env.CLOUDBASE_ENV_ID;
+  });
+
+  function writeProjectCredential(credential: Record<string, unknown>) {
+    mkdirSync(projectAuthDir, { recursive: true });
+    writeFileSync(join(projectAuthDir, "auth.json"), JSON.stringify({ credential }));
+  }
+
+  it("should be removable when the env credential equals the project-level file", async () => {
+    writeProjectCredential({
+      secretId: "proj-sid",
+      secretKey: "proj-skey",
+      envId: "env-project",
+      authSource: "api_key",
+      apiKey: "proj-key",
+    });
+    process.env.CLOUDBASE_API_KEY = "proj-key";
+    process.env.CLOUDBASE_ENV_ID = "env-project";
+
+    const { isEnvCredentialRemovableByLogout } = await import("./auth.js");
+
+    expect(isEnvCredentialRemovableByLogout()).toBe(true);
+  });
+
+  it("should not be removable for a credential set outside the process", async () => {
+    process.env.CLOUDBASE_API_KEY = "shell-key";
+    process.env.CLOUDBASE_ENV_ID = "env-shell";
+
+    const { isEnvCredentialRemovableByLogout } = await import("./auth.js");
+
+    expect(isEnvCredentialRemovableByLogout()).toBe(false);
+  });
+
+  it("should not be removable when the project file holds a different key", async () => {
+    writeProjectCredential({
+      secretId: "proj-sid",
+      envId: "env-project",
+      authSource: "api_key",
+      apiKey: "other-key",
+    });
+    process.env.CLOUDBASE_API_KEY = "shell-key";
+    process.env.CLOUDBASE_ENV_ID = "env-project";
+
+    const { isEnvCredentialRemovableByLogout } = await import("./auth.js");
+
+    expect(isEnvCredentialRemovableByLogout()).toBe(false);
+  });
+
+  it("should stay removable after adoption even if the project file went away", async () => {
+    writeProjectCredential({
+      secretId: "proj-sid",
+      secretKey: "proj-skey",
+      envId: "env-project",
+      authSource: "api_key",
+      apiKey: "proj-key",
+    });
+    mockCheckAndGetCredential.mockResolvedValue({
+      secretId: "proj-sid",
+      secretKey: "proj-skey",
+      envId: "env-project",
+      authSource: "api_key",
+      apiKey: "proj-key",
+    });
+
+    const { peekLoginState, isEnvCredentialRemovableByLogout } = await import("./auth.js");
+    await peekLoginState();
+    expect(process.env.CLOUDBASE_API_KEY).toBe("proj-key");
+
+    rmSync(join(projectAuthDir, "auth.json"), { force: true });
+
+    expect(isEnvCredentialRemovableByLogout()).toBe(true);
+  });
+
+  it("logout should remove only the project credential and keep the account login", async () => {
+    writeProjectCredential({
+      secretId: "proj-sid",
+      secretKey: "proj-skey",
+      envId: "env-project",
+      authSource: "api_key",
+      apiKey: "proj-key",
+    });
+    mockCheckAndGetCredential.mockResolvedValue({
+      secretId: "proj-sid",
+      secretKey: "proj-skey",
+      envId: "env-project",
+      authSource: "api_key",
+      apiKey: "proj-key",
+    });
+    authStoreData.credential = {
+      secretId: "global-sid",
+      secretKey: "global-skey",
+      envId: "env-global",
+    };
+
+    const { logout, peekLoginState, getCredentialSource } = await import("./auth.js");
+    // 先读一次：项目级凭据被采纳，env 里有了回填值
+    await peekLoginState();
+    expect(process.env.CLOUDBASE_API_KEY).toBe("proj-key");
+
+    const result = await logout();
+
+    expect(result.removed).toEqual(["project"]);
+    expect(existsSync(join(projectAuthDir, "auth.json"))).toBe(false);
+    // 关键：不能连带注销账号登录
+    expect(mockAuthLogout).not.toHaveBeenCalled();
+    expect(process.env.CLOUDBASE_API_KEY).toBeUndefined();
+    // 删掉项目那份之后，账号登录直接接上
+    const afterLogout = await peekLoginState();
+    expect(afterLogout?.envId).toBe("env-global");
+    expect(getCredentialSource()).toBe("global");
+  });
+
+  it("logout should sign out the account when no project credential is in effect", async () => {
+    rmSync(projectAuthDir, { recursive: true, force: true });
+    authStoreData.credential = {
+      secretId: "global-sid",
+      secretKey: "global-skey",
+      envId: "env-global",
+    };
+
+    const { logout } = await import("./auth.js");
+    const result = await logout();
+
+    expect(result.removed).toEqual(["global"]);
+    // 不传 cwd：否则 toolbox 会顺带删掉项目级凭据
+    expect(mockAuthLogout.mock.calls[0]).toHaveLength(0);
+  });
+
+  it("should clear the adopted env and fall back to the account login when the project key stops working", async () => {
+    writeProjectCredential({
+      secretId: "proj-sid",
+      secretKey: "proj-skey",
+      envId: "env-project",
+      authSource: "api_key",
+      apiKey: "proj-key",
+    });
+    mockCheckAndGetCredential.mockResolvedValue({
+      secretId: "proj-sid",
+      secretKey: "proj-skey",
+      envId: "env-project",
+      authSource: "api_key",
+      apiKey: "proj-key",
+    });
+
+    const { peekLoginState, getCredentialSource } = await import("./auth.js");
+    await peekLoginState();
+    expect(process.env.CLOUDBASE_API_KEY).toBe("proj-key");
+
+    // 密钥被撤销：换取失败；此时账号登录仍然有效
+    mockCheckAndGetCredential.mockResolvedValue(null);
+    mockAuthLoginByApiKey.mockRejectedValueOnce(new Error("invalid api key"));
+    authStoreData.credential = {
+      secretId: "global-sid",
+      secretKey: "global-skey",
+      envId: "env-global",
+    };
+
+    const loginState = await peekLoginState();
+
+    expect(loginState?.envId).toBe("env-global");
+    expect(getCredentialSource()).toBe("global");
+    // 失效的 key 不能继续占着 env，否则 start_auth / logout 都会被堵在这条分支上
+    expect(process.env.CLOUDBASE_API_KEY).toBeUndefined();
+    expect(process.env.CLOUDBASE_ENV_ID).toBeUndefined();
+  });
+});
+
+/**
+ * 全局凭据文件 `~/.config/.cloudbase/auth.json` 与 CloudBase CLI 共用一份，
+ * 用户可能在终端里 `tcb login`（宿主连接器的登录按钮跑的也是同一条命令），
+ * 也就是**另一个进程**会重写这个文件。LocalStore 的进程内缓存必须能被感知到，
+ * 否则既读不到外部写入的凭据，写回时还会用陈旧快照把它覆盖掉。
+ */
+describe("global credential cache freshness", () => {
+  const globalAuthFile = join(cliConfigDir, "auth.json");
+  /** 每次写入都推进 mtime，用例之间不依赖执行顺序。 */
+  let mtimeClock = 1_700_000_000_000;
+
+  /**
+   * 写入全局凭据文件，并把 `authStoreData` 同步成「文件当前内容」——
+   * mock 的 `authStore.get()` 在缓存被清掉后会回落到 `authStoreData`，
+   * 等价于真实 LocalStore 重新读盘拿到的值。
+   */
+  function writeGlobalCredential(credential: Record<string, unknown>) {
+    mkdirSync(cliConfigDir, { recursive: true });
+    writeFileSync(globalAuthFile, JSON.stringify({ credential }));
+    mtimeClock += 60_000;
+    const seconds = mtimeClock / 1000;
+    utimesSync(globalAuthFile, seconds, seconds);
+    authStoreData.credential = credential;
+  }
+
+  beforeEach(() => {
+    vi.resetModules();
+    rmSync(globalAuthFile, { force: true });
+    mockAuthStore.db = undefined;
+    delete process.env.CLOUDBASE_API_KEY;
+    delete process.env.CLOUDBASE_APIKEY;
+    delete process.env.CLOUDBASE_ENV_ID;
+    delete process.env.TENCENTCLOUD_SECRETID;
+    delete process.env.TENCENTCLOUD_SECRETKEY;
+    delete process.env.TENCENTCLOUD_SESSIONTOKEN;
+    mockAuthGetLoginState.mockResolvedValue(null);
+    mockCheckAndGetCredential.mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    rmSync(globalAuthFile, { force: true });
+    mockAuthStore.db = undefined;
+  });
+
+  it("should pick up a global credential rewritten by another process", async () => {
+    const { peekLoginState } = await import("./auth.js");
+
+    // 本进程早先读到并缓存了一份凭据
+    writeGlobalCredential({ secretId: "cached-sid", secretKey: "cached-skey" });
+    await peekLoginState();
+    mockAuthStore.db = { credential: authStoreData.credential };
+
+    // 另一个进程重写了同一个文件
+    writeGlobalCredential({ secretId: "external-sid", secretKey: "external-skey" });
+
+    const loginState = await peekLoginState();
+
+    expect(mockAuthStore.db).toBeUndefined();
+    expect(loginState?.secretId).toBe("external-sid");
+  });
+
+  it("should keep the cached credential when the file was not rewritten", async () => {
+    const { peekLoginState } = await import("./auth.js");
+
+    writeGlobalCredential({ secretId: "disk-sid", secretKey: "disk-skey" });
+    await peekLoginState();
+
+    mockAuthStore.db = { credential: { secretId: "cached-sid", secretKey: "cached-skey" } };
+
+    const loginState = await peekLoginState();
+
+    expect(mockAuthStore.db).toEqual({
+      credential: { secretId: "cached-sid", secretKey: "cached-skey" },
+    });
+    expect(loginState?.secretId).toBe("cached-sid");
+  });
+
+  it("should drop the cache before logging out so a stale snapshot cannot overwrite the file", async () => {
+    const { logout, peekLoginState } = await import("./auth.js");
+
+    writeGlobalCredential({ secretId: "cached-sid", secretKey: "cached-skey" });
+    await peekLoginState();
+    mockAuthStore.db = { credential: authStoreData.credential };
+
+    // 外部进程在我们登出之前又写了一次
+    writeGlobalCredential({ secretId: "external-sid", secretKey: "external-skey" });
+
+    // 记录 toolbox 真正执行登出那一刻的缓存状态：失效必须发生在这之前，
+    // 否则登出仍会把本进程启动时的陈旧快照写回盘、覆盖外部凭据。
+    let dbAtLogout: unknown = "logout-not-called";
+    mockAuthLogout.mockImplementationOnce(async () => {
+      dbAtLogout = mockAuthStore.db;
+    });
+
+    await logout();
+
+    expect(dbAtLogout).toBeUndefined();
+    expect(mockAuthStore.db).toBeUndefined();
   });
 });

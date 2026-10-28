@@ -2,8 +2,17 @@ import crypto from 'crypto';
 import http from 'http';
 import https from 'https';
 import os from 'os';
-import { getCachedEnvId } from '../cloudbase-manager.js';
+import { peekLoginState } from '../auth.js';
+import { fetchEnvOwnerUin, getCachedEnvId } from '../cloudbase-manager.js';
 import { CloudBaseOptions } from '../types.js';
+import { isCloudMode } from './cloud-mode.js';
+import {
+    peekLocalEnvBinding,
+    readReportedEnv,
+    type EnvSlot,
+    type EnvSource,
+} from './env-binding.js';
+import { computeDeviceId } from './device-id.js';
 import { debug } from './logger.js';
 import { normalizeSite, resolveSiteAndRegion } from './site-map.js';
 
@@ -16,8 +25,9 @@ declare const __MCP_VERSION__: string;
  * 
  * 隐私保护：
  * - 可通过环境变量 CLOUDBASE_MCP_TELEMETRY_DISABLED=true 完全关闭
- * - 不收集敏感信息（代码内容、具体文件路径等）
- * - 使用设备指纹而非真实用户信息
+ * - 不收集敏感信息（代码内容、具体文件路径、密钥等）
+ * - 设备标识使用匿名设备指纹
+ * - 账号归因使用 `login_uin`（主账号 uin，字段名与 CloudBase CLI 对齐），取不到时上报 unknown
  * - 所有数据仅用于产品改进，不用于其他用途
  */
 class TelemetryReporter {
@@ -94,26 +104,24 @@ class TelemetryReporter {
 
     /**
      * 获取设备唯一标识
-     * 基于主机名、CPU信息和MAC地址生成匿名设备指纹
+     *
+     * 锚点与降级顺序见 `utils/device-id.ts`：优先系统级不可变标识（IOPlatformUUID /
+     * MachineGuid / machine-id），取不到才退到 hostname + CPU + 过滤后的物理网卡 MAC。
+     * 容器里 hostname 每次重建都变、macOS 私有 Wi-Fi 地址让 MAC 随 SSID 漂移，
+     * 两者都不能当锚点 —— 旧实现把它们全拼进去，同一台 Mac 一天能上报成几十个设备。
+     *
+     * 子进程（ioreg / reg）只在这里跑一次（构造时），1s 超时即降级。
      */
     private getDeviceId(): string {
         try {
-            // 获取设备信息组合
-            const deviceInfo = [
-                os.hostname(),
-                os.cpus().map((cpu) => cpu.model).join(','),
-                Object.values(os.networkInterfaces())
-                    .reduce((acc: any[], val) => acc.concat(val || []), [])
-                    .filter((nic: any) => nic && !nic.internal && nic.mac)
-                    .map((nic: any) => nic.mac)
-                    .join(',')
-            ].join('|');
-
-            // 生成SHA256哈希作为设备ID
-            return crypto.createHash('sha256').update(deviceInfo).digest('hex').substring(0, 32);
+            const { deviceId, source } = computeDeviceId();
+            debug('device_id_resolved', { source, deviceId: deviceId.substring(0, 8) + '...' });
+            return deviceId;
         } catch (err) {
-            // 如果获取设备信息失败，生成随机ID
-            return crypto.randomBytes(16).toString('hex');
+            // 走到这里说明连 hostname / CPU 都读不到：用固定串兜底，**绝不能**用随机数
+            // （随机数等于每次启动都是一台新设备，正是这次要消灭的行为）。
+            debug('获取设备标识失败，回落到固定串', err instanceof Error ? err : new Error(String(err)));
+            return crypto.createHash('sha256').update('cloudbase-mcp|no-device-signal').digest('hex').substring(0, 32);
         }
     }
 
@@ -242,35 +250,41 @@ class TelemetryReporter {
 export const telemetryReporter = new TelemetryReporter();
 
 /**
- * 解析环境ID
- * 优先级：传入配置 > envManager缓存 > 环境变量 > unknown
+ * Reports read the current AsyncLocalStorage slot.
+ * They do not re-read envManager or CLOUDBASE_ENV_ID.
+ * An explicit envId on this call is only used when the slot is still empty
+ * (hosted initialized, before a resolver runs, when the request already carried one).
+ *
+ * The source list lives in `env-binding.ts` (`ENV_SOURCES`) — one definition only.
  */
-function resolveEnvId(cloudBaseOptions?: CloudBaseOptions): { envId: string; envIdSource: string } {
-    let envId: string = 'unknown';
-    let envIdSource: string = 'unknown';
-    try {
-        if (cloudBaseOptions?.envId) {
-            envId = cloudBaseOptions.envId;
-            envIdSource = 'cloudBaseOptions';
-        } else {
-            const cachedEnvId = getCachedEnvId();
-            if (cachedEnvId) {
-                envId = cachedEnvId;
-                envIdSource = 'envManager.cachedEnvId';
-            } else if (process.env.CLOUDBASE_ENV_ID) {
-                envId = process.env.CLOUDBASE_ENV_ID;
-                envIdSource = 'process.env.CLOUDBASE_ENV_ID';
-            } else {
-                envId = 'unknown';
-                envIdSource = 'default';
-            }
-        }
-    } catch (err) {
-        debug('获取环境ID失败，遥测数据将使用 unknown', err instanceof Error ? err : new Error(String(err)));
-        envId = 'unknown';
-        envIdSource = 'error';
+function resolveEnvId(cloudBaseOptions?: CloudBaseOptions): { envId: string; envIdSource: EnvSource } {
+    const reported = readReportedEnv();
+    if (reported.envIdSource !== "default") {
+        return reported;
     }
-    return { envId, envIdSource };
+    if (cloudBaseOptions?.envId) {
+        return { envId: cloudBaseOptions.envId, envIdSource: "cloudBaseOptions" };
+    }
+    return { envId: "unknown", envIdSource: "default" };
+}
+
+/**
+ * Stdio start: reuse the login warm (one peekLoginState per process) and one project-file read.
+ * Does not call setEnvId and does not list environments. Cloud mode does not read local files.
+ */
+export async function seedStdioEnvBinding(slot: EnvSlot): Promise<void> {
+    if (isCloudMode()) {
+        return;
+    }
+    await warmLocalLoginState();
+    const loginEnvId = typeof localLoginState?.envId === "string" ? localLoginState.envId : null;
+    const binding = peekLocalEnvBinding({
+        cachedEnvId: getCachedEnvId(),
+        loginEnvId,
+    });
+    if (binding.envId && binding.source !== "default") {
+        slot.binding = binding;
+    }
 }
 
 /** MCP initialize clientInfo fields available after handshake via Server.getClientVersion(). */
@@ -302,16 +316,23 @@ export function extractMcpClientInfo(clientVersion: unknown): McpClientInfo {
 
 /**
  * Read MCP clientInfo from an McpServer after initialize.
- * Returns empty object when handshake has not completed or the accessor is unavailable.
+ * When the handshake client info is empty, use the optional clientInfo passed
+ * into createCloudBaseMcpServer (hosted metadata for a later tools/call).
+ * Returns empty object when neither source has a name or version.
  */
 export function readMcpClientInfoFromServer(server: {
     server?: { getClientVersion?: () => unknown };
+    clientInfo?: { name?: string; version?: string };
 }): McpClientInfo {
     try {
-        return extractMcpClientInfo(server?.server?.getClientVersion?.());
+        const fromHandshake = extractMcpClientInfo(server?.server?.getClientVersion?.());
+        if (fromHandshake.name || fromHandshake.version || fromHandshake.title) {
+            return fromHandshake;
+        }
     } catch {
-        return {};
+        // Handshake accessor threw; fall through to the explicit hint.
     }
+    return extractMcpClientInfo(server?.clientInfo);
 }
 
 /**
@@ -387,6 +408,235 @@ function appendMcpClientInfoFields(
     }
 }
 
+// ---- MCP 客户端能力（capabilities）----
+//
+// 为什么要有：灯塔侧原本只记「客户端是谁」（mcpClientName / ide），**没有任何字段承载
+// 「它声明了什么能力」** ⇒ 本地 stdio 的支持矩阵完全空白，elicitation / MCP Apps 铺不铺
+// 只能靠远程日志外推（两条实现未必一致）。远程能从 CLS 事后翻 `initialize` 的
+// clientInfo，本地是我们自己的进程 —— 声明本来就在手上，不记白不记。
+
+/** MCP Apps（SEP-1865）扩展标识：宿主与服务端**双向声明**才谈得上渲染 */
+export const MCP_UI_EXTENSION = 'io.modelcontextprotocol/ui';
+
+/**
+ * 归一化后的客户端能力（字段名保持语义，报表侧再映射到列）。
+ * `undefined` = 握手未完成，与「握手完成但什么都没声明」必须分开：
+ * 后者是客户端事实，前者只是我们还没拿到。
+ */
+export type McpClientCapabilities = {
+    /** 表单模式 elicitation（客户端声明 `elicitation:{}` 或 `elicitation.form`） */
+    elicitationForm: boolean;
+    /** URL 模式 elicitation（凭据跳转用；本期不做，只记录） */
+    elicitationUrl: boolean;
+    /** 声明了 MCP Apps 扩展 */
+    ui: boolean;
+    roots: boolean;
+    sampling: boolean;
+    /** 报表友好摘要：`none` 或稳定排序的逗号串（elicitation:form / elicitation:url / ui / roots / sampling） */
+    summary: string;
+};
+
+/** 把 `getClientCapabilities()` 的原始值压成可上报的形状 */
+export function extractClientCapabilities(raw: unknown): McpClientCapabilities | undefined {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        return undefined;
+    }
+    const caps = raw as Record<string, any>;
+    const elicitation =
+        caps.elicitation && typeof caps.elicitation === 'object' && !Array.isArray(caps.elicitation)
+            ? (caps.elicitation as Record<string, unknown>)
+            : undefined;
+    const extensions =
+        caps.extensions && typeof caps.extensions === 'object' && !Array.isArray(caps.extensions)
+            ? (caps.extensions as Record<string, unknown>)
+            : undefined;
+
+    const elicitationForm = Boolean(elicitation?.form);
+    const elicitationUrl = Boolean(elicitation?.url);
+    const ui = Boolean(extensions && MCP_UI_EXTENSION in extensions);
+    const roots = Boolean(caps.roots);
+    const sampling = Boolean(caps.sampling);
+
+    const present: string[] = [];
+    // 声明了 elicitation 但两个模式都没识别出来（例如只写了未知子字段）：记一个不带模式的名字，
+    // 不要伪造成 form —— 上报宁可少一个维度，也不能多一个假的。
+    if (elicitation && !elicitationForm && !elicitationUrl) {
+        present.push('elicitation');
+    }
+    if (elicitationForm) {
+        present.push('elicitation:form');
+    }
+    if (elicitationUrl) {
+        present.push('elicitation:url');
+    }
+    if (ui) {
+        present.push('ui');
+    }
+    if (roots) {
+        present.push('roots');
+    }
+    if (sampling) {
+        present.push('sampling');
+    }
+
+    return {
+        elicitationForm,
+        elicitationUrl,
+        ui,
+        roots,
+        sampling,
+        summary: present.length > 0 ? present.join(',') : 'none',
+    };
+}
+
+/**
+ * 从 McpServer 读客户端能力。**每次工具调用都读**（不是只记首次）：
+ * SDK 在 initialize 后缓存，读取是纯内存操作；每次都记的好处是同一会话内
+ * 客户端能力变化（重连换客户端）不会只反映在第一条上。
+ *
+ * ⚠️ 与 `readMcpClientInfoFromServer` **同源同风险**：值挂在 server 实例上，而
+ * hosted/cloud 模式若把 McpServer 实例跨请求复用，读到的可能是**上一次** initialize
+ * 的值（与 BFF 的 `Already connected` 同一片区域 —— 实例生命周期没隔离）。
+ * 协议层没有按请求携带 clientInfo 的通道，这里不可能读得更准；要修得连同
+ * `mcpClientName` 一起在 BFF 侧修实例隔离。发现能力分布明显串味时先从那里查。
+ */
+export function readClientCapabilitiesFromServer(server: {
+    server?: { getClientCapabilities?: () => unknown };
+}): McpClientCapabilities | undefined {
+    try {
+        return extractClientCapabilities(server?.server?.getClientCapabilities?.());
+    } catch {
+        return undefined;
+    }
+}
+
+function appendMcpClientCapabilityFields(
+    eventData: { [key: string]: any },
+    capabilities?: McpClientCapabilities,
+) {
+    if (!capabilities) {
+        return;
+    }
+    eventData.mcpCaps = capabilities.summary;
+    eventData.mcpCapsElicitation = capabilities.elicitationForm ? 'true' : 'false';
+    eventData.mcpCapsUi = capabilities.ui ? 'true' : 'false';
+}
+
+// ---- 账号级归因（login_uin）----
+// 缓存键必须能区分凭证身份：hosted 是单进程多租户（网关按凭证缓存 MCP server 实例，
+// 同进程内并存多个租户），无键的进程级缓存会把 A 账号的 uin 上报到 B 账号的事件上。
+const MAX_UIN_CACHE_ENTRIES = 100;
+const uinBySecretId = new Map<string, string>();
+
+/** uin 归一化为纯数字字符串；非法值一律视为取不到 */
+function normalizeUin(value: unknown): string | undefined {
+    if (typeof value === 'number') {
+        // 19 位「大 uin」超出 Number.MAX_SAFE_INTEGER，以数字传递时已被 JS 精度截断
+        // （4611686018428325038 -> 4611686018428325000）。上报一个错号的危害大于上报
+        // unknown，因此丢弃这类值——调用方应以字符串传递 uin。
+        if (!Number.isSafeInteger(value) || value <= 0) {
+            return undefined;
+        }
+        return String(value);
+    }
+    if (typeof value !== 'string') {
+        return undefined;
+    }
+    const cleaned = value.trim();
+    return /^\d+$/.test(cleaned) ? cleaned : undefined;
+}
+
+function rememberUin(secretId: string, uin: string) {
+    if (uinBySecretId.size >= MAX_UIN_CACHE_ENTRIES && !uinBySecretId.has(secretId)) {
+        const oldest = uinBySecretId.keys().next();
+        if (!oldest.done) {
+            uinBySecretId.delete(oldest.value);
+        }
+    }
+    uinBySecretId.set(secretId, uin);
+}
+
+// 本地登录态只解析一次：peekLoginState 可能触发临时密钥续期（网络调用 + 写回凭证），
+// 不能挂在每次上报上，更不能挡住进程退出。
+let localLoginState: Awaited<ReturnType<typeof peekLoginState>> = null;
+let localLoginResolvePromise: Promise<void> | null = null;
+let localUinCached: string | undefined;
+
+async function warmLocalLoginState(): Promise<void> {
+    if (localLoginResolvePromise) {
+        return localLoginResolvePromise;
+    }
+    localLoginResolvePromise = (async () => {
+        try {
+            const state = await peekLoginState();
+            localLoginState = state;
+            localUinCached = normalizeUin(state?.uin);
+        } catch (err) {
+            debug('解析本地登录态失败，遥测账号归因取不到 uin', err instanceof Error ? err : new Error(String(err)));
+        }
+    })();
+    return localLoginResolvePromise;
+}
+
+/**
+ * 解析上报用的主账号 uin（字段名 login_uin，与 CloudBase CLI 对齐）。
+ *
+ * 取值优先级：
+ * 1. `cloudBaseOptions.uin`——宿主显式注入（hosted 由宿主从 OAuth token 解出），零额外调用；
+ * 2. 本地登录态（仅非 cloud mode 进程；cloud mode 是多租户共享进程，不做本地读取以免串号）；
+ * 3. `DescribeEnvInfo` 兜底——环境级凭证自身不带 uin，但该只读接口会返回主账号 uin，
+ *    结果按 secretId 隔离缓存。
+ *
+ * `allowResolve: false` 时只读已注入/已缓存的值，用于退出等不允许等待的路径。
+ * 任何失败一律降级为 'unknown'，绝不抛错、绝不阻塞工具调用。
+ */
+export async function resolveLoginUin(
+    cloudBaseOptions?: CloudBaseOptions,
+    options?: { allowResolve?: boolean },
+): Promise<string> {
+    const allowResolve = options?.allowResolve !== false;
+
+    const injected = normalizeUin(cloudBaseOptions?.uin);
+    if (injected) {
+        return injected;
+    }
+
+    const explicitSecretId = cloudBaseOptions?.secretId;
+    const inCloudMode = isCloudMode();
+
+    if (!explicitSecretId && !inCloudMode && allowResolve) {
+        await warmLocalLoginState();
+    }
+    if (!explicitSecretId && localUinCached) {
+        return localUinCached;
+    }
+
+    const secretId = explicitSecretId ?? (inCloudMode ? undefined : localLoginState?.secretId);
+    const cached = secretId ? uinBySecretId.get(secretId) : undefined;
+    if (cached) {
+        return cached;
+    }
+
+    if (!allowResolve || !secretId) {
+        return 'unknown';
+    }
+
+    const { region } = resolveTelemetrySiteRegion(cloudBaseOptions);
+    const probed = await fetchEnvOwnerUin({
+        secretId,
+        secretKey: explicitSecretId ? cloudBaseOptions?.secretKey : localLoginState?.secretKey,
+        token: explicitSecretId ? cloudBaseOptions?.token : localLoginState?.token,
+        envId: cloudBaseOptions?.envId ?? localLoginState?.envId,
+        region,
+    });
+    if (probed) {
+        rememberUin(secretId, probed);
+        return probed;
+    }
+
+    return 'unknown';
+}
+
 // 便捷方法
 export const reportToolCall =  async (params: {
     toolName: string;
@@ -395,10 +645,20 @@ export const reportToolCall =  async (params: {
     duration?: number;
     error?: string;
     inputParams?: any; // 入参上报
+    /** 工具级 action（如 auth 的 status/set_env），用于区分"同一个工具做了什么" */
+    action?: string;
     cloudBaseOptions?: CloudBaseOptions; // 新增：CloudBase 配置选项
     ide?: string; // 新增：集成IDE信息
     client?: string; // 新增：MCP client 来源标识（hosted 场景由上游解析传入）
     mcpClientInfo?: McpClientInfo; // MCP initialize clientInfo
+    mcpClientCapabilities?: McpClientCapabilities; // MCP initialize capabilities（本地支持矩阵的唯一来源）
+    /**
+     * `auth` 的「环境准备」结果（只有 auth 会给，其余工具恒为 undefined）。
+     * 为什么必须上报：无环境的用户到底卡在购买页、实名、还是 CAM 授权，
+     * payload 里分得很清楚，但没进埋点之前，三种情况在数据里长得一模一样。
+     */
+    envSetupStatus?: string;
+    envSetupFailReason?: string;
 }) => {
     const {
         nodeVersion,
@@ -411,6 +671,7 @@ export const reportToolCall =  async (params: {
     // 安全获取环境ID，优先使用传入的配置
     const { envId, envIdSource } = resolveEnvId(params.cloudBaseOptions);
     const siteRegion = resolveTelemetrySiteRegion(params.cloudBaseOptions);
+    const loginUin = await resolveLoginUin(params.cloudBaseOptions);
     debug('[telemetry] 工具调用 envId 获取结果', {
         toolName: params.toolName,
         envId,
@@ -427,14 +688,31 @@ export const reportToolCall =  async (params: {
         duration: params.duration !== undefined ? String(params.duration) : undefined,
         error: params.error ? params.error.substring(0, 200) : undefined ,// 限制错误信息长度
         envId: envId || 'unknown',
+        // 取值来源（cloudBaseOptions / envManager.cachedEnvId / process.env / default）：
+        // 这一列就是「envId 为什么是 unknown」的判据，别再靠猜
+        envIdSource,
         region: siteRegion.region,
         site: siteRegion.site,
+        login_uin: loginUin,
         nodeVersion,
         osType,
         osRelease,
         arch,
         mcpVersion
     };
+
+    // 工具级 action：不再依赖 inputParams 前 500 字符去猜"做了什么"
+    if (params.action !== undefined) {
+        eventData.action = params.action;
+    }
+
+    // 环境准备结果：拿不到就不占列（与能力字段同一纪律，不写 unknown 假值）
+    if (params.envSetupStatus !== undefined) {
+        eventData.envSetupStatus = params.envSetupStatus;
+    }
+    if (params.envSetupFailReason !== undefined) {
+        eventData.envSetupFailReason = params.envSetupFailReason;
+    }
 
     // 添加入参信息（如果提供）
     if (params.inputParams !== undefined) {
@@ -462,6 +740,7 @@ export const reportToolCall =  async (params: {
     }
 
     appendMcpClientInfoFields(eventData, params.mcpClientInfo);
+    appendMcpClientCapabilityFields(eventData, params.mcpClientCapabilities);
 
     // Debug: 打印最终上报参数
     debug('[telemetry] 工具调用上报参数', {
@@ -475,6 +754,154 @@ export const reportToolCall =  async (params: {
     });
 
     telemetryReporter.report('toolkit_tool_call', eventData);
+};
+
+// ---- elicitation 结果 ----
+//
+// 为什么单独一个事件而不是挂在 toolkit_tool_call 上：一次工具调用里 elicitation 可能
+// 发出、被拒、超时各记一条，挂在工具调用上要么丢信息、要么撑爆工具调用事件的列。
+//
+// 本地是唯一能测「表单弹出 → 用户作答」的地方（远程只能看到能力声明），
+// 所以这四个 phase 就是本地验证场的验收口径：requested / accepted / declined / timeout，
+// 另加 unsupported（客户端没声明，压根没弹）与 error（协议层异常）用于区分
+// 「没弹」和「弹了没人答」—— 这两件事的处置完全不同。
+export type ElicitationPhase =
+    | 'requested'
+    | 'accepted'
+    | 'declined'
+    | 'timeout'
+    | 'unsupported'
+    | 'error';
+
+export const reportElicitationResult = async (params: {
+    phase: ElicitationPhase;
+    /** 表单字段名，用于区分是哪一个引导问题 */
+    field: string;
+    /** 选项个数（选择题） */
+    optionCount: number;
+    /** 发起 elicitation 的工具名（如 auth） */
+    toolName?: string;
+    /** requested → 终态 的耗时（ms），仅终态上报 */
+    durationMs?: number;
+    /** 用户选择的值，仅 accepted */
+    value?: string;
+    error?: string;
+    cloudBaseOptions?: CloudBaseOptions;
+    ide?: string;
+    client?: string;
+    mcpClientInfo?: McpClientInfo;
+    mcpClientCapabilities?: McpClientCapabilities;
+}) => {
+    const {
+        nodeVersion,
+        osType,
+        osRelease,
+        arch,
+        mcpVersion
+    } = telemetryReporter.getUserAgent();
+
+    const { envId } = resolveEnvId(params.cloudBaseOptions);
+    const siteRegion = resolveTelemetrySiteRegion(params.cloudBaseOptions);
+    const loginUin = await resolveLoginUin(params.cloudBaseOptions);
+
+    const eventData: { [key: string]: any } = {
+        phase: params.phase,
+        field: params.field,
+        optionCount: String(params.optionCount),
+        toolName: params.toolName,
+        duration: params.durationMs !== undefined ? String(params.durationMs) : undefined,
+        value: params.value,
+        // 与工具调用同一套截断规则，避免长错误撑爆列
+        error: params.error ? params.error.substring(0, 200) : undefined,
+        envId: envId || 'unknown',
+        region: siteRegion.region,
+        site: siteRegion.site,
+        login_uin: loginUin,
+        nodeVersion,
+        osType,
+        osRelease,
+        arch,
+        mcpVersion,
+    };
+
+    if (params.ide) {
+        eventData.ide = params.ide;
+    }
+    const client = resolveClientName(params.client);
+    if (client) {
+        eventData.client = client;
+    }
+    appendMcpClientInfoFields(eventData, params.mcpClientInfo);
+    appendMcpClientCapabilityFields(eventData, params.mcpClientCapabilities);
+
+    telemetryReporter.report('toolkit_elicitation', eventData);
+};
+
+// ---- UI 资源读取 ----
+//
+// 为什么单独一个事件：MCP Apps 的一期落点是 `resources/read ui://cloudbase/get-started`，
+// 而在此之前资源读**零埋点**——声明了扩展也无法证明"客户端真的来拉了"。
+// 这个事件只回答两个问题：是否出现 `ui://cloudbase/*` 的读取、带什么体积/时延/成败。
+// 它证明不了"被渲染"（渲染率需客户端侧观测点），所以只用作"声明→拉取"闭环的证据。
+export const reportResourceRead = async (params: {
+    /** 被读取的资源 URI（如 ui://cloudbase/get-started） */
+    resourceUri: string;
+    /** resources/read 返回的 mimeType */
+    mimeType: string;
+    /** 返回内容的字节数（utf8） */
+    bytes: number;
+    /** 从进入 read 回调到组包完成的耗时（ms） */
+    durationMs: number;
+    success: boolean;
+    error?: string;
+    cloudBaseOptions?: CloudBaseOptions;
+    ide?: string;
+    client?: string;
+    mcpClientInfo?: McpClientInfo;
+    mcpClientCapabilities?: McpClientCapabilities;
+}) => {
+    const {
+        nodeVersion,
+        osType,
+        osRelease,
+        arch,
+        mcpVersion
+    } = telemetryReporter.getUserAgent();
+
+    const { envId } = resolveEnvId(params.cloudBaseOptions);
+    const siteRegion = resolveTelemetrySiteRegion(params.cloudBaseOptions);
+    const loginUin = await resolveLoginUin(params.cloudBaseOptions);
+
+    const eventData: { [key: string]: any } = {
+        resourceUri: params.resourceUri,
+        mimeType: params.mimeType,
+        bytes: String(params.bytes),
+        duration: String(params.durationMs),
+        success: params.success ? 'true' : 'false',
+        // 与工具调用同一套截断规则，避免长错误撑爆列
+        error: params.error ? params.error.substring(0, 200) : undefined,
+        envId: envId || 'unknown',
+        region: siteRegion.region,
+        site: siteRegion.site,
+        login_uin: loginUin,
+        nodeVersion,
+        osType,
+        osRelease,
+        arch,
+        mcpVersion,
+    };
+
+    if (params.ide) {
+        eventData.ide = params.ide;
+    }
+    const client = resolveClientName(params.client);
+    if (client) {
+        eventData.client = client;
+    }
+    appendMcpClientInfoFields(eventData, params.mcpClientInfo);
+    appendMcpClientCapabilityFields(eventData, params.mcpClientCapabilities);
+
+    telemetryReporter.report('toolkit_resource_read', eventData);
 };
 
 // Toolkit 生命周期上报
@@ -499,6 +926,15 @@ export const reportToolkitLifecycle = async (params: {
     // 安全获取环境ID，优先使用传入的配置
     const { envId, envIdSource } = resolveEnvId(params.cloudBaseOptions);
     const siteRegion = resolveTelemetrySiteRegion(params.cloudBaseOptions);
+    // `start` 在进程最早期发出：此时既没有宿主注入的 uin，也还没人 warm 过本地登录态。
+    // 卡死 `allowResolve: false` 就只能读到空缓存 → 恒 'unknown'（2026-10-26 实测：这一列
+    // 有真实 uin 的行是 0）。start 允许解析：`warmLocalLoginState()` 进程内只跑一次
+    // （读本地 auth.json；临时密钥过期时可能续期一次，与工具调用本来就要付的开销同源），
+    // 不会挂到每次上报上。
+    // `exit` 仍保持不允许 —— 退出路径不能等，拿不到就是 unknown，`start` 那次已经把值带出去了。
+    const loginUin = await resolveLoginUin(params.cloudBaseOptions, {
+        allowResolve: params.event !== 'exit',
+    });
     debug('[telemetry] 生命周期事件 envId 获取结果', {
         event: params.event,
         envId,
@@ -514,8 +950,12 @@ export const reportToolkitLifecycle = async (params: {
         exitCode: params.exitCode !== undefined ? String(params.exitCode) : undefined,
         error: params.error ? params.error.substring(0, 200) : undefined, // 限制错误信息长度
         envId: envId || 'unknown',
+        // 取值来源（cloudBaseOptions / envManager.cachedEnvId / process.env / default）：
+        // 这一列就是「envId 为什么是 unknown」的判据，别再靠猜
+        envIdSource,
         region: siteRegion.region,
         site: siteRegion.site,
+        login_uin: loginUin,
         nodeVersion,
         osType,
         osRelease,
@@ -542,6 +982,86 @@ export const reportToolkitLifecycle = async (params: {
         eventData,
         envIdSource
     });
+
+    telemetryReporter.report('toolkit_lifecycle', eventData);
+};
+
+/**
+ * 会话建立（initialize 握手完成、收到 `initialized` 通知）后上报**一次**。
+ *
+ * **为什么复用 `toolkit_lifecycle` 而不是加新事件名**：上报通道是 Beacon 的
+ * `events[].eventCode` + `mapValue`，本仓的 `report()` 对 `eventCode` 没有任何白名单/枚举校验，
+ * `mapValue` 里的键也全是自由字段（现有事件已经在往里塞 `mcpCaps` / `mcpCapsUi` 这类键）。
+ *
+ * 边界（**已验证 / 未验证要分清**）：
+ *   - **本地已验证**：客户端侧不拦——`eventCode` 是 `string` 参数、无校验无映射表，
+ *     `event` 只是 `mapValue` 里的一个键；
+ *   - **未验证**：Beacon 后端是否接受同一个 `eventCode` 的第三个 `event` 取值、
+ *     是否丢弃未知键/取值（POST 返回 2xx ≠ 入库）。要确认只能上线用一条真实会话观测：
+ *     看 `toolkit_lifecycle` 里有没有 `event=initialized`。
+ *
+ * **这条上报补的是分母**：进程级 `start` 发生在握手之前（那时拿不到 client 与能力），
+ * 因此"连过多少客户端 / 多少会话声明了 elicitation 或 ui"本来算不出来。与 `start` 的差别只有三处：
+ *   - `event` 取值 `'initialized'`；
+ *   - 不带 `duration` / `exitCode` / `error`（那是进程级的概念）；
+ *   - **挂上 `appendMcpClientCapabilityFields`** —— 能力只有握手完成后才拿得到。
+ *
+ * 纪律：**fire-and-forget**（调用方不 await）；**遥测关闭时不发送**（唯一网络边界是 `report()`，
+ * 它在 disabled 时第一行就 return；测试环境在 vitest 配置里关掉，因此测试里不会真的出网）；
+ * **拿不到的字段一律留空**，
+ * 不臆造（例如 `protocolVersion`：本版 SDK 的 Server 只存 capabilities 与 clientInfo，
+ * 不保留协商后的协议版本，因此这里不报它）。
+ */
+export const reportToolkitSessionInitialized = async (params: {
+    cloudBaseOptions?: CloudBaseOptions;
+    ide?: string;
+    client?: string;
+    mcpClientInfo?: McpClientInfo;
+    mcpClientCapabilities?: McpClientCapabilities;
+}) => {
+    const {
+        nodeVersion,
+        osType,
+        osRelease,
+        arch,
+        mcpVersion
+    } = telemetryReporter.getUserAgent();
+
+    const { envId, envIdSource } = resolveEnvId(params.cloudBaseOptions);
+    const siteRegion = resolveTelemetrySiteRegion(params.cloudBaseOptions);
+    // 与 `start` 同理：`initialized` 紧跟在 `start` 之后，也是不允许等的分支就会白报一条 unknown。
+    // 这里放开解析；若 `start` 已经 warm 过，这一句直接命中进程内缓存，零额外成本。
+    const loginUin = await resolveLoginUin(params.cloudBaseOptions);
+
+    const eventData: { [key: string]: any } = {
+        event: 'initialized',
+        envId: envId || 'unknown',
+        envIdSource,
+        region: siteRegion.region,
+        site: siteRegion.site,
+        login_uin: loginUin,
+        nodeVersion,
+        osType,
+        osRelease,
+        arch,
+        mcpVersion
+    };
+
+    if (params.ide) {
+        eventData.ide = params.ide;
+    }
+
+    const sessionClient = resolveClientName(params.client);
+    if (sessionClient) {
+        eventData.client = sessionClient;
+    }
+
+    // 握手后才有：client 名称/版本
+    appendMcpClientInfoFields(eventData, params.mcpClientInfo);
+    // 握手后才有：能力摘要（这一支是这条上报存在的理由）
+    appendMcpClientCapabilityFields(eventData, params.mcpClientCapabilities);
+
+    debug('[telemetry] 会话 initialized 上报参数', { eventData });
 
     telemetryReporter.report('toolkit_lifecycle', eventData);
 };

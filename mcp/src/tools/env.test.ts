@@ -8,6 +8,7 @@ import {
   formatEnvMetricTime,
   isUsableNoSqlDatabaseEntry,
   registerEnvTools,
+  resolveCreateEnvResources,
   resolveEnvMetricName,
   resolveEnvMetricPeriod,
   resolveEnvMetricResourceId,
@@ -16,6 +17,8 @@ import {
   resolveEnvUsageModules,
   summarizeEnvMetricCurve,
 } from "./env.js";
+import { t, type MessageKey } from "../i18n/index.js";
+import { resolveSiteAndRegion } from "../utils/site-map.js";
 import type { ExtendedMcpServer } from "../server.js";
 
 const {
@@ -25,11 +28,10 @@ const {
   mockGetAuthConfigValidationError,
   mockSupervisorLoginByWebAuth,
   mockEnsureLogin,
-  mockEnsureSlottedCredential,
-  mockListUsableCredentialSites,
   mockPeekLoginState,
   mockGetAuthProgressState,
   mockLogout,
+  mockIsEnvCredentialRemovableByLogout,
   mockEnvManagerSetEnvId,
   mockGetCachedEnvId,
   mockListAvailableEnvCandidates,
@@ -40,6 +42,7 @@ const {
   mockResolveAuthOptions,
   mockCheckAndInitTcbService,
   mockCheckAndCreateFreeEnv,
+  authStoreData,
 } = vi.hoisted(() => ({
   mockBuildAuthConfigSummary: vi.fn((options: any) => ({
     auth_mode: options.authMode,
@@ -85,11 +88,10 @@ const {
   }),
   mockSupervisorLoginByWebAuth: vi.fn(),
   mockEnsureLogin: vi.fn(),
-  mockEnsureSlottedCredential: vi.fn().mockResolvedValue({}),
-  mockListUsableCredentialSites: vi.fn().mockResolvedValue([]),
   mockPeekLoginState: vi.fn(),
   mockGetAuthProgressState: vi.fn(),
-  mockLogout: vi.fn(),
+  mockLogout: vi.fn(async () => ({ removed: ["global"] })),
+  mockIsEnvCredentialRemovableByLogout: vi.fn(() => false),
   mockEnvManagerSetEnvId: vi.fn(),
   mockGetCachedEnvId: vi.fn(),
   mockListAvailableEnvCandidates: vi.fn(),
@@ -120,15 +122,33 @@ const {
       !options.serverAuthOptions?.oauthEndpoint &&
       !(options.serverAuthOptions?.oauthCustom ?? false),
   })),
+  authStoreData: {} as Record<string, any>,
 }));
 
-vi.mock("@cloudbase/toolbox", () => ({
-  AuthSupervisor: {
-    getInstance: vi.fn(() => ({
-      loginByWebAuth: mockSupervisorLoginByWebAuth,
-    })),
-  },
-}));
+vi.mock("@cloudbase/toolbox", () => {
+  // `auth.ts` 用 toolbox 的 `cloudbaseConfigDir` 定位共用凭据文件，缺这个导出会让
+  // 本文件（以及任何 spread 真实 `auth.js` 的 mock）在加载阶段直接失败。
+  const { tmpdir } = require("node:os") as typeof import("node:os");
+  const { join } = require("node:path") as typeof import("node:path");
+  return {
+    AuthSupervisor: {
+      getInstance: vi.fn(() => ({
+        loginByWebAuth: mockSupervisorLoginByWebAuth,
+      })),
+    },
+    authStore: {
+      get: vi.fn(async (key: string) => authStoreData[key]),
+      set: vi.fn(async (key: string, value: any) => {
+        authStoreData[key] = value;
+      }),
+      delete: vi.fn(async (key: string) => {
+        delete authStoreData[key];
+      }),
+    },
+    // 只被 `join()` 用来拼路径，后续 walk 都有 try/catch ⇒ 目录不存在也无妨
+    cloudbaseConfigDir: join(tmpdir(), `cb-env-test-config-${process.pid}`),
+  };
+});
 
 vi.mock("../auth.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../auth.js")>();
@@ -138,14 +158,13 @@ vi.mock("../auth.js", async (importOriginal) => {
     buildDeviceAuthChallengePayload: mockBuildDeviceAuthChallengePayload,
     buildVerificationUriComplete: mockBuildVerificationUriComplete,
     ensureLogin: mockEnsureLogin,
-    ensureSlottedCredential: mockEnsureSlottedCredential,
-    listUsableCredentialSites: mockListUsableCredentialSites,
     getAuthConfigValidationError: mockGetAuthConfigValidationError,
     getCloudBaseApiKeyFromEnv: () =>
       process.env.CLOUDBASE_API_KEY || process.env.CLOUDBASE_APIKEY || undefined,
     peekLoginState: mockPeekLoginState,
     getAuthProgressState: mockGetAuthProgressState,
     logout: mockLogout,
+    isEnvCredentialRemovableByLogout: mockIsEnvCredentialRemovableByLogout,
     rejectAuthProgressState: vi.fn(),
     resolveAuthOptions: mockResolveAuthOptions,
     resolveAuthProgressState: vi.fn(),
@@ -175,7 +194,11 @@ vi.mock("./env-setup.js", () => ({
   checkAndCreateFreeEnv: mockCheckAndCreateFreeEnv,
 }));
 
-function createMockServer(ide = "TestIDE", authOptions?: any) {
+function createMockServer(
+  ide = "TestIDE",
+  authOptions?: any,
+  cloudBaseOptions?: Record<string, unknown>,
+) {
   const tools: Record<
     string,
     {
@@ -185,7 +208,10 @@ function createMockServer(ide = "TestIDE", authOptions?: any) {
   > = {};
 
   const server: ExtendedMcpServer = {
-    cloudBaseOptions: { envId: "env-test", region: "ap-guangzhou" },
+    cloudBaseOptions: cloudBaseOptions ?? {
+      envId: "env-test",
+      region: "ap-guangzhou",
+    },
     authOptions,
     ide,
     server: {
@@ -211,6 +237,7 @@ describe("env tools - auth", () => {
   let tools: ReturnType<typeof createMockServer>["tools"];
   const originalCloudbaseEnvId = process.env.CLOUDBASE_ENV_ID;
   const originalTcbRegion = process.env.TCB_REGION;
+  const originalTcbSite = process.env.TCB_SITE;
   const originalApiKey = process.env.CLOUDBASE_API_KEY;
 
   beforeEach(() => {
@@ -237,7 +264,7 @@ describe("env tools - auth", () => {
         createEnvError: {
           code: "NoPromotionalActivity",
           message: "当前账号不符合免费环境创建条件，请手动创建环境",
-          helpUrl: "https://buy.cloud.tencent.com/lowcode?buyType=tcb&channel=mcp",
+          helpUrl: "https://buy.cloud.tencent.com/CloudBase?buyType=tcb&region=ap-shanghai&sqlType=pg",
         },
       },
     }));
@@ -268,6 +295,11 @@ describe("env tools - auth", () => {
       delete process.env.TCB_REGION;
     } else {
       process.env.TCB_REGION = originalTcbRegion;
+    }
+    if (originalTcbSite === undefined) {
+      delete process.env.TCB_SITE;
+    } else {
+      process.env.TCB_SITE = originalTcbSite;
     }
     if (originalApiKey === undefined) {
       delete process.env.CLOUDBASE_API_KEY;
@@ -399,6 +431,44 @@ describe("env tools - auth", () => {
       tool: "auth",
       action: "status",
     });
+  });
+
+  it("auth(action=status) should surface device-flow failure instead of masking it as REQUIRED", async () => {
+    const lastError = "Request failed with status 500 (mock device-flow polling error)";
+    mockGetAuthProgressState.mockResolvedValue({
+      status: "ERROR",
+      lastError,
+      updatedAt: Date.now(),
+    });
+
+    const result = await tools.auth.handler({ action: "status" });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload).toHaveProperty("auth_status", "ERROR");
+    expect(payload).toHaveProperty("auth_error", lastError);
+    expect(payload).toHaveProperty("ok", true);
+    expect(payload.next_step).toMatchObject({
+      tool: "auth",
+      action: "start_auth",
+    });
+  });
+
+  it("auth(action=status) should surface expired device code as EXPIRED", async () => {
+    mockGetAuthProgressState.mockResolvedValue({
+      status: "EXPIRED",
+      lastError: "设备码已过期，请重新发起授权",
+      updatedAt: Date.now(),
+    });
+
+    const result = await tools.auth.handler({ action: "status" });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload).toHaveProperty("auth_status", "EXPIRED");
+    expect(payload).toHaveProperty(
+      "auth_error",
+      "设备码已过期，请重新发起授权",
+    );
+    expect(payload).not.toHaveProperty("auth_challenge");
   });
 
   it("auth(action=status) should report NOT_NEEDED when login already has envId", async () => {
@@ -537,7 +607,7 @@ describe("env tools - auth", () => {
       initTcbError: {
         code: "RealNameAuthRequired",
         message: "当前账号需要先完成实名认证",
-        helpUrl: "https://buy.cloud.tencent.com/lowcode?buyType=tcb&channel=mcp",
+        helpUrl: "https://buy.cloud.tencent.com/CloudBase?buyType=tcb&region=ap-shanghai&sqlType=pg",
         needRealNameAuth: true,
       },
     }));
@@ -553,7 +623,7 @@ describe("env tools - auth", () => {
         reason: "tcb_init_failed",
         error_code: "RealNameAuthRequired",
         need_real_name_auth: true,
-        help_url: "https://buy.cloud.tencent.com/lowcode?buyType=tcb&channel=mcp",
+        help_url: "https://buy.cloud.tencent.com/CloudBase?buyType=tcb&region=ap-shanghai&sqlType=pg",
       },
     });
     expect(payload.env_setup_actions).toEqual(
@@ -579,7 +649,7 @@ describe("env tools - auth", () => {
       env_setup_failure: {
         reason: "env_creation_failed",
         error_code: "NoPromotionalActivity",
-        help_url: "https://buy.cloud.tencent.com/lowcode?buyType=tcb&channel=mcp",
+        help_url: "https://buy.cloud.tencent.com/CloudBase?buyType=tcb&region=ap-shanghai&sqlType=pg",
       },
     });
   });
@@ -761,6 +831,96 @@ describe("env tools - auth", () => {
     }
   });
 
+  it("auth(action=start_auth, site=intl) should switch to intl route even when TCB_SITE is unset", async () => {
+    mockPeekLoginState.mockResolvedValue(null);
+    mockSupervisorLoginByWebAuth.mockImplementation(
+      async ({ onDeviceCode }: { onDeviceCode: (info: any) => void }) => {
+        onDeviceCode({
+          user_code: "WDJB-MJHT",
+          verification_uri:
+            "https://tcb.cloud.tencent.com/dev#/cli-auth?from=cli&flow=device",
+          device_code: "device-code",
+          expires_in: 600,
+        });
+        return new Promise(() => {});
+      },
+    );
+
+    const result = await tools.auth.handler({
+      action: "start_auth",
+      authMode: "device",
+      site: "intl",
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload).toHaveProperty("code", "AUTH_PENDING");
+    const callArgs = mockSupervisorLoginByWebAuth.mock.calls.at(-1)![0];
+    expect(callArgs.getOAuthEndpoint("ignored")).toBe(
+      "https://tcb-api.tencentcloud.com/qcloud-tcb/v1/oauth",
+    );
+    expect(
+      callArgs.getAuthUrl(
+        "https://tcb.cloud.tencent.com/dev#/cli-auth?from=cli&flow=device",
+      ),
+    ).toBe("https://tcb.tencentcloud.com/dev#/cli-auth?from=cli&flow=device");
+    // 站点写入环境变量，供本次登录后续环节与后续工具调用按同一站点解析
+    expect(process.env.TCB_SITE).toBe("intl");
+  });
+
+  it("auth(action=start_auth, site=intl) should leave the toolbox flat credential unchanged", async () => {
+    mockPeekLoginState.mockResolvedValue(null);
+    mockSupervisorLoginByWebAuth.mockImplementation(
+      async ({ onDeviceCode }: { onDeviceCode: (info: any) => void }) => {
+        onDeviceCode({
+          user_code: "WDJB-MJHT",
+          verification_uri: "https://example.com/device",
+          device_code: "device-code",
+          expires_in: 600,
+        });
+        // 模拟 toolbox：登录成功后把新凭证以 flat 格式写入 credential
+        authStoreData.credential = {
+          secretId: "intl-sid",
+          secretKey: "intl-skey",
+          refreshToken: "rt",
+        };
+        return {
+          secretId: "intl-sid",
+          secretKey: "intl-skey",
+          refreshToken: "rt",
+        };
+      },
+    );
+
+    const result = await tools.auth.handler({
+      action: "start_auth",
+      authMode: "device",
+      site: "intl",
+    });
+    const payload = JSON.parse(result.content[0].text);
+    expect(payload).toHaveProperty("code", "AUTH_PENDING");
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(authStoreData.credential).toEqual({
+      secretId: "intl-sid",
+      secretKey: "intl-skey",
+      refreshToken: "rt",
+    });
+    expect(authStoreData.credential).not.toHaveProperty("domestic");
+    expect(authStoreData.credential).not.toHaveProperty("intl");
+  });
+
+  it("auth(action=status, site=<invalid>) should reject invalid site value", async () => {
+    const result = await tools.auth.handler({
+      action: "status",
+      site: "us-east",
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload).toHaveProperty("code", "INVALID_ARGS");
+    // 断言按词典键构造（语言无关），避免把用例绑死在中文字面量上
+    expect(payload.message).toBe(t("env.auth.invalidSite", { site: "us-east" }));
+  });
+
   it("auth(action=start_auth, authMode=web) should continue environment preparation after login", async () => {
     mockPeekLoginState.mockResolvedValue(null);
     mockEnsureLogin.mockResolvedValue({
@@ -833,7 +993,7 @@ describe("env tools - auth", () => {
       { envId: "env-shanghai", alias: "sh", region: "ap-shanghai" },
     ]);
     mockResolveEnvCandidateByEnvId.mockResolvedValue({
-      envId: "alfred-test-sg-d7gxpjc7g94e84f6c",
+      envId: "test-env-0000000000000000",
       alias: "sg",
       region: "ap-singapore",
     });
@@ -841,16 +1001,16 @@ describe("env tools - auth", () => {
     const { tools: localTools, server } = createMockServer();
     const result = await localTools.auth.handler({
       action: "set_env",
-      envId: "alfred-test-sg-d7gxpjc7g94e84f6c",
+      envId: "test-env-0000000000000000",
     });
     const payload = JSON.parse(result.content[0].text);
 
     expect(payload).toMatchObject({
       code: "ENV_READY",
-      current_env_id: "alfred-test-sg-d7gxpjc7g94e84f6c",
+      current_env_id: "test-env-0000000000000000",
       current_region: "ap-singapore",
     });
-    expect(mockEnvManagerSetEnvId).toHaveBeenCalledWith("alfred-test-sg-d7gxpjc7g94e84f6c");
+    expect(mockEnvManagerSetEnvId).toHaveBeenCalledWith("test-env-0000000000000000");
     expect(server.cloudBaseOptions?.region).toBe("ap-singapore");
     expect(process.env.TCB_REGION).toBe("ap-singapore");
   });
@@ -890,6 +1050,7 @@ describe("env tools - auth", () => {
     const payload = JSON.parse(result.content[0].text);
 
     expect(payload).toHaveProperty("code", "LOGGED_OUT");
+    expect(payload).toHaveProperty("removed_scopes", ["global"]);
     expect(payload.next_step).toBeUndefined();
     expect(mockLogout).toHaveBeenCalled();
     expect(mockResetCloudBaseManagerCache).toHaveBeenCalled();
@@ -950,15 +1111,55 @@ describe("env tools - auth", () => {
       })),
     );
 
-    const result = await tools.auth.handler({ action: "status" });
-    const payload = JSON.parse(result.content[0].text);
+    // 面板现在是 opt-in：要验 _meta 必须先打开
+    const previous = process.env.CLOUDBASE_MCP_UI;
+    process.env.CLOUDBASE_MCP_UI = "on";
+    try {
+      const result = await tools.auth.handler({ action: "status" });
+      const payload = JSON.parse(result.content[0].text);
 
-    expect(payload.env_candidates).toHaveLength(20);
-    expect(payload.env_candidates_summary).toMatchObject({
-      total: 25,
-      returned: 20,
-      truncated: true,
-    });
+      expect(payload.env_candidates).toHaveLength(20);
+      expect(payload.env_candidates_summary).toMatchObject({
+        total: 25,
+        returned: 20,
+        truncated: true,
+      });
+
+      // 面板要显示全部，模型只该看到摘要：完整列表走 _meta（宿主给 view、不给模型）
+      const metaCandidates = result._meta?.["cloudbase/ui"]?.env_candidates;
+      expect(metaCandidates).toHaveLength(25);
+      expect(metaCandidates[0]).toMatchObject({ envId: "env-1" });
+      // 文本载荷里不能出现第 21 个，否则省 token 就白省了
+      expect(result.content[0].text).not.toContain("env-21");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.CLOUDBASE_MCP_UI;
+      } else {
+        process.env.CLOUDBASE_MCP_UI = previous;
+      }
+    }
+  });
+
+  it("面板默认关闭：不设环境变量时 status 不带 _meta，工具照常工作", async () => {
+    mockPeekLoginState.mockResolvedValue({ secretId: "sid", secretKey: "skey" });
+    mockListAvailableEnvCandidates.mockResolvedValue(
+      Array.from({ length: 3 }, (_, index) => ({ envId: `env-${index + 1}`, alias: `alias-${index + 1}` })),
+    );
+
+    const previous = process.env.CLOUDBASE_MCP_UI;
+    delete process.env.CLOUDBASE_MCP_UI;
+    try {
+      const result = await tools.auth.handler({ action: "status" });
+      expect(result._meta).toBeUndefined();
+      // 工具照常工作，只是不挂面板
+      expect(JSON.parse(result.content[0].text).code).toBe("STATUS");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.CLOUDBASE_MCP_UI;
+      } else {
+        process.env.CLOUDBASE_MCP_UI = previous;
+      }
+    }
   });
 
   it("auth(action=login_by_api_key) should validate required args", async () => {
@@ -967,7 +1168,25 @@ describe("env tools - auth", () => {
 
     expect(payload).toHaveProperty("ok", false);
     expect(payload).toHaveProperty("code", "INVALID_ARGS");
-    expect(payload.message).toContain("apiKey 和 envId");
+    expect(payload.message).toContain("apiKey 和 apiKeyEnvId");
+    // 提示里的字段名必须是实现真正读取的那一个（rawArgs.apiKeyEnvId），
+    // 否则模型照着 next_step 重试会一直卡在 INVALID_ARGS。
+    expect(payload.next_step.suggested_args).toHaveProperty("apiKeyEnvId");
+    expect(payload.next_step.suggested_args).not.toHaveProperty("envId");
+  });
+
+  it("auth(action=login_by_api_key) suggested_args should be replayable without INVALID_ARGS", async () => {
+    // 回归：next_step.suggested_args 曾写成 envId，而实现只读 apiKeyEnvId，
+    // 于是「照提示重试」必然再次 INVALID_ARGS —— 模型陷入死循环。
+    const invalid = await tools.auth.handler({ action: "login_by_api_key" });
+    const invalidPayload = JSON.parse(invalid.content[0].text);
+    const suggested = invalidPayload.next_step.suggested_args;
+
+    // 把提示里的参数原样回传，必须能进入真实登录流程（而不是再次被判缺参）
+    const replayed = await tools.auth.handler({ ...suggested });
+    const replayedPayload = JSON.parse(replayed.content[0].text);
+
+    expect(replayedPayload.code).not.toBe("INVALID_ARGS");
   });
 
   it("auth(action=login_by_api_key) should succeed when peekLoginState returns credentials", async () => {
@@ -1036,6 +1255,8 @@ describe("env tools - auth", () => {
 
     expect(payload).toHaveProperty("ok", false);
     expect(payload).toHaveProperty("code", "API_KEY_AUTH_FAILED");
+    // 三个 next_step 出口都要给出实现真正读取的字段名，只锁一处会漏掉回归
+    expect(payload.next_step.suggested_args).toHaveProperty("apiKeyEnvId");
 
     // env vars should be cleaned up on failure
     expect(process.env.CLOUDBASE_API_KEY).toBeUndefined();
@@ -1055,6 +1276,8 @@ describe("env tools - auth", () => {
     expect(payload).toHaveProperty("ok", false);
     expect(payload).toHaveProperty("code", "API_KEY_AUTH_FAILED");
     expect(payload.message).toContain("network error");
+    // 异常出口同样要给出实现真正读取的字段名
+    expect(payload.next_step.suggested_args).toHaveProperty("apiKeyEnvId");
 
     // env vars should be cleaned up on exception
     expect(process.env.CLOUDBASE_API_KEY).toBeUndefined();
@@ -1098,15 +1321,153 @@ describe("env tools - auth", () => {
       expect(payload).toHaveProperty("ok", false);
       expect(payload).toHaveProperty("code", "LOGOUT_NOT_ALLOWED");
       expect(payload).toHaveProperty("auth_mode", "api_key");
+      // 提示里要点明是哪个变量在起作用，用户才知道去哪儿删
+      expect(payload.message).toContain("CLOUDBASE_APIKEY");
+      expect(mockLogout).not.toHaveBeenCalled();
     } finally {
       delete process.env.CLOUDBASE_APIKEY;
       delete process.env.CLOUDBASE_ENV_ID;
     }
   });
+
+  it("auth(action=logout) should log out when the env credential comes from the project file", async () => {
+    process.env.CLOUDBASE_API_KEY = "proj-key";
+    process.env.CLOUDBASE_ENV_ID = "env-project";
+    mockIsEnvCredentialRemovableByLogout.mockReturnValue(true);
+    mockLogout.mockResolvedValueOnce({ removed: ["project"] });
+
+    try {
+      const result = await tools.auth.handler({
+        action: "logout",
+        confirm: "yes",
+      });
+      const payload = JSON.parse(result.content[0].text);
+
+      expect(mockLogout).toHaveBeenCalledTimes(1);
+      expect(payload).toHaveProperty("ok", true);
+      expect(payload).toHaveProperty("code", "LOGGED_OUT");
+      // 只清项目那份，账号登录保留：文案要说清，别让人以为整机都退了
+      expect(payload).toHaveProperty("removed_scopes", ["project"]);
+      expect(payload.message).toBe(t("env.auth.loggedOutProject"));
+    } finally {
+      mockIsEnvCredentialRemovableByLogout.mockReturnValue(false);
+      delete process.env.CLOUDBASE_API_KEY;
+      delete process.env.CLOUDBASE_ENV_ID;
+    }
+  });
+
+  it("auth(action=start_auth) should say how to switch away from a project API Key", async () => {
+    process.env.CLOUDBASE_API_KEY = "proj-key";
+    process.env.CLOUDBASE_ENV_ID = "env-project";
+    mockIsEnvCredentialRemovableByLogout.mockReturnValue(true);
+    mockPeekLoginState.mockResolvedValue({
+      secretId: "sid",
+      secretKey: "skey",
+      token: "token",
+      envId: "env-project",
+    });
+
+    try {
+      const result = await tools.auth.handler({ action: "start_auth" });
+      const payload = JSON.parse(result.content[0].text);
+
+      expect(payload).toHaveProperty("code", "AUTH_READY");
+      expect(payload.message).toContain(t("env.auth.apiKeySwitchHintRemovable"));
+      expect(payload.next_step).toMatchObject({ tool: "auth", action: "logout" });
+    } finally {
+      mockIsEnvCredentialRemovableByLogout.mockReturnValue(false);
+      delete process.env.CLOUDBASE_API_KEY;
+      delete process.env.CLOUDBASE_ENV_ID;
+    }
+  });
+
+  it("auth(action=start_auth) should name the external variable when it cannot be removed", async () => {
+    process.env.CLOUDBASE_API_KEY = "shell-key";
+    process.env.CLOUDBASE_ENV_ID = "env-project";
+    mockIsEnvCredentialRemovableByLogout.mockReturnValue(false);
+    mockPeekLoginState.mockResolvedValue({
+      secretId: "sid",
+      secretKey: "skey",
+      token: "token",
+      envId: "env-project",
+    });
+
+    try {
+      const result = await tools.auth.handler({ action: "start_auth" });
+      const payload = JSON.parse(result.content[0].text);
+
+      expect(payload).toHaveProperty("code", "AUTH_READY");
+      expect(payload.message).toContain(
+        t("env.auth.apiKeySwitchHintExternal", { varName: "CLOUDBASE_API_KEY" }),
+      );
+      expect(payload.next_step).toBeUndefined();
+    } finally {
+      delete process.env.CLOUDBASE_API_KEY;
+      delete process.env.CLOUDBASE_ENV_ID;
+    }
+  });
+
+  it("auth(action=start_auth) should go on to device login when the project key was dropped", async () => {
+    process.env.CLOUDBASE_API_KEY = "proj-key";
+    process.env.CLOUDBASE_ENV_ID = "env-project";
+    mockIsEnvCredentialRemovableByLogout.mockReturnValue(true);
+    // 模拟 auth.ts 的处理：回填的那份换不出临时密钥 → 清 env → 继续往下解析
+    mockPeekLoginState.mockImplementation(async () => {
+      delete process.env.CLOUDBASE_API_KEY;
+      delete process.env.CLOUDBASE_ENV_ID;
+      return null;
+    });
+    mockSupervisorLoginByWebAuth.mockImplementation(
+      async ({ onDeviceCode }: { onDeviceCode: (info: any) => void }) => {
+        onDeviceCode({
+          user_code: "WDJB-MJHT",
+          verification_uri: "https://example.com/device",
+          device_code: "device-code",
+          expires_in: 600,
+        });
+        return new Promise(() => {});
+      },
+    );
+
+    try {
+      const result = await tools.auth.handler({ action: "start_auth", authMode: "device" });
+      const payload = JSON.parse(result.content[0].text);
+
+      // 旧 key 作废不该只报「换取失败」，要能直接接着登
+      expect(payload).toHaveProperty("code", "AUTH_PENDING");
+      expect(payload.auth_challenge).toMatchObject({ user_code: "WDJB-MJHT" });
+    } finally {
+      mockIsEnvCredentialRemovableByLogout.mockReturnValue(false);
+      mockSupervisorLoginByWebAuth.mockReset();
+      mockPeekLoginState.mockReset();
+      delete process.env.CLOUDBASE_API_KEY;
+      delete process.env.CLOUDBASE_ENV_ID;
+    }
+  });
+
+  it("auth(action=start_auth) should offer logout when the API Key exchange fails", async () => {
+    process.env.CLOUDBASE_API_KEY = "proj-key";
+    process.env.CLOUDBASE_ENV_ID = "env-project";
+    mockIsEnvCredentialRemovableByLogout.mockReturnValue(true);
+    mockPeekLoginState.mockResolvedValue(null);
+
+    try {
+      const result = await tools.auth.handler({ action: "start_auth" });
+      const payload = JSON.parse(result.content[0].text);
+
+      expect(payload).toHaveProperty("code", "API_KEY_AUTH_FAILED");
+      expect(payload.message).toContain(t("env.auth.apiKeySwitchHintRemovable"));
+      expect(payload.next_step).toMatchObject({ tool: "auth", action: "logout" });
+    } finally {
+      mockIsEnvCredentialRemovableByLogout.mockReturnValue(false);
+      delete process.env.CLOUDBASE_API_KEY;
+      delete process.env.CLOUDBASE_ENV_ID;
+    }
+  });
 });
 
-describe("env tools - envQuery", () => {
-  const originalCloudbaseEnvId_envQuery = process.env.CLOUDBASE_ENV_ID;
+describe("env tools - queryEnv", () => {
+  const originalCloudbaseEnvIdQueryEnv = process.env.CLOUDBASE_ENV_ID;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1127,14 +1488,14 @@ describe("env tools - envQuery", () => {
   });
 
   afterEach(() => {
-    if (originalCloudbaseEnvId_envQuery !== undefined) {
-      process.env.CLOUDBASE_ENV_ID = originalCloudbaseEnvId_envQuery;
+    if (originalCloudbaseEnvIdQueryEnv !== undefined) {
+      process.env.CLOUDBASE_ENV_ID = originalCloudbaseEnvIdQueryEnv;
     } else {
       delete process.env.CLOUDBASE_ENV_ID;
     }
   });
 
-  it("envQuery(list) should support alias filters, pagination and field selection", async () => {
+  it("queryEnv(list) should support alias filters, pagination and field selection", async () => {
     mockGetCloudBaseManager.mockResolvedValue({
       commonService: vi.fn(() => ({
         call: vi.fn().mockResolvedValue({
@@ -1204,7 +1565,7 @@ describe("env tools - envQuery", () => {
     expect(payload.credential_scope).toBe("account");
   });
 
-  it("envQuery(list) should support exact alias filtering when requested", async () => {
+  it("queryEnv(list) should support exact alias filtering when requested", async () => {
     mockGetCloudBaseManager.mockResolvedValue({
       commonService: vi.fn(() => ({
         call: vi.fn().mockResolvedValue({
@@ -1256,7 +1617,7 @@ describe("env tools - envQuery", () => {
     });
   });
 
-  it("envQuery(list) should keep current-env restriction only when no explicit filter is provided", async () => {
+  it("queryEnv(list) should keep current-env restriction only when no explicit filter is provided", async () => {
     mockGetCloudBaseManager.mockResolvedValue({
       commonService: vi.fn(() => ({
         call: vi.fn().mockResolvedValue({
@@ -1287,11 +1648,11 @@ describe("env tools - envQuery", () => {
     });
   });
 
-  it("envQuery(list) should pass region through to CloudBase manager", async () => {
+  it("queryEnv(list) should pass region through to CloudBase manager", async () => {
     const commonServiceCall = vi.fn().mockResolvedValue({
       EnvList: [
         {
-          EnvId: "alfred-test-sg-d7gxpjc7g94e84f6c",
+          EnvId: "test-env-0000000000000000",
           Alias: "sg",
           Region: "ap-singapore",
           Status: "NORMAL",
@@ -1322,7 +1683,7 @@ describe("env tools - envQuery", () => {
         }),
       }),
     );
-    expect(payload.EnvList[0].EnvId).toBe("alfred-test-sg-d7gxpjc7g94e84f6c");
+    expect(payload.EnvList[0].EnvId).toBe("test-env-0000000000000000");
     expect(payload.AppliedFilters.region).toBe("ap-singapore");
     expect(payload.AppliedFilters.currentEnvOnly).toBe(false);
     expect(payload.query_region).toBe("ap-singapore");
@@ -1337,7 +1698,7 @@ describe("env tools - envQuery", () => {
     ]);
   });
 
-  it("envQuery(list) should use DescribeEnvInfo when CLOUDBASE_ENV_ID is set", async () => {
+  it("queryEnv(list) should use DescribeEnvInfo when CLOUDBASE_ENV_ID is set", async () => {
     process.env.CLOUDBASE_ENV_ID = "env-test";
 
     const describeEnvInfo = vi.fn().mockResolvedValue({
@@ -1366,7 +1727,7 @@ describe("env tools - envQuery", () => {
     ]);
   });
 
-  it("envQuery(info) should preserve detailed fields such as PackageId", async () => {
+  it("queryEnv(info) should preserve detailed fields such as PackageId", async () => {
     const getEnvInfo = vi.fn().mockResolvedValue({
       EnvInfo: {
         EnvId: "env-test",
@@ -1425,7 +1786,7 @@ describe("env tools - envQuery", () => {
     });
   });
 
-  it("envQuery(info) should project staticDomainRouteEnabled without rewriting StaticDomain", async () => {
+  it("queryEnv(info) should project staticDomainRouteEnabled without rewriting StaticDomain", async () => {
     const describeHttpServiceRoute = vi.fn().mockResolvedValue({
       Domains: [
         {
@@ -1487,7 +1848,7 @@ describe("env tools - envQuery", () => {
     });
   });
 
-  it("envQuery(info) should set staticDomainRouteEnabled=true when default hosting route is enabled", async () => {
+  it("queryEnv(info) should set staticDomainRouteEnabled=true when default hosting route is enabled", async () => {
     mockGetCloudBaseManager.mockResolvedValue({
       env: {
         getEnvInfo: vi.fn().mockResolvedValue({
@@ -1539,7 +1900,7 @@ describe("env tools - envQuery", () => {
     expect(payload.EnvInfo.routeDisabled).toBeUndefined();
   });
 
-  it("envQuery(info) RuntimeBackends.nosql should require usable Databases InstanceId", async () => {
+  it("queryEnv(info) RuntimeBackends.nosql should require usable Databases InstanceId", async () => {
     const cases: Array<{
       name: string;
       envInfo: Record<string, unknown>;
@@ -1644,7 +2005,7 @@ describe("env tools - envQuery", () => {
     // ListTables(Tag=<InstanceId>) succeeded for each of these tnt values.
     const liveDatabases = [
       {
-        envId: "ai-9gra12b5b6a3c966",
+        envId: "test-env-0000000000000000",
         entry: {
           InstanceId: "tnt-88yexwqcw",
           Status: "RUNNING",
@@ -1652,7 +2013,7 @@ describe("env tools - envQuery", () => {
         },
       },
       {
-        envId: "ai-native-d1ggefhgb8c27e3e8",
+        envId: "test-env-0000000000000000",
         entry: {
           InstanceId: "tnt-n8pjn7tiu",
           Status: "RUNNING",
@@ -1660,7 +2021,7 @@ describe("env tools - envQuery", () => {
         },
       },
       {
-        envId: "ai-share-d2guukyxybb63b206",
+        envId: "test-env-0000000000000000",
         entry: {
           InstanceId: "tnt-0svnxv8c6",
           Status: "RUNNING",
@@ -1680,7 +2041,7 @@ describe("env tools - envQuery", () => {
       false,
     );
     expect(
-      [{}, { Bucket: "6169-ai-native-d1ggefhgb8c27e3e8-1251119057" }].some(
+      [{}, { Bucket: "6169-test-env-0000000000000000-1251119057" }].some(
         isUsableNoSqlDatabaseEntry,
       ),
     ).toBe(false);
@@ -1689,7 +2050,7 @@ describe("env tools - envQuery", () => {
     ).toBe(false);
   });
 
-  it("envQuery(info) should prefer explicit envId over cached binding", async () => {
+  it("queryEnv(info) should prefer explicit envId over cached binding", async () => {
     mockGetCloudBaseManager.mockResolvedValue({
       env: {
         getEnvInfo: vi.fn().mockResolvedValue({
@@ -1717,7 +2078,7 @@ describe("env tools - envQuery", () => {
     );
   });
 
-  it("envQuery(domains) should include local development host:port guidance", async () => {
+  it("queryEnv(domains) should include local development host:port guidance", async () => {
     mockGetCloudBaseManager.mockResolvedValue({
       env: {
         getEnvAuthDomains: vi.fn().mockResolvedValue({
@@ -1764,7 +2125,7 @@ describe("env tools - envQuery", () => {
     expect(payload.Domains[0]).toHaveProperty("CreateTime");
   });
 
-  it("envQuery(domains) should report configured local entries without inferring completeness", async () => {
+  it("queryEnv(domains) should report configured local entries without inferring completeness", async () => {
     mockGetCloudBaseManager.mockResolvedValue({
       env: {
         getEnvAuthDomains: vi.fn().mockResolvedValue({
@@ -1794,6 +2155,155 @@ describe("env tools - envQuery", () => {
       action: "addSecurityDomain",
       domains: ["<actual-browser-host>:<actual-browser-port>"],
     });
+  });
+
+  it("queryEnv(domains) should resolve the manager against the requested envId", async () => {
+    mockGetCloudBaseManager.mockResolvedValue({
+      env: {
+        getEnvAuthDomains: vi.fn().mockResolvedValue({ Domains: [] }),
+      },
+    });
+
+    const { tools } = createMockServer();
+    await tools.queryEnv.handler({ action: "domains", envId: "env-override" });
+
+    expect(mockGetCloudBaseManager).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cloudBaseOptions: expect.objectContaining({
+          envId: "env-override",
+        }),
+      }),
+    );
+  });
+
+  it("queryEnv(list) should report region as ignored under env-scoped credentials", async () => {
+    mockGetCloudBaseManager.mockResolvedValue({
+      env: {
+        describeEnvInfo: vi.fn().mockResolvedValue({
+          EnvInfo: {
+            EnvBaseInfo: {
+              EnvId: "env-test",
+              Alias: "bound",
+              Region: "ap-singapore",
+            },
+          },
+        }),
+      },
+      commonService: vi.fn(() => ({
+        call: vi.fn().mockResolvedValue({ EnvList: [] }),
+      })),
+    });
+
+    const { server, tools } = createMockServer();
+    (server as any).cloudBaseOptions.credentialScope = "env";
+
+    const payload = JSON.parse(
+      (await tools.queryEnv.handler({ action: "list", region: "ap-shanghai" })).content[0].text,
+    );
+
+    expect(payload.credential_scope).toBe("single_env");
+    expect(payload.EnvList).toEqual([
+      { EnvId: "env-test", Alias: "bound", Region: "ap-singapore" },
+    ]);
+    // region 没有参与查询：不得回显成「已按 ap-shanghai 过滤」
+    expect(payload.AppliedFilters.region).toBeNull();
+    expect(payload.AppliedFilters.currentEnvOnly).toBe(true);
+    // query_region 表示结果实际落在哪：pinned 分支要用绑定环境自身的 Region，
+    // 而不是凭据/配置默认地域（本例配置是 ap-guangzhou，环境在 ap-singapore）
+    expect(payload.query_region).toBe("ap-singapore");
+    expect(payload.ignored_params).toEqual([
+      {
+        name: "region",
+        value: "ap-shanghai",
+        reason: "环境级凭证为单环境权限，region 不参与查询；结果恒为绑定环境",
+      },
+    ]);
+    expect(payload.scope_note).toContain('已忽略 region="ap-shanghai"');
+  });
+
+  it("queryEnv(list) should still report region when account-level credentials apply it", async () => {
+    mockGetCloudBaseManager.mockResolvedValue({
+      commonService: vi.fn(() => ({
+        call: vi.fn().mockResolvedValue({
+          EnvList: [{ EnvId: "env-other", Alias: "other", Region: "ap-shanghai" }],
+        }),
+      })),
+      env: { listEnvs: vi.fn() },
+    });
+
+    const { tools } = createMockServer();
+    const payload = JSON.parse(
+      (await tools.queryEnv.handler({ action: "list", region: "ap-shanghai" })).content[0].text,
+    );
+
+    expect(payload.credential_scope).toBe("account");
+    expect(payload.AppliedFilters.region).toBe("ap-shanghai");
+    expect(payload.query_region).toBe("ap-shanghai");
+    expect(payload.ignored_params).toBeUndefined();
+  });
+
+  it("queryEnv(list) should not report ignored_params when region is absent on the pinned path", async () => {
+    process.env.CLOUDBASE_ENV_ID = "env-test";
+
+    mockGetCloudBaseManager.mockResolvedValue({
+      env: {
+        describeEnvInfo: vi.fn().mockResolvedValue({
+          EnvInfo: {
+            EnvBaseInfo: { EnvId: "env-test", Alias: "bound", Region: "ap-shanghai" },
+          },
+        }),
+      },
+      commonService: vi.fn(() => ({
+        call: vi.fn().mockResolvedValue({ EnvList: [] }),
+      })),
+    });
+
+    const { server, tools } = createMockServer();
+    (server as any).cloudBaseOptions.credentialScope = "env";
+
+    const payload = JSON.parse(
+      (await tools.queryEnv.handler({ action: "list" })).content[0].text,
+    );
+
+    // 没传 region 就没有「被忽略的参数」可说，不能凭空造一条
+    expect(payload.ignored_params).toBeUndefined();
+    expect(payload.AppliedFilters.region).toBeNull();
+    expect(payload.AppliedFilters.currentEnvOnly).toBe(true);
+    // pinned 结果就是绑定环境本身，query_region 如实回落到该环境的 Region
+    expect(payload.query_region).toBe("ap-shanghai");
+  });
+
+  it("queryEnv(list) should keep the pinned env when CLOUDBASE_ENV_ID differs from the bound envId", async () => {
+    process.env.CLOUDBASE_ENV_ID = "env-from-var";
+
+    mockGetCloudBaseManager.mockResolvedValue({
+      env: {
+        describeEnvInfo: vi.fn().mockResolvedValue({
+          EnvInfo: {
+            EnvBaseInfo: { EnvId: "env-from-var", Alias: "var-bound", Region: "ap-singapore" },
+          },
+        }),
+      },
+      commonService: vi.fn(() => ({
+        call: vi.fn().mockResolvedValue({ EnvList: [] }),
+      })),
+    });
+
+    const { server, tools } = createMockServer();
+    (server as any).cloudBaseOptions.credentialScope = "env";
+
+    const payload = JSON.parse(
+      (await tools.queryEnv.handler({ action: "list", region: "ap-shanghai" })).content[0].text,
+    );
+
+    // 过滤必须按真正查询到的 envId（CLOUDBASE_ENV_ID），
+    // 否则会把唯一的结果滤掉，回执变成空列表
+    expect(payload.EnvList).toEqual([
+      { EnvId: "env-from-var", Alias: "var-bound", Region: "ap-singapore" },
+    ]);
+    expect(payload.TotalCount).toBe(1);
+    expect(payload.AppliedFilters.currentEnvOnly).toBe(true);
+    expect(payload.query_region).toBe("ap-singapore");
   });
 
   it("envDomainManagement(create) should return structured polling guidance", async () => {
@@ -1894,7 +2404,6 @@ describe("env tools - envQuery", () => {
     expect(tools.queryEnv.meta.inputSchema.type.unwrap().element.options).toEqual([
       ...ENV_USAGE_MODULE_VALUES,
     ]);
-    expect(tools.envQuery.meta.inputSchema.action.options).toContain("usage");
   });
 
   it("queryEnv schema should expose metrics action and metric enum", async () => {
@@ -1906,19 +2415,22 @@ describe("env tools - envQuery", () => {
     expect(
       tools.queryEnv.meta.inputSchema.period.unwrap().options.map((item: { value: number }) => item.value),
     ).toEqual([...ENV_METRIC_PERIOD_VALUES]);
-    expect(tools.envQuery.meta.inputSchema.action.options).toContain("metrics");
-    expect(tools.queryEnv.meta.description).toContain("action=metrics");
-    expect(tools.queryEnv.meta.description).toContain("DescribeCurveData");
+    const queryEnvDescription = t(tools.queryEnv.meta.description as MessageKey);
+    expect(queryEnvDescription).toContain("action=metrics");
+    expect(queryEnvDescription).toContain("DescribeCurveData");
   });
 
-  it("envQuery(usage) should require envId", async () => {
+  it("queryEnv(usage) should require envId", async () => {
     const { tools } = createMockServer();
     const result = await tools.queryEnv.handler({ action: "usage" });
     expect(result.content[0].text).toContain("envId 为必填参数");
     expect(result.content[0].text).toContain("queryEnv");
+    // ⚠️ F7：纯文本失败回执没有 { success: false } 可嗅，必须显式带 isError=true，
+    // 否则只看 isError 的客户端会把这次失败当成功。
+    expect(result.isError).toBe(true);
   });
 
-  it("envQuery(usage) should call account circle + credits usage APIs", async () => {
+  it("queryEnv(usage) should call account circle + credits usage APIs", async () => {
     const describeEnvAccountCircle = vi.fn().mockResolvedValue({
       StartTime: "2026-08-01 00:00:00",
       EndTime: "2026-08-31 23:59:59",
@@ -1928,7 +2440,7 @@ describe("env tools - envQuery", () => {
     const describeCreditsUsageDetail = vi.fn().mockResolvedValue({
       Usages: [
         {
-          EnvId: "ai-native-d1ggefhgb8c27e3e8",
+          EnvId: "test-env-0000000000000000",
           Module: "SCF",
           CreditsValue: 12,
           MetricUsageDetail: [{ MetricName: "Invocations", Value: 3 }],
@@ -1948,24 +2460,24 @@ describe("env tools - envQuery", () => {
       (
         await tools.queryEnv.handler({
           action: "usage",
-          envId: "ai-native-d1ggefhgb8c27e3e8",
+          envId: "test-env-0000000000000000",
           type: ["SCF", "COS"],
         })
       ).content[0].text,
     );
 
     expect(describeEnvAccountCircle).toHaveBeenCalledWith({
-      EnvId: "ai-native-d1ggefhgb8c27e3e8",
+      EnvId: "test-env-0000000000000000",
     });
     expect(describeCreditsUsageDetail).toHaveBeenCalledWith({
-      EnvId: "ai-native-d1ggefhgb8c27e3e8",
+      EnvId: "test-env-0000000000000000",
       Modules: ["SCF", "COS"],
       StartDate: "2026-08-01",
       EndDate: "2026-08-31",
       NeedUsageDetails: true,
     });
     expect(payload).toMatchObject({
-      EnvId: "ai-native-d1ggefhgb8c27e3e8",
+      EnvId: "test-env-0000000000000000",
       Modules: ["SCF", "COS"],
       StartDate: "2026-08-01",
       EndDate: "2026-08-31",
@@ -1980,7 +2492,7 @@ describe("env tools - envQuery", () => {
     });
   });
 
-  it("envQuery(usage) should honor explicit date range", async () => {
+  it("queryEnv(usage) should honor explicit date range", async () => {
     const describeEnvAccountCircle = vi.fn().mockResolvedValue({
       StartTime: "2026-08-01 00:00:00",
       EndTime: "2026-08-31 23:59:59",
@@ -2020,7 +2532,249 @@ describe("env tools - envQuery", () => {
     expect(payload.Modules).toEqual([...ENV_USAGE_MODULE_VALUES]);
   });
 
-  it("envQuery(metrics) should require envId and metricName", async () => {
+  // MCP Apps：`ui://cloudbase/env-credits` 面板靠 `structuredContent` 渲染（见
+  // resources/env-credits.ts 的 EnvCreditsPayload），所以这一层必须证明载荷真的随结果返回，
+  // 且文本回执逐字不变（不支持 UI 的客户端只看文本）。site/region 由共用解析器决定，
+  // 这里不断言它们，避免受本地项目配置影响。
+  it("queryEnv(usage) 附带 env-credits 面板载荷，且文本回执不变", async () => {
+    const describeEnvAccountCircle = vi.fn().mockResolvedValue({
+      StartTime: "2026-08-01 00:00:00",
+      EndTime: "2026-08-31 23:59:59",
+    });
+    const describeCreditsUsageDetail = vi.fn().mockResolvedValue({
+      Usages: [
+        {
+          EnvId: "env-credits",
+          Module: "SCF",
+          CreditsValue: 12,
+          MetricUsageDetail: [
+            { ValueDetailList: [{ CalcTime: "2026-08-01", CreditsValue: 12 }] },
+          ],
+        },
+      ],
+    });
+    const describeEnvInfo = vi.fn().mockResolvedValue({
+      EnvInfo: {
+        EnvBaseInfo: {
+          EnvId: "env-credits",
+          Alias: "演示环境",
+          PackageId: "baas_free",
+          Region: "ap-shanghai",
+        },
+        // 未到期：ExpireTime 在未来，且没有 IsolatedTime
+        BillingInfo: { ExpireTime: "2099-01-01 00:00:00" },
+      },
+    });
+    mockGetCloudBaseManager.mockResolvedValue({
+      env: { describeEnvAccountCircle, describeCreditsUsageDetail, describeEnvInfo },
+    });
+
+    const { tools } = createMockServer();
+    const result = await tools.queryEnv.handler({ action: "usage", envId: "env-credits" });
+
+    // 文本回执完全不变
+    expect(JSON.parse(result.content[0].text)).toMatchObject({
+      EnvId: "env-credits",
+      Usages: [{ Module: "SCF", CreditsValue: 12 }],
+    });
+    expect(describeEnvInfo).toHaveBeenCalledWith({ EnvId: "env-credits" });
+
+    expect(result.structuredContent).toMatchObject({
+      env_id: "env-credits",
+      env_alias: "演示环境",
+      plan: "trial",
+      plan_raw: "baas_free",
+      credits: { total: 3000, used: 12 },
+      modules: [{ module: "functions", credits_value: 12 }],
+      spark: [{ calc_time: "2026-08-01", credits_value: 12 }],
+      balance: null,
+      // 配额已知、用量未到顶、套餐明确未过期 ⇒ normal（能确认无告警才给 normal）
+      branch: "normal",
+    });
+  });
+
+  // 同一个资源（ui://cloudbase/env-credits）现在承载两个视图，靠载荷里的 kind 分派：
+  // metrics 必须真的把载荷带出来，且**文本回执逐字不变**（不支持 UI 的客户端只看文本）。
+  it("queryEnv(metrics) 附带指标卡载荷（kind=metrics），且文本回执不变", async () => {
+    const describeEnvInfo = vi.fn().mockResolvedValue({
+      EnvInfo: {
+        EnvBaseInfo: {
+          EnvId: "env-metrics",
+          Alias: "演示环境",
+          PackageId: "baas_free",
+          Region: "ap-shanghai",
+        },
+      },
+    });
+    const describeCurveData = vi.fn().mockResolvedValue({
+      Period: 300,
+      NewValues: [0, 1, 2, 3],
+      Time: [1760000000, 1760000300, 1760000600, 1760000900],
+    });
+    mockGetCloudBaseManager.mockResolvedValue({
+      env: { describeEnvInfo },
+      monitor: { describeCurveData },
+    });
+
+    const { tools } = createMockServer();
+    const result = await tools.queryEnv.handler({
+      action: "metrics",
+      envId: "env-metrics",
+      metricName: "FunctionError",
+    });
+
+    // 文本回执不变：Curve 在文本里仍是原样的 4 个点 + 时间轴
+    const receipt = JSON.parse(result.content[0].text);
+    expect(receipt).toMatchObject({
+      EnvId: "env-metrics",
+      MetricName: "FunctionError",
+      TimeSource: "defaultLast24h",
+      Summary: { sampleCount: 4, max: 3, min: 0, latest: 3, allZero: false },
+    });
+    expect(receipt.Curve.NewValues).toEqual([0, 1, 2, 3]);
+    expect(describeEnvInfo).toHaveBeenCalledWith({ EnvId: "env-metrics" });
+
+    // 载荷：裁剪后的曲线 + 由数据推出的状态，且不带原样的 Curve / Summary
+    expect(result.structuredContent).toMatchObject({
+      kind: "metrics",
+      state: "data",
+      metric: "FunctionError",
+      env_id: "env-metrics",
+      env_alias: "演示环境",
+      plan: "trial",
+      sample_count: 4,
+      latest: 3,
+      max: 3,
+      avg: 1.5,
+      period_seconds: 300,
+    });
+    expect(result.structuredContent.spark).toHaveLength(4);
+    expect(result.structuredContent).not.toHaveProperty("Curve");
+    expect(result.structuredContent).not.toHaveProperty("Summary");
+  });
+
+  it("queryEnv(metrics) 环境信息拿不到时不挡住载荷：按字段缺失降级、指标与状态照给", async () => {
+    const describeCurveData = vi.fn().mockResolvedValue({ NewValues: [0, 0], Time: [1760000000, 1760000300] });
+    // 只给 monitor，不给 env.describeEnvInfo ⇒ 身份行降级，但指标数据必须照常进载荷
+    mockGetCloudBaseManager.mockResolvedValue({ monitor: { describeCurveData } });
+
+    const { tools } = createMockServer();
+    const result = await tools.queryEnv.handler({
+      action: "metrics",
+      envId: "env-metrics",
+      metricName: "EnvQPSAll",
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      kind: "metrics",
+      metric: "EnvQPSAll",
+      env_id: "env-metrics",
+      env_alias: null,
+      plan: null,
+      state: "noData",
+      sample_count: 2,
+    });
+  });
+
+  it("queryEnv(usage) 付费套餐的 total 也走配额表（个人版 40000）", async () => {
+    const describeEnvAccountCircle = vi.fn().mockResolvedValue({
+      StartTime: "2026-08-01 00:00:00",
+      EndTime: "2026-08-31 23:59:59",
+    });
+    const describeCreditsUsageDetail = vi.fn().mockResolvedValue({
+      Usages: [{ EnvId: "env-paid", Module: "FLEXDB", CreditsValue: 7 }],
+    });
+    const describeEnvInfo = vi.fn().mockResolvedValue({
+      EnvInfo: {
+        EnvBaseInfo: { EnvId: "env-paid", PackageId: "baas_personal", Region: "ap-guangzhou" },
+        BillingInfo: { ExpireTime: "2099-01-01 00:00:00" },
+      },
+    });
+    mockGetCloudBaseManager.mockResolvedValue({
+      env: { describeEnvAccountCircle, describeCreditsUsageDetail, describeEnvInfo },
+    });
+
+    const { tools } = createMockServer();
+    const result = await tools.queryEnv.handler({ action: "usage", envId: "env-paid" });
+
+    expect(result.structuredContent).toMatchObject({
+      plan: "personal",
+      credits: { total: 40000, used: 7 },
+      modules: [{ module: "database", credits_value: 7 }],
+      branch: "normal",
+    });
+  });
+
+  it("queryEnv(usage) 带 type 过滤时：只给 used、不给 total，结论压成 unknown", async () => {
+    const describeEnvAccountCircle = vi.fn().mockResolvedValue({
+      StartTime: "2026-08-01 00:00:00",
+      EndTime: "2026-08-31 23:59:59",
+    });
+    const describeCreditsUsageDetail = vi.fn().mockResolvedValue({
+      // 被 type 过滤后只回 SCF 一项，而配额是全套餐的 —— 两个数放一起会得出错误结论
+      Usages: [{ EnvId: "env-filtered", Module: "SCF", CreditsValue: 12 }],
+    });
+    const describeEnvInfo = vi.fn().mockResolvedValue({
+      EnvInfo: {
+        EnvBaseInfo: { EnvId: "env-filtered", PackageId: "baas_free", Region: "ap-shanghai" },
+        BillingInfo: { ExpireTime: "2099-01-01 00:00:00" },
+      },
+    });
+    mockGetCloudBaseManager.mockResolvedValue({
+      env: { describeEnvAccountCircle, describeCreditsUsageDetail, describeEnvInfo },
+    });
+
+    const { tools } = createMockServer();
+    const result = await tools.queryEnv.handler({
+      action: "usage",
+      envId: "env-filtered",
+      type: ["SCF"],
+    });
+
+    // 过滤确实发生了（否则这条用例证明不了什么）
+    expect(describeCreditsUsageDetail).toHaveBeenCalledWith(
+      expect.objectContaining({ Modules: ["SCF"] }),
+    );
+    expect(result.structuredContent).toMatchObject({
+      plan: "trial",
+      branch: "unknown",
+      credits: { used: 12 },
+      modules: [{ module: "functions", credits_value: 12 }],
+    });
+    expect(result.structuredContent.credits).not.toHaveProperty("total");
+  });
+
+  it("queryEnv(usage) 环境信息取不到时逐字段降级，文本回执照常返回", async () => {
+    const describeEnvAccountCircle = vi.fn().mockResolvedValue({
+      StartTime: "2026-08-01 00:00:00",
+      EndTime: "2026-08-31 23:59:59",
+    });
+    const describeCreditsUsageDetail = vi.fn().mockResolvedValue({
+      Usages: [{ EnvId: "env-degraded", Module: "SCF", CreditsValue: 3 }],
+    });
+    const describeEnvInfo = vi.fn().mockRejectedValue(new Error("DescribeEnvInfo denied"));
+    mockGetCloudBaseManager.mockResolvedValue({
+      env: { describeEnvAccountCircle, describeCreditsUsageDetail, describeEnvInfo },
+    });
+
+    const { tools } = createMockServer();
+    const result = await tools.queryEnv.handler({ action: "usage", envId: "env-degraded" });
+
+    expect(result.content[0].text).toContain("env-degraded");
+    expect(result.structuredContent).toMatchObject({
+      env_id: "env-degraded",
+      env_alias: null,
+      plan: null,
+      plan_raw: null,
+      balance: null,
+      branch: "unknown",
+      // plan 认不出来 ⇒ 不给 total（不拿默认配额兜底），但这次真的读到的 used 照给
+      credits: { used: 3 },
+    });
+    expect(result.structuredContent.credits).not.toHaveProperty("total");
+  });
+
+  it("queryEnv(metrics) should require envId and metricName", async () => {
     const { tools } = createMockServer();
     const missingEnv = await tools.queryEnv.handler({ action: "metrics" });
     expect(missingEnv.content[0].text).toContain("envId 为必填参数");
@@ -2086,7 +2840,7 @@ describe("env tools - envQuery", () => {
     expect(text).toContain("auth(action=\"status\")");
   });
 
-  it("envQuery(metrics) should call monitor.describeCurveData and summarize the curve", async () => {
+  it("queryEnv(metrics) should call monitor.describeCurveData and summarize the curve", async () => {
     const describeCurveData = vi.fn().mockResolvedValue({
       StartTime: "2026-08-16 16:00:00",
       EndTime: "2026-08-17 16:00:00",
@@ -2107,7 +2861,7 @@ describe("env tools - envQuery", () => {
       (
         await tools.queryEnv.handler({
           action: "metrics",
-          envId: "ai-native-d1ggefhgb8c27e3e8",
+          envId: "test-env-0000000000000000",
           metricName: "FunctionInvocation",
           startTime: "2026-08-16 16:00:00",
           endTime: "2026-08-17 16:00:00",
@@ -2125,7 +2879,7 @@ describe("env tools - envQuery", () => {
       ResourceID: "hello-word-test",
     });
     expect(payload).toMatchObject({
-      EnvId: "ai-native-d1ggefhgb8c27e3e8",
+      EnvId: "test-env-0000000000000000",
       MetricName: "FunctionInvocation",
       TimeSource: "params",
       Period: 300,
@@ -2142,7 +2896,7 @@ describe("env tools - envQuery", () => {
     expect(payload.Curve.RequestId).toBe("req-metrics");
   });
 
-  it("envQuery(metrics) should default GatewayTraceEnvQPS resourceID and last 24h range", async () => {
+  it("queryEnv(metrics) should default GatewayTraceEnvQPS resourceID and last 24h range", async () => {
     const describeCurveData = vi.fn().mockResolvedValue({
       MetricName: "GatewayTraceEnvQPS",
       Period: 300,
@@ -2177,7 +2931,7 @@ describe("env tools - envQuery", () => {
     expect(payload.Summary.allZero).toBe(false);
   });
 
-  it("envQuery(metrics) should require resourceID for CloudRun metrics", async () => {
+  it("queryEnv(metrics) should require resourceID for CloudRun metrics", async () => {
     const { tools } = createMockServer();
     const result = await tools.queryEnv.handler({
       action: "metrics",
@@ -2313,8 +3067,31 @@ describe("manageEnv", () => {
   it("listPackages should return package list", async () => {
     const describeBaasPackageList = vi.fn().mockResolvedValue({
       PackageList: [
-        { PackageId: "baas_personal", PackageName: "个人版", Region: "ap-shanghai" },
-        { PackageId: "baas_pf_standard", PackageName: "标准版", Region: "ap-shanghai" },
+        {
+          PackageName: "baas_personal",
+          PackageTitle: "个人版",
+          PackageType: "default",
+          UnitPrice: "39.9",
+        },
+        {
+          PackageName: "baas_pf_standard",
+          PackageTitle: "标准版",
+          PackageType: "basic",
+          UnitPrice: "199",
+        },
+        // 旧版套餐：出现在接口返回里，但不在新购 / 新建菜单中，应被白名单滤掉
+        {
+          PackageName: "starter",
+          PackageTitle: "入门版",
+          PackageType: "default",
+          UnitPrice: "99",
+        },
+        {
+          PackageName: "baas_team",
+          PackageTitle: "团队版",
+          PackageType: "default",
+          UnitPrice: "999",
+        },
       ],
     });
     mockGetCloudBaseManager.mockResolvedValue({
@@ -2329,12 +3106,18 @@ describe("manageEnv", () => {
     expect(describeBaasPackageList).toHaveBeenCalledWith({
       TargetAction: "new",
       Source: "qcloud",
+      PackageTypeList: ["default", "basic", "trial"],
     });
     expect(payload).toMatchObject({
       ok: true,
       code: "PACKAGE_LIST",
       packages: expect.any(Array),
     });
+    // 只保留新购 / 新建菜单里可选的档位（见 LISTABLE_PACKAGE_IDS），旧版族整族滤掉
+    expect(payload.packages.map((p: { PackageName: string }) => p.PackageName)).toEqual([
+      "baas_personal",
+      "baas_pf_standard",
+    ]);
   });
 
   it("listPackages should surface BillTags failures clearly", async () => {
@@ -2462,9 +3245,17 @@ describe("manageEnv", () => {
       code: "CONFIRM_REQUIRED",
     });
     expect(payload.message).toContain("确认");
-    expect(payload.message).toContain("flexdb, storage, function, postgresql");
-    expect(payload.message).not.toContain("地域:");
-    expect(payload.message).toContain("CreateEnv 不接受 Region");
+    expect(payload.message).toContain("storage, function, postgresql");
+    // 未显式传 region 时，摘要回显会话地域（mock server 的 cloudBaseOptions.region）
+    expect(payload.message).toContain("地域: ap-guangzhou");
+    expect(payload.message).toContain("按 X-TC-Region 语义生效");
+    // 未显式指定地域时不应出现「二次调用需重复带 region」的提示
+    expect(payload.message).not.toContain("本次已显式指定地域");
+    expect(payload.next_step).toMatchObject({
+      region: "ap-guangzhou",
+      regionSource: "session",
+    });
+    expect(payload.next_step.requiredParams).not.toContain("region");
     // 询价失败时应降级，仍返回 confirm 并暴露 pricing.inquiryFailed
     expect(payload.pricing?.inquiryFailed).toBe(true);
     expect(payload.release_method?.method).toBe("手动销毁");
@@ -2499,6 +3290,225 @@ describe("manageEnv", () => {
       text: expect.stringContaining("我已知晓"),
     });
     expect(payload.release_method?.detail).toContain("资源释放方式");
+  });
+
+  it("create 摘要的地域与「会话 manager 使用的地域」同口径", async () => {
+    // 回归保护：resolvePricingRegion 曾硬编码 ap-shanghai，于是国际站会话的确认页展示
+    // ap-shanghai、实际环境却创建在 ap-singapore（b453f0a5e 修的就是这个）。
+    // 它必须是 resolveSiteAndRegion 的同口径，而不是某个字面量 —— 否则「确认页说的地域」
+    // 与「实际创建的地域」会不一致。
+    //
+    // 分工：单点场景（TCB_SITE=intl → ap-singapore 的字面量）已由
+    // 「create preview falls back to the resolved site region when the session has no region」
+    // 与 utils/site-map.test.ts 钉住；这里补的是**形状矩阵** —— 保证四个输入形状
+    // 用的是同一个口径，防止有人对某个形状特判（比如又写回一个字面量默认值）。
+    const cases = [
+      { label: "仅会话 envId（默认站点）", options: { envId: "env-test" } },
+      { label: "site=intl 且无 region", options: { envId: "env-test", site: "intl" } },
+      { label: "site=domestic 且无 region", options: { envId: "env-test", site: "domestic" } },
+      { label: "显式 region 优先于站点默认", options: { envId: "env-test", region: "ap-guangzhou" } },
+    ];
+
+    for (const testCase of cases) {
+      vi.clearAllMocks();
+      mockPeekLoginState.mockResolvedValue({
+        secretId: "sid",
+        secretKey: "skey",
+        envId: "env-test",
+        token: "token",
+      });
+      mockGetCloudBaseManager.mockResolvedValue({ env: { createEnv: vi.fn() } } as any);
+
+      const { tools } = createMockServer("TestIDE", undefined, testCase.options);
+      const payload = JSON.parse(
+        (
+          await tools.manageEnv.handler({
+            action: "create",
+            alias: "my-env",
+            packageId: "baas_personal",
+          })
+        ).content[0].text,
+      );
+
+      const expected = resolveSiteAndRegion(testCase.options).region;
+      expect({
+        label: testCase.label,
+        region: payload.next_step?.region,
+        hasRegionInMessage: payload.message?.includes(`地域: ${expected}`),
+      }).toMatchObject({
+        label: testCase.label,
+        region: expected,
+        hasRegionInMessage: true,
+      });
+    }
+  });
+
+  it("create should apply an explicit region via the request context, not the CreateEnv body", async () => {
+    const createEnv = vi.fn().mockResolvedValue({ EnvId: "env-new" });
+    const describeBillingInfo = vi.fn().mockResolvedValue({
+      EnvBillingInfoList: [{ EnvId: "env-new", Region: "ap-singapore" }],
+    });
+    mockGetCloudBaseManager.mockResolvedValue({
+      env: {
+        createEnv,
+        describeBillingInfo,
+        describeBaasPackageList: vi.fn().mockResolvedValue({ PackageList: [] }),
+      },
+    } as any);
+
+    const { tools } = createMockServer();
+
+    // 1) 确认前：摘要回显地域，并要求二次调用带上同一个 region
+    const preview = JSON.parse(
+      (
+        await tools.manageEnv.handler({
+          action: "create",
+          alias: "my-env",
+          packageId: "baas_personal",
+          region: "ap-singapore",
+        })
+      ).content[0].text,
+    );
+    expect(preview).toMatchObject({ ok: false, code: "CONFIRM_REQUIRED" });
+    expect(preview.message).toContain("地域: ap-singapore");
+    expect(preview.message).toContain("本次已显式指定地域");
+    expect(preview.next_step).toMatchObject({
+      region: "ap-singapore",
+      regionSource: "explicit",
+    });
+    expect(preview.next_step.requiredParams).toContain("region");
+
+    // 2) 确认后：manager 必须按显式地域重建（X-TC-Region 上下文），CreateEnv 请求体不含 Region
+    const created = JSON.parse(
+      (
+        await tools.manageEnv.handler({
+          action: "create",
+          alias: "my-env",
+          packageId: "baas_personal",
+          region: "ap-singapore",
+          confirm: "yes",
+        })
+      ).content[0].text,
+    );
+
+    expect(createEnv).toHaveBeenCalledWith({
+      Alias: "my-env",
+      PackageId: "baas_personal",
+      Resources: ["storage", "function", "postgresql"],
+      Period: 1,
+    });
+    expect(mockGetCloudBaseManager).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cloudBaseOptions: expect.objectContaining({ region: "ap-singapore" }),
+        requireEnvId: false,
+      }),
+    );
+    expect(created).toMatchObject({
+      ok: true,
+      code: "ENV_CREATED",
+      envId: "env-new",
+      region: "ap-singapore",
+      regionSource: "explicit",
+      verifiedRegion: "ap-singapore",
+    });
+  });
+
+  it("create should reject externalStorage when resources does not include storage", async () => {
+    const createEnv = vi.fn().mockResolvedValue({ EnvId: "env-shared" });
+    mockGetCloudBaseManager.mockResolvedValue({
+      env: {
+        createEnv,
+        describeBaasPackageList: vi.fn().mockResolvedValue({ PackageList: [] }),
+      },
+    } as any);
+
+    const { tools } = createMockServer();
+    const result = await tools.manageEnv.handler({
+      action: "create",
+      alias: "shared-env",
+      packageId: "baas_personal",
+      resources: ["function"],
+      externalStorage: {
+        bucketName: "shared-cos-1259548930",
+        region: "ap-shanghai",
+        basePath: "shared-env",
+      },
+      confirm: "yes",
+    });
+
+    expect(createEnv).not.toHaveBeenCalled();
+    // 断言到具体报错文案，确保是新增的 resources 校验拦下的，而不是其他错误
+    expect(result.content[0].text).toContain("resources 必须包含 storage");
+  });
+
+  it("create should pass externalStorage through to CreateEnv as ExternalStorage", async () => {
+    const createEnv = vi.fn().mockResolvedValue({ EnvId: "env-shared" });
+    const describeBillingInfo = vi.fn().mockResolvedValue({
+      EnvBillingInfoList: [{ EnvId: "env-shared", Region: "ap-shanghai" }],
+    });
+    mockGetCloudBaseManager.mockResolvedValue({
+      env: {
+        createEnv,
+        describeBillingInfo,
+        describeBaasPackageList: vi.fn().mockResolvedValue({ PackageList: [] }),
+      },
+    } as any);
+
+    const { tools } = createMockServer();
+
+    // 1) 未确认时，摘要应包含共享桶信息，且不发起创建
+    const preview = JSON.parse(
+      (
+        await tools.manageEnv.handler({
+          action: "create",
+          alias: "shared-env",
+          packageId: "baas_personal",
+          externalStorage: {
+            bucketName: "shared-cos-1259548930",
+            region: "ap-shanghai",
+            basePath: "shared-env",
+          },
+        })
+      ).content[0].text,
+    );
+
+    expect(createEnv).not.toHaveBeenCalled();
+    expect(preview.code).toBe("CONFIRM_REQUIRED");
+    expect(preview.message).toContain("shared-cos-1259548930");
+    // 二次调用只读本次参数：必须提示重复传入 externalStorage，否则会建成独立桶
+    expect(preview.next_step.requiredParams).toContain("externalStorage");
+    expect(preview.message).toContain("externalStorage");
+
+    // 2) 确认后，externalStorage 转换为大驼峰 ExternalStorage 透传（Enabled 恒为 true）
+    const created = JSON.parse(
+      (
+        await tools.manageEnv.handler({
+          action: "create",
+          alias: "shared-env",
+          packageId: "baas_personal",
+          externalStorage: {
+            bucketName: "shared-cos-1259548930",
+            region: "ap-shanghai",
+            basePath: "shared-env",
+          },
+          confirm: "yes",
+        })
+      ).content[0].text,
+    );
+
+    expect(createEnv).toHaveBeenCalledWith(
+      expect.objectContaining({
+        Alias: "shared-env",
+        PackageId: "baas_personal",
+        ExternalStorage: {
+          Enabled: true,
+          BucketName: "shared-cos-1259548930",
+          Region: "ap-shanghai",
+          BasePath: "shared-env",
+        },
+      }),
+    );
+    expect(created).toMatchObject({ ok: true, code: "ENV_CREATED", envId: "env-shared" });
   });
 
   it("create should show free-experience disclosure when packageId hints free tier", async () => {
@@ -2562,9 +3572,10 @@ describe("manageEnv", () => {
       ],
     });
     const calculatePackageCreatePrice = vi.fn().mockResolvedValue({
-      RealTotalCost: 19.9,
-      TotalCost: 29.9,
-      Price: 19.9,
+      // 计费接口金额字段单位是「分」（见 env.ts fenToYuan），故 19.9 元 = 1990 分。
+      RealTotalCost: 1990,
+      TotalCost: 2990,
+      Price: 1990,
       TimeSpan: 1,
       TimeUnit: "mon",
       Currency: "CNY",
@@ -2626,7 +3637,7 @@ describe("manageEnv", () => {
           action: "create",
           alias: "my-env",
           packageId: "baas_personal",
-          resources: ["flexdb", "storage", "function", "postgresql"],
+          resources: ["storage", "function", "postgresql"],
           duration: 1,
           confirm: "yes",
         })
@@ -2640,14 +3651,14 @@ describe("manageEnv", () => {
       Alias: "my-env",
       PackageId: "baas_personal",
       Period: 1,
-      Resources: ["flexdb", "storage", "function", "postgresql"],
+      Resources: ["storage", "function", "postgresql"],
     });
     expect(createEnv.mock.calls[0][0]).not.toHaveProperty("Region");
     expect(payload).toMatchObject({
       ok: true,
       code: "ENV_CREATED",
       envId: "env-new-123",
-      resources: ["flexdb", "storage", "function", "postgresql"],
+      resources: ["storage", "function", "postgresql"],
     });
   });
 
@@ -2689,13 +3700,88 @@ describe("manageEnv", () => {
       Alias: "default-res",
       PackageId: "baas_personal",
       Period: 1,
-      Resources: ["flexdb", "storage", "function", "postgresql"],
+      Resources: ["storage", "function", "postgresql"],
     });
     expect(payload).toMatchObject({
       ok: true,
       code: "ENV_CREATED",
       envId: "env-default-resources",
     });
+  });
+
+  it("create preview falls back to the resolved site region when the session has no region", async () => {
+    // 会话未提供 region 时必须回落到「站点默认地域」（国际站 ap-singapore），
+    // 而不是硬编码 ap-shanghai —— 否则确认页展示的地域与实际创建出的环境不一致。
+    const prevSite = process.env.TCB_SITE;
+    const prevRegion = process.env.TCB_REGION;
+    process.env.TCB_SITE = "intl";
+    delete process.env.TCB_REGION;
+    try {
+      const createEnv = vi.fn().mockResolvedValue({ EnvId: "env-site-default" });
+      const describeBillingInfo = vi
+        .fn()
+        .mockResolvedValue({ EnvBillingInfoList: [] });
+      mockGetCloudBaseManager.mockResolvedValue({
+        env: {
+          createEnv,
+          describeBillingInfo,
+          describeBaasPackageList: vi
+            .fn()
+            .mockResolvedValue({ PackageList: [] }),
+        },
+      } as any);
+
+      // 显式清掉会话 region，逼出「站点默认地域」这一级
+      const { tools } = createMockServer("TestIDE", undefined, {
+        envId: "env-test",
+      });
+      const preview = JSON.parse(
+        (
+          await tools.manageEnv.handler({
+            action: "create",
+            alias: "site-default-env",
+            packageId: "baas_personal",
+          })
+        ).content[0].text,
+      );
+
+      expect(preview).toMatchObject({ ok: false, code: "CONFIRM_REQUIRED" });
+      expect(preview.message).toContain("地域: ap-singapore");
+      expect(preview.next_step).toMatchObject({
+        region: "ap-singapore",
+        regionSource: "session",
+      });
+    } finally {
+      if (prevSite === undefined) {
+        delete process.env.TCB_SITE;
+      } else {
+        process.env.TCB_SITE = prevSite;
+      }
+      if (prevRegion === undefined) {
+        delete process.env.TCB_REGION;
+      } else {
+        process.env.TCB_REGION = prevRegion;
+      }
+    }
+  });
+
+  it("create schema should no longer accept flexdb in resources", () => {
+    const { tools } = createMockServer();
+    const resourcesSchema = tools.manageEnv.meta.inputSchema.resources;
+
+    // 省略时由 resolveCreateEnvResources 兜底，默认值不再包含 flexdb
+    expect(resolveCreateEnvResources(undefined)).toEqual([
+      "storage",
+      "function",
+      "postgresql",
+    ]);
+    expect(resourcesSchema.parse(["storage", "postgresql"])).toEqual([
+      "storage",
+      "postgresql",
+    ]);
+    // 显式传 flexdb 必须被 schema 拒绝，而不是静默透传给 CreateEnv
+    expect(() => resourcesSchema.parse(["flexdb"])).toThrow();
+    expect(() => resourcesSchema.parse(["storage", "flexdb"])).toThrow();
   });
 
   it("modifyPlan should require confirm before execution", async () => {
@@ -2768,8 +3854,9 @@ describe("manageEnv", () => {
       ],
     });
     const calculatePackageModifyPrice = vi.fn().mockResolvedValue({
-      RealTotalCost: 50,
-      TotalCost: 80,
+      // 计费接口金额字段单位是「分」（见 env.ts fenToYuan），故 50 元 = 5000 分。
+      RealTotalCost: 5000,
+      TotalCost: 8000,
       Refund: 0,
       Currency: "CNY",
     });
@@ -2899,8 +3986,9 @@ describe("manageEnv", () => {
       ],
     });
     const calculatePackageRenewPrice = vi.fn().mockResolvedValue({
-      RealTotalCost: 19.9,
-      TotalCost: 29.9,
+      // 计费接口金额字段单位是「分」（见 env.ts fenToYuan），故 19.9 元 = 1990 分。
+      RealTotalCost: 1990,
+      TotalCost: 2990,
       TimeSpan: 3,
       TimeUnit: "mon",
       Currency: "CNY",

@@ -30,7 +30,7 @@ CloudBase MCP 可以与多种 AI IDE 配合使用（例如 OpenClaw、Cursor、W
 4. 对 AI 说"登录云开发"开始开发
 
 ### 支持哪些 AI 开发工具？
-支持 CloudBase AI CLI、OpenClaw、Cursor、WindSurf、WorkBuddy、Kimi Code、Kimi Work、ZCode、Codex App、CodeBuddy、CLINE、GitHub Copilot、Claude Code、Gemini CLI、Codex CLI、OpenCode、Trae、通义灵码、RooCode、文心快码、Augment Code、Qwen Code、iFlow CLI 等主流 AI 开发工具。
+支持 CloudBase AI CLI、OpenClaw、Cursor、WindSurf、WorkBuddy、豆包、MiniMax Code、DeepSeek Harness、Kimi Code、Kimi Work、ZCode、Codex App、CodeBuddy、CLINE、GitHub Copilot、Claude Code、Gemini CLI、Codex CLI、OpenCode、Trae、通义灵码、RooCode、文心快码、Augment Code、Qwen Code、iFlow CLI 等主流 AI 开发工具。
 
 ## 技术问题
 
@@ -373,6 +373,28 @@ CloudBase AI ToolKit 与微信开发者工具可以完美配合使用，提供�
 
 这样就可以切换到新的腾讯云账号了。
 
+### 国际站环境登录后看不到环境怎么办？
+
+腾讯云 CloudBase 分国内站与国际站，未显式指定站点时一律按**国内站**处理。如果环境开通在国际站，登录会跳到国内站授权页，登录后在环境选择器里找不到你的国际站环境。MCP 配置里声明站点后重新登录即可：
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "command": "npx",
+      "args": ["@cloudbase/cloudbase-mcp@latest"],
+      "env": {
+        "TCB_SITE": "intl"
+      }
+    }
+  }
+}
+```
+
+其他方式（启动参数 `--site intl`、对话中指定 `site="intl"`、项目级 `.cloudbase/project.json`、CloudBase CLI `tcb config set isIntl true`）见 [连接方式 - 站点与地域](./connection-modes#site-region)。
+
+国内站与国际站凭证按站点分槽存储，可并存，切换站点无需重新登录（见下条）。
+
 ### 国内站新加坡环境被当成国际站了怎么办？
 
 国内站现已支持新加坡地域（`ap-singapore`）。由于国内站与国际站都提供该地域，仅配置 `TCB_REGION=ap-singapore` 会被默认按**国际站**处理（登录跳到国际站、NoSQL 工具被跳过）。国内站新加坡用户需显式指定站点：
@@ -398,24 +420,24 @@ CloudBase AI ToolKit 与微信开发者工具可以完美配合使用，提供�
 { "site": "domestic", "region": "ap-singapore", "envId": "你的环境ID" }
 ```
 
-**托管模式**：HTTP 模式下 MCP 配置没有 `env` 块，需在托管 URL 上直接加 `site` query 参数：
+**远端模式**：不需要额外声明。远端没有 `site` 参数，站点由**域名**决定——用国内站地址 `tcb-api.cloud.tencent.com` 就是国内站，环境位于 `ap-singapore` 也一样：
 
 ```json
 {
   "mcpServers": {
     "cloudbase": {
       "type": "http",
-      "url": "https://tcb-api.cloud.tencent.com/mcp/v1?env_id=你的环境ID&site=domestic",
-      "headers": {
-        "X-TencentCloud-SecretId": "腾讯云 Secret ID",
-        "X-TencentCloud-SecretKey": "腾讯云 Secret Key"
-      }
+      "url": "https://tcb-api.cloud.tencent.com/mcp/v1?env_id=你的环境ID"
     }
   }
 }
 ```
 
-自建托管（Cloud Mode / Docker CloudRun）则仍用服务端环境变量 `TCB_SITE=domestic` 即可。
+> 💡 支持 OAuth 的客户端填这个 URL 即可，浏览器会引导完成授权。
+>
+> ⚠️ 不支持 OAuth 的客户端（或 CI 场景）需另补鉴权请求头，否则会返回 `403 Forbidden: Missing credentials`。header 清单见 [连接方式 · 鉴权方式](/ai/cloudbase-ai-toolkit/connection-modes#remote-auth)。
+
+自行部署的远端服务（Cloud Mode / Docker CloudRun）则仍用服务端环境变量 `TCB_SITE=domestic` 即可。
 
 ### 国内站和国际站可以并存两套登录凭证吗？
 
@@ -460,8 +482,9 @@ CloudBase AI ToolKit 与微信开发者工具可以完美配合使用，提供�
 ### 遇到问题如何获取帮助？
 
 1. 查看常见问题 FAQ
-2. 在 [GitHub Issues](https://github.com/TencentCloudBase/CloudBase-AI-ToolKit/issues) 提交问题
-3. 加入微信技术交流群获取社区支持
+2. 产品问题（云环境、云函数、数据库、云托管、存储、支付等）→ [云开发社区](https://cnb.cool/tencent/cloud/cloudbase/community/-/issues)
+3. 本工具问题（CloudBase MCP、skills、CLI）→ [GitHub Issues](https://github.com/TencentCloudBase/CloudBase-AI-ToolKit/issues)，GitHub 打不开时请用云开发社区
+4. 加入微信技术交流群获取社区支持
 
 ### 如何参与社区？
 

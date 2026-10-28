@@ -52,7 +52,7 @@ alwaysApply: true
    - config 用来给 AI IDE 提供的规则和 mcp 预设配置
    - tests 自动化测试
    - skills 项目级 skills 源目录
-   - specs 需求/设计/任务文档（**本地目录，不提交到公开仓库**。含内部信息，仅保留 `plugin-marketplace-listing/` 与 `npm-supply-chain-security-hardening/` 两个被代码或规范依赖的子目录；完整历史归档在私有仓库 `cloudbase-mcp-specs-archive`）
+   - specs 需求/设计/任务文档（**本地目录，不提交到公开仓库**，无例外子目录。含内部信息，完整历史归档在私有仓库 `cloudbase-mcp-specs-archive`）
 
 2. AGENTS 文件约定
    - `AGENTS.md` 为项目及子目录的唯一可信源
@@ -67,7 +67,8 @@ alwaysApply: true
    - 某个目录中只要有 `AGENTS.md`、`CLAUDE.md` 和 `.agents/skills`、`.claude/skills` 中的任意一个，就需要自动补齐
 
 4. 项目子目录规则
-   - `mcp/` 子目录同样适用本约定：`mcp/AGENTS.md` 为源，`mcp/CLAUDE.md`、`mcp/CODEBUDDY.md` 为软链
+   - `dsh-plugin/` 已有自己的 `AGENTS.md`（源）+ `CLAUDE.md`、`CODEBUDDY.md` 软链；新增子包照此补齐
+   - `mcp/` **不设**自己的 `AGENTS.md` —— mcp 包的约定已全部写在根文件里（`mcp_tool_schema_rules`、`add_aiide`、`ide_mcp_upgrade`、`cloud_api_backend_rules` 等段都是针对它的），该目录下不得出现任何 IDE 兼容产物
 </project_rules>
 
 <experts>
@@ -78,26 +79,33 @@ alwaysApply: true
 - 同步：`npm run experts:sync [expert-name]`（脚本 `scripts/sync-experts.mjs`：rsync --delete 镜像 → validate_expert.py → register_expert.py）；expert-manager 脚本在 WorkBuddy app bundle 内，路径可用 `EXPERT_MANAGER_SCRIPTS_DIR` 覆盖
 - 内容原则：精简有效、引用为主——Agent MD 只留角色/SOP/铁律/路由，领域知识引用运行时官方 skills，不复制进包防漂移；踩坑经验官方 skill 未覆盖的才留包内
 - 后续加新专家 = 在 `plugins/experts/` 建目录（手工建骨架，`init_expert.py` 强制写 my-experts 目录与仓库真源冲突）→ `npm run experts:sync`；删除专家 = 删源码目录 → 全量 `npm run experts:sync`（脚本自动清理 my-experts 孤儿产物）
-- plugin.json 的 `displayDescription` 限制 40-50 字，超长会校验 warning；`tags` 必须恰好 3 个；`defaultInitPrompt` 各语言须与 `quickPrompts[0]` 完全一致
+- plugin.json 的 `displayDescription` 限制 40-50 字，超长会校验 warning；`tags` 必须恰好 3 个；`quickPrompts` 必须恰好 3 条；`defaultInitPrompt` 各语言须与 `quickPrompts[0]` 完全一致
+- 头像统一 512×512 PNG，放 `avatars/<expert-name>.png`，与 `plugin.json` 的 `avatar` 字段同名同路径
 </experts>
 
 <internal_dirs>
 ## 本地内部目录的存放、同步与获取
 
-两个目录**都不提交到公开仓库**，只在本地维护并归档到私有仓：
+这些目录**都不提交到公开仓库**，只在本地维护：
 
 | 目录 | 内容 | 为什么不入库 |
 | --- | --- | --- |
 | `specs/` | 规格 / 设计 / 审视报告 | 含内部任务 ID、审视报告、评测/归因上下文 |
 | `.workbuddy/` | IDE 本地状态：AI 每日记忆、plans、expert 会话历史 | 类比 `.idea/` / `.vscode/`，本就不该进版本控制；记忆里带内部任务 ID 与未公开决策 |
+| `.cursor/plans/` | Cursor 的计划文件 | IDE 本地状态；正文里带本机绝对路径与未公开的计划内容 |
+| `.codebuddy/` | IDE 本地状态：`automations/`、`artifacts/`、`settings.local.json` | 同上；`artifacts/` 里是内部审视与改稿提案 |
 
-`specs/` 里仅 `specs/plugin-marketplace-listing/` 与 `specs/npm-supply-chain-security-hardening/` 两个被代码或规范依赖的子目录留在仓库里，其余全部忽略。`.workbuddy/` 全量忽略。
+`specs/` 全量忽略、无例外：`plugin-marketplace-listing/` 是渠道 BD 台账，2026-10-21 整体退出；`npm-supply-chain-security-hardening/` 的指南已于 2026-10-27 并入本文件 `<supply_chain_security>` 段，spec 目录随之删除。`.workbuddy/` 全量忽略。`.codebuddy/` 里只有 `skills/`（指向 `.agents/skills` 的软链投影，与 `.claude/skills` 对称）入库。`.cursor/rules/` 是项目规范，同样有意保留。
 
-**写**：新 spec 照旧写在本仓库 `specs/<name>/{requirements,design,tasks}.md`，只是不要 `git add`。`.workbuddy/` 由 IDE 自行维护，不用管。
+`docs/` 走的是相反的白名单：只放对外文档（`enterprise-auth-with-feishu.md`、`research-codex-plugin-enterprise-auth.md`），其余一律当内部工作件——门禁报告、platform-kit spec 与能力对齐表都在此列。`dsh-plugin/community/SUBMISSION.md`、`dsh-plugin/scripts/t9-results.md`、`mcp/scripts/wxide-mcp-e2e-test.md` 三个开发过程记录同理：本地保留、不入库。这几类的门禁由 `scripts/git-guard-internal.sh` 与 CI 的 Internal Docs Guard 同时把关。
+
+**写**：新 spec 照旧写在本仓库 `specs/<name>/{requirements,design,tasks}.md`，只是不要 `git add`。`.workbuddy/`、`.cursor/plans/`、`.codebuddy/` 由 IDE 自行维护，不用管。
 
 ### 切分支 / merge 后目录变空是预期行为
 
-这些目录不再被 git 跟踪，**从旧分支切到已移除它们的分支（或 merge 这类分支）时，git 会把工作区里的文件删掉**。这不是数据丢失，真源在私有归档仓里。
+这些目录不再被 git 跟踪，**从旧分支切到已移除它们的分支（或 merge 这类分支）时，git 会把工作区里的文件删掉**。这不是数据丢失：`specs/` 与 `.workbuddy/` 的真源在私有归档仓里，`.cursor/plans/` 与 `.codebuddy/` 的内容仍在 git 历史里（移出前已提交过那个版本）。
+
+后两个目录**不接归档同步**（下节的 `npm run internal:*` 只管 `specs/` 与 `.workbuddy/`）——它们是纯 IDE 状态，切分支前想留内容就自己拷走。
 
 - 提交时由 `pre-commit` 自动恢复一次（`lefthook.yml` 的 `internal-restore`）——本机 `post-checkout` / `post-merge` 被 git-lfs 的 `other-*` 链接接管，不走 lefthook，所以恢复挂在 pre-commit 上。
 - 手动恢复：`npm run internal:restore`
@@ -308,16 +316,21 @@ CI（`nightly-build.yaml` / `npm-publish.yaml` 等）统一使用 `pnpm install 
 <supply_chain_security>
 # npm 供应链安全（必须遵守）
 
-本项目因 MCP Server + 大规模 AI IDE 技能分发特性，是 npm 供应链攻击的高价值目标。
+本项目因 MCP Server + 大规模 AI IDE 技能分发特性，是 npm 供应链攻击的高价值目标。手段参考 Supabase 的
+npm 供应链攻击分析：https://supabase.com/blog/protecting-your-supabase-projects-from-npm-supply-chain-attacks
 
 **强制规则：**
 - 安全敏感依赖（`@cloudbase/*`、`@modelcontextprotocol/sdk`、express、ws、zod 等 runtime 核心）**必须使用精确版本**（禁止 `^` / `~`）。
 - 所有 GitHub Actions 引用**必须 pin 到完整 40 字符 commit SHA**（禁止浮动 tag 如 `@v4`、`@beta`）。
-- 修改 `package.json`、`pnpm-workspace.yaml`、`.npmrc` 或 workflow 时，必须参考内部详细指南。
 - 优先使用 `corepack + pnpm` 进行依赖管理（已配置 `packageManager` 字段）。
+- 根 `.npmrc` 的 `ignore-scripts=true` 与 `pnpm-workspace.yaml` 的 `minimumReleaseAge` 是基线防护，**不得为了装包方便移除**。确有安装脚本需求时只对单个包显式放开，并在 PR 里写明是哪个包、为什么。
 
-**详细内部文档（含当前状态、AI Agent 审计 Prompt、防护措施）：**
-`specs/npm-supply-chain-security-hardening/npm-security.md`
+**动依赖或 CI 之前，先自查这五条：**
+1. Actions 是否 pin 到 40 字符 SHA（无 `@v4`、`@beta`、`@latest`）
+2. `.npmrc` 的 `ignore-scripts` / `min-release-age` 是否还在
+3. 敏感依赖是否被改成了 `^` / `~`
+4. 是否引入 `pull_request_target` + checkout PR 代码、未固定版本的全局安装等模式
+5. 改了 `packageManager` / `.npmrc` / `pnpm-workspace.yaml` 后，是否重新生成了 `pnpm-lock.yaml`
 
-任何涉及依赖或 CI 的变更，在开始前都应先阅读该文档。
+命中任何一条都要在 PR 里说明理由，供人工 review。
 </supply_chain_security>

@@ -1,11 +1,20 @@
 ---
 name: cloudbase-all-in-one
 description: Unified CloudBase execution guide for all-in-one skill installs. Use this first for CloudBase app tasks, especially existing apps with TODOs, fixed pages, or active handlers. Routes PostgreSQL / CloudBase PG / app.rdb() / queryPgDatabase / managePgDatabase work away from legacy NoSQL and old auth patterns.
-version: 2.21.1
+version: 2.36.1
+license: MIT
 alwaysApply: true
 ---
 
 # CloudBase All-In-One
+
+## Step 0 — Confirm the site (domestic vs international)
+
+CloudBase runs 国内站 (domestic, `cloud.tencent.com`) and 国际站 (international, `tencentcloud.com`) as **two independent account systems** — environments, consoles, API keys, and login state do not cross over. A wrong-site login looks like *"logged in, but no environments"* rather than a clear error, so settle the site before logging in or configuring MCP.
+
+- **International (国际站)** — connect the international remote MCP endpoint directly: `https://tcb-api.tencentcloud.com/mcp/v1`. For local stdio set `TCB_SITE=intl` + `TCB_REGION=ap-singapore`; for the `tcb` CLI set `TCB_IS_INTL=true`.
+- **Domestic (国内站)** — `https://tcb-api.cloud.tencent.com/mcp/v1`. Both switches are the defaults, so nothing extra to declare.
+- Two gaps to plan around: remote endpoints take **no `site` / `region` query parameter** (the hostname decides), and the international site has **no NoSQL / document-database tools**.
 
 ## Workflow
 
@@ -20,8 +29,10 @@ Every CloudBase task follows this three-stage process:
    ├── 2a. Resource preparation → Prefer MCP to prepare backend resources
    │     (enable auth providers, create database tables, configure storage domains,
    │      set up security rules — before writing frontend code).
-   │     If MCP tools are missing in THIS session, configure MCP for next time and
-   │     use `tcb` CLI now (`./cloudbase-cli/SKILL.md`).
+   │     If MCP tools are missing in THIS session, run the readiness check in
+   │     `./cloudbase-mcp/SKILL.md` first — missing tools are often wiring
+   │     (connector unbound or in need of a reconnect), not configuration.
+   │     Then configure for next time and use `tcb` CLI now (`./cloudbase-cli/SKILL.md`).
    └── 2b. Frontend implementation → Write code, install deps, start server, test
 3. Close-out  →  Run cloudbase-code-review, fix all errors, declare done
 ```
@@ -67,6 +78,7 @@ Only handle tasks that are part of building, integrating, or maintaining a Cloud
 - Browser-side file upload -> `./cloud-storage-web/SKILL.md`
 - Manage/operate underlying Tencent Cloud resources via cloud APIs (monitoring & alarms, CLB, CAM roles, cross-product infra) when no dedicated MCP tool exists -> `./cloud-api-operations/SKILL.md`
 - Platform overview only when capability selection is still unclear -> `./cloudbase-platform/SKILL.md`
+- MCP connection, local versus remote, or a fix to this open-source repo -> `./cloudbase-mcp/SKILL.md`
 - If using `searchKnowledgeBase(mode="skill")`, pass the reference directory id such as `postgresql-development-cloudbase` or `minimal-web-baas-demo`, not a guessed alias.
 
 ### High-yield guardrails
@@ -76,7 +88,7 @@ Only handle tasks that are part of building, integrating, or maintaining a Cloud
 - **Deployment Gate**: Before any deployment, publish, custom domain, CloudRun, or public exposure work, you must complete the checks in `cloudbase-platform/references/protocols/deployment-gate.md` and present the mandatory declaration template.
 - If the same path fails 2-3 times, stop retrying and reroute. Check platform skill, auth domain, runtime, and permission model before editing more code.
 - Always specify `EnvId` explicitly in code, configuration, and command examples when initializing CloudBase clients or manager operations. Do not rely on the current CLI-selected environment or implicit defaults.
-- If the conversation only provides an environment alias, nickname, or other shorthand, resolve it with `envQuery(action=list, alias=..., aliasExact=true)` and use the returned canonical full `EnvId` before calling `auth.set_env`, generating console links, or writing config/code. If the alias is ambiguous or missing, stop and ask the user to confirm.
+- If the conversation only provides an environment alias, nickname, or other shorthand, resolve it with `queryEnv(action=list, alias=..., aliasExact=true)` and use the returned canonical full `EnvId` before calling `auth.set_env`, generating console links, or writing config/code. If the alias is ambiguous or missing, stop and ask the user to confirm.
 
 ### Do NOT use this as
 
@@ -86,7 +98,7 @@ Only handle tasks that are part of building, integrating, or maintaining a Cloud
 ## Working rules
 
 1. **BaaS-first, functions as last resort**:
-   - For 最小前后端 / Lovable-like demos, route first to `./minimal-web-baas-demo/SKILL.md`. Order: connector ready → template warmup during credential wait → `envQuery` → lock one DB → MCP schema → `@cloudbase/js-sdk` CRUD → preview. Default cloud function count = 0.
+   - For 最小前后端 / Lovable-like demos, route first to `./minimal-web-baas-demo/SKILL.md`. Order: connector ready → template warmup during credential wait → `queryEnv` → lock one DB → MCP schema → `@cloudbase/js-sdk` CRUD → preview. Default cloud function count = 0.
    - Before writing any cloud function or CloudRun service, ask: can the correct JS SDK surface handle this directly? Use `db.collection(...).get()` only for confirmed NoSQL collections; use `app.rdb().from(...)` for CloudBase PG tables; use `auth` / `storage` from the matching skill.
    - Use the matching JS SDK surface directly for: data reads/writes, file uploads, real-time updates, simple queries including leaderboards, lists, aggregations.
    - Only drop down to cloud functions when: the logic requires server-side permission enforcement that cannot be expressed in database rules/RLS, calling third-party services (payment, SMS, external APIs), or background jobs not triggered by the user.
@@ -105,10 +117,11 @@ Only handle tasks that are part of building, integrating, or maintaining a Cloud
 4. Database and storage tasks:
    - Reuse the current shared `app`, `auth`, `db`, and storage helpers instead of creating parallel SDK wrappers.
    - If the task mentions CloudBase PG, PostgreSQL, Postgres, PG mode, JS SDK v3 PostgreSQL, `app.rdb()`, `queryPgDatabase`, `managePgDatabase`, `mysqldb` OpenAPI, or RLS, read `./postgresql-development-cloudbase/SKILL.md` before touching database code.
-   - For CloudBase PG, use `queryPgDatabase` / `managePgDatabase` for schema and management; do not route PG work to MySQL `queryMysqlDatabase` / `manageMysqlDatabase` or NoSQL collection APIs.
+   - When the PG task defines an access pattern or investigates a slow query, also read `./postgresql-best-practices-cloudbase/SKILL.md`.
+   - For CloudBase PG, use `queryPgDatabase` / `managePgDatabase` for schema and management. Do not route new relational work to MySQL `queryMysqlDatabase` / `manageMysqlDatabase` or to NoSQL collection APIs. MySQL tools are only for an environment that already has MySQL.
    - For OpenAPI lookup, call `searchKnowledgeBase({ mode: "openapi", apiName: "mysqldb" })` directly. Do not pass guessed `action` values such as `getApiDocs` or `listEndpoints`; those belong to no supported tool mode.
    - For CloudBase PG Web CRUD, prefer JS SDK v3 `app.rdb()` and documented storage `app.storage.from()` APIs before raw HTTP.
-   - For browser-side CloudBase storage upload from local Vite/preview, check the actual browser `host:port` in security domains first (`envQuery(action="domains")`, then `envDomainManagement(action="create")` if missing). A failed cover upload must not silently skip the subsequent PG article insert.
+   - For browser-side CloudBase storage upload from local Vite/preview, check the actual browser `host:port` in security domains first (`queryEnv(action="domains")`, then `envDomainManagement(action="create")` if missing). A failed cover upload must not silently skip the subsequent PG article insert.
    - For CloudBase Web SDK `db.collection(...).add(...)`, persist the created document ID from `result._id`.
    - For writes, validate the actual SDK result instead of assuming success.
    - **Legacy API STOP card:** If the task says `PostgreSQL`, `CloudBase PG`, `PG mode`, `app.rdb()`, `queryPgDatabase`, `managePgDatabase`, `PostgREST`, or `RLS`, do not write NoSQL examples from memory. Use `app.rdb().from(...)` for Web CRUD, `queryPgDatabase` / `managePgDatabase` for management, and `auth.getSession()` for Web auth guards. Do not use `app.database()`, `db.collection(...)`, `.where()`, `.orderBy()`, `app.uploadFile()`, `getLoginState()`, or `auth.getUser()` as the PG/auth default.
@@ -117,3 +130,12 @@ Only handle tasks that are part of building, integrating, or maintaining a Cloud
    - Functional closure beats exploration.
    - Avoid broad repo sweeps, UI redesign, and detached demo code.
    - Keep file discovery narrow. Prefer direct reads of the known active files over `Glob` / broad search across the whole project.
+
+## Open source
+
+The MCP server, skills, and CLI live in one public repo:
+
+- https://github.com/TencentCloudBase/CloudBase-AI-ToolKit
+- https://cnb.cool/tencent/cloud/cloudbase/CloudBase-AI-ToolKit
+
+A bug in those surfaces should be a pull request. Connection steps and `CONTRIBUTING.md` are in `./cloudbase-mcp/SKILL.md`. A cloud platform, permission, or account problem should be an issue, and the text must not include an environment ID or a secret. Pull requests are how fixes land in the project.

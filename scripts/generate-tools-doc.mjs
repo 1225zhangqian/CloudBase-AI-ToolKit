@@ -46,7 +46,7 @@ function typeOfSchema(schema) {
 // Plugin 分组映射（tool name → plugin 中文名）
 const PLUGIN_MAP = {
   auth:                        '认证与登录',
-  envQuery:                    '环境管理',
+  queryEnv:                    '环境管理',
   envDomainManagement:          '环境管理',
   readNoSqlDatabaseStructure:  'NoSQL 数据库',
   writeNoSqlDatabaseStructure: 'NoSQL 数据库',
@@ -74,6 +74,7 @@ const PLUGIN_MAP = {
   queryPermissions:           '权限管理',
   managePermissions:          '权限管理',
   queryLogs:                  '日志',
+  manageLogs:                 '日志',
   queryAgents:               'AI Agent',
   manageAgents:               'AI Agent',
   downloadTemplate:           '模板与文件',

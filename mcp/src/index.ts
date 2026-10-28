@@ -44,6 +44,13 @@ export type {
 
 export { isCloudMode, enableCloudMode, getCloudModeStatus, shouldRegisterTool } from "./utils/cloud-mode.js";
 
+/**
+ * 环境绑定槽。外部宿主（自己起 transport 的那种）要上报真实的 envId，
+ * 就得在自己的一次 run 里跑 server 的消息处理，否则上报恒为 `default`。
+ */
+export { ENV_SOURCES, runWithEnvSlot } from "./utils/env-binding.js";
+export type { EnvBinding, EnvSlot, EnvSource } from "./utils/env-binding.js";
+
 export {
   getCloudBaseManager,
   getEnvId,
@@ -55,7 +62,19 @@ export {
 export { simplifyEnvList } from "./tools/env.js";
 
 export { RAW_IDE_FILE_MAPPINGS } from "./tools/setup.js";
-export type { InteractiveResult } from "./interactive-server.js";
+export { warmupHostedResources } from "./tools/rag.js";
+export {
+  handleHostedMcpRequest,
+  HOSTED_CLIENT_INFO_CACHE_CAPACITY,
+  HOSTED_CLIENT_INFO_CACHE_TTL_MS,
+} from "./hosted/index.js";
+export type {
+  CloudBaseServerOptions,
+  HostedCloudBaseOptions,
+  HostedMcpLogEvent,
+  HostedMcpRequestInput,
+  HostedClientInfoRecord,
+} from "./hosted/index.js";
 
 // Export runtime constants for multi-language support
 export {
@@ -68,15 +87,3 @@ export {
   DEFAULT_NODEJS_RUNTIME,
   validateTimerCron,
 } from "./tools/functions.js";
-
-/**
- * Get interactive server instance (CommonJS compatible)
- */
-export async function getInteractiveServerAsync() {
-  if (typeof require !== 'undefined' && typeof import.meta === 'undefined') {
-    throw new Error('Interactive server requires ESM environment or dynamic import. Please use: const { getInteractiveServer } = await import("@cloudbase/cloudbase-mcp")');
-  }
-  
-  const { getInteractiveServer } = await import("./interactive-server.js");
-  return getInteractiveServer(undefined);
-}

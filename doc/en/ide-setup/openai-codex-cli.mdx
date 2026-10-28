@@ -1,0 +1,78 @@
+import IDESelector from '../components/IDESelector';
+import CodexInstallSelector from '../components/CodexInstallSelector';
+import RelatedResources from '../components/RelatedResources';
+
+# OpenAI Codex CLI Setup Guide
+
+After setup, you can operate CloudBase services directly from OpenAI Codex CLI’s chat.
+
+**Examples:**
+
+- "Build a WeChat Mini Program ordering system with CloudBase" — AI scaffolds pages, creates the cloud database, writes cloud functions, and guides preview
+- "Build a reservation management system that lets users place orders and admins update status" — AI models it with CloudBase PostgreSQL, configures permissions, and wires up frontend and backend
+- "Add phone-number login to a Web app" — AI enables the auth method and integrates the CloudBase SDK
+
+No need to switch to the Cloud console — you can do everything from the CLI with natural language.
+
+## Prerequisites
+
+Before you start, make sure you have:
+
+<details>
+<summary><strong>Node.js and a CloudBase environment ready</strong></summary>
+
+**Node.js:** Install Node.js v18.15.0 or later:
+
+```bash
+node --version
+```
+
+If you don’t have it installed, download it from the [Node.js website](https://nodejs.org/en/download).
+
+**CloudBase environment:** See [Create a CloudBase environment](../../../quick-start/create-env). New users on the domestic site can start for free.
+
+</details>
+
+<details>
+<summary><strong>Git installed (required for the plugin marketplace)</strong></summary>
+
+Codex runs `git clone` to fetch the marketplace repository, so a machine without `git` fails with `program not found`:
+
+```bash
+git --version
+```
+
+On Windows, install [Git for Windows](https://git-scm.com/download/win). After installing, **quit Codex completely and reopen it** so the new process picks up the updated PATH.
+
+The MCP configuration approach (Method 2) does not require Git.
+
+</details>
+
+---
+
+## Method 1: Install via Plugin Marketplace (Recommended)
+
+The plugin marketplace installs both MCP tools and AI Skills. You can also install from the Codex App UI.
+
+<CodexInstallSelector />
+
+## Method 2: Connect via MCP Configuration
+
+If you only need MCP tool connectivity, you can also configure it manually:
+
+<IDESelector defaultIDE="openai-codex-cli" />
+
+## FAQ
+
+**Q: Adding the plugin marketplace fails with `failed to run git clone ... program not found`?**
+A: Codex uses `git clone` to fetch the marketplace repository, and no usable `git` was found on this machine. Install Git for Windows, then quit and reopen Codex.
+
+**Q: MCP connection failed?**
+A: Confirm the command runs correctly, restart OpenAI Codex CLI, and check your network.
+
+**Q: Tool count shows 0?**
+A: See the [FAQ](../faq#mcp-shows-0-tools).
+
+More questions: [Full FAQ](../faq)
+
+<RelatedResources ideName="OpenAI Codex CLI" ideDocUrl="https://help.openai.com/en/articles/11096431-openai-codex-ci-getting-started" />

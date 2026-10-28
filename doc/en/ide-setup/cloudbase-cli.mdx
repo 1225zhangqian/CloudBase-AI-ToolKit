@@ -1,0 +1,136 @@
+import IDESelector from '../components/IDESelector';
+import RelatedResources from '../components/RelatedResources';
+
+# CloudBase CLI Setup Guide
+
+CloudBase CLI is a unified command-line tool that integrates multiple mainstream AI coding tools. It supports project-level configuration and includes CloudBase MCP and AI development rules out of the box.
+
+**Key benefits:**
+
+- **Unified management**: manage multiple AI coding CLIs with one command
+- **Built-in MCP and rules**: works out of the box without manual MCP server or rule setup
+- **Project-level configuration**: easier team collaboration via shared config
+- **Multi-model support**: supports built-in and custom LLMs (e.g. Kimi K2, Zhipu GLM-4.5)
+
+**Examples:**
+
+- "Build a WeChat Mini Program ordering system with CloudBase" — AI scaffolds pages, creates the cloud database, writes cloud functions, and guides preview
+- "Build a reservation management system that lets users place orders and admins update status" — AI models it with CloudBase PostgreSQL, configures permissions, and wires up frontend and backend
+- "Add phone-number login to a Web app" — AI enables the auth method and integrates the CloudBase SDK
+
+No need to switch to the Cloud console — you can do everything from the CLI with natural language.
+
+## Prerequisites
+
+Before you start, make sure you have:
+
+<details>
+<summary><strong>Node.js and a CloudBase environment ready</strong></summary>
+
+**Node.js:** Install Node.js v18.15.0 or later:
+
+```bash
+node --version
+```
+
+If you don’t have it installed, download it from the [Node.js website](https://nodejs.org/en/download).
+
+**CloudBase environment:** See [Create a CloudBase environment](../../../quick-start/create-env). New users on the domestic site can start for free.
+
+</details>
+
+## Install CloudBase CLI
+
+Install globally with npm/yarn/pnpm:
+
+```bash
+npm i -g @cloudbase/cli
+```
+
+Or Yarn 1.x:
+
+```bash
+yarn global add @cloudbase/cli
+```
+
+Or pnpm:
+
+```bash
+pnpm add -g @cloudbase/cli
+```
+
+If you have trouble accessing the default npm registry, you can use Tencent’s mirror:
+
+```bash
+npm i -g @cloudbase/cli --registry=http://mirrors.cloud.tencent.com/npm/
+```
+
+## Initialize AI config
+
+Run CloudBase AI CLI:
+
+```bash
+# Start the setup wizard
+tcb ai
+```
+
+On first run, the wizard helps you:
+
+- Choose an AI tool (CodeBuddy Code, Claude Code, OpenAI Codex, aider, Qwen Code)
+- Configure the AI tool (custom LLM or CloudBase-provided LLM)
+
+After setup, you can start using AI tools for assisted development. You can run `tcb ai --setup` later to switch tools and models.
+
+---
+
+<IDESelector defaultIDE="cloudbase-cli" />
+
+## Start using it
+
+```bash
+# Start the AI tool
+tcb ai
+
+# Or run with a preset prompt
+tcb ai -- "Create an order management system"
+
+# Or use non-interactive mode
+tcb ai -- -p "Hello"
+
+# Show help
+tcb ai --help
+```
+
+## Supported AI tools
+
+CloudBase CLI supports the following AI coding tools:
+
+| Tool | Arg |
+| ---- | --- |
+| CodeBuddy Code | `-a codebuddy` |
+| Claude Code | `-a claude` |
+| OpenAI Codex | `-a codex` |
+| aider | `-a aider` |
+| Qwen Code | `-a qwen` |
+
+## Project-level config
+
+CloudBase CLI supports project-level configuration and stores config files in your project root. This makes it easy to share settings within a team.
+
+## FAQ
+
+**Q: How do I switch the AI tool?**
+
+A: Run `tcb ai --setup` to open the setup wizard again and choose a different tool.
+
+**Q: How do I view current config?**
+
+A: Run `tcb ai --config`.
+
+**Q: How do I reset config?**
+
+A: Run `tcb ai --reset`.
+
+More: [FAQ](../faq)
+
+<RelatedResources ideName="CloudBase CLI" ideDocUrl="https://docs.cloudbase.net/cli-v1/ai/introduce" />

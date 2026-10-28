@@ -15,16 +15,22 @@
   display: flex;
   align-items: center;
   padding: 0.625rem 1rem;
-  background: var(--ifm-background-surface-color);
+  background: transparent;
   border: 1px solid var(--ifm-color-emphasis-200);
   border-right: none;
-  border-radius: 6px 0 0 6px;
+  border-radius: 8px 0 0 8px;
   font-size: 0.875rem;
   color: var(--ifm-color-emphasis-700);
   line-height: 1.5;
 }
 
 /* Dropdown */
+.dropdown[hidden] {
+  /* `hidden` 属性自带 display:none，但会被本文件里 .dropdown 的 display 覆盖，
+     用属性选择器抬高特异性，保证「始终渲染 + CSS 隐藏」这条策略真的生效。 */
+  display: none;
+}
+
 .dropdownWrapper {
   position: relative;
 }
@@ -34,9 +40,9 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem 0.875rem;
-  background: var(--ifm-color-emphasis-100);
+  background: var(--ifm-background-surface-color);
   border: 1px solid var(--ifm-color-emphasis-200);
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 8px 8px 0;
   cursor: pointer;
   transition: all 0.15s ease;
   font-size: 0.875rem;
@@ -50,7 +56,7 @@
 }
 
 .dropdownTriggerOpen {
-  background: var(--ifm-color-emphasis-200);
+  background: var(--ifm-color-emphasis-100);
   border-color: var(--ifm-color-emphasis-300);
 }
 
@@ -84,10 +90,10 @@
   top: calc(100% + 4px);
   left: 0;
   min-width: 220px;
-  background: #ffffff;
+  background: var(--ifm-background-surface-color);
   border: 1px solid var(--ifm-color-emphasis-200);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
   z-index: 1000;
   overflow: hidden;
   animation: dropdownFadeIn 0.15s ease;
@@ -183,6 +189,8 @@
 
 .dropdownItemSelected {
   background: var(--ifm-color-emphasis-100);
+  color: var(--ifm-color-primary-darkest);
+  font-weight: 600;
 }
 
 .itemIcon {
@@ -312,20 +320,15 @@
   font-weight: 500;
 }
 
+/* 外层 <a> 只管链接语义与布局；hover 视觉统一交给内层按钮，
+   避免「a 降透明度 + 按钮变底色」两层效果叠加。 */
 .oneClickButton {
   display: inline-block;
   text-decoration: none;
-  transition: opacity 0.15s ease;
 }
 
 .oneClickButton:hover {
-  opacity: 0.8;
   text-decoration: none;
-}
-
-.oneClickImage {
-  height: 40px;
-  display: block;
 }
 
 /* Custom One-click Button */
@@ -334,30 +337,28 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1.25rem;
-  background: var(--ifm-color-emphasis-100);
+  background: var(--ifm-background-surface-color);
   color: var(--ifm-font-color-base);
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 0.9375rem;
   font-weight: 500;
-  transition: all 0.2s ease;
-  border: 1px solid var(--ifm-color-emphasis-300);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   cursor: pointer;
   text-decoration: none;
 }
 
 .customOneClickButton:hover {
-  background: var(--ifm-color-emphasis-200);
-  border-color: var(--ifm-color-emphasis-400);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
+  background: var(--ifm-color-emphasis-100);
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
   text-decoration: none;
   color: var(--ifm-font-color-base);
 }
 
 .customOneClickButton:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: none;
 }
 
 .customButtonIcon {
@@ -925,10 +926,6 @@
     padding-right: 0.5rem;
   }
 
-  .oneClickImage {
-    height: 32px;
-  }
-
   .cliCommandBlock {
     flex-direction: column;
     align-items: stretch;
@@ -958,3 +955,91 @@
     align-self: flex-end;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * 连接方式 / 站点开关
+ *
+ * 只有能写 MCP 配置的客户端才渲染——builtin 通道（WorkBuddy / CodeBuddy 等走
+ * 自有市场与连接器）不出现，避免用户以为选了就生效。
+ * ------------------------------------------------------------------------- */
+
+.modeBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.modeGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.modeLabel {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--ifm-color-emphasis-600);
+  white-space: nowrap;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--ifm-color-emphasis-100);
+  border: 1px solid var(--ifm-color-emphasis-200);
+}
+
+.segment {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.segment:hover {
+  color: var(--ifm-color-emphasis-900);
+}
+
+.segmentActive,
+.segmentActive:hover {
+  border-color: var(--ifm-color-emphasis-300);
+  background: var(--ifm-background-surface-color);
+  color: var(--ifm-color-primary-darkest);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='dark'] .segmentActive,
+[data-theme='dark'] .segmentActive:hover {
+  color: var(--ifm-color-primary-lightest);
+  box-shadow: none;
+}
+
+.modeNote {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--ifm-color-emphasis-700);
+}
+
+/* builtin 通道的说明条，替代开关 */
+.builtinNote {
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 8px;
+  background: var(--ifm-color-emphasis-100);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--ifm-color-emphasis-800);
+}
+

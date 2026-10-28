@@ -1,11 +1,22 @@
-import { AuthSupervisor, authStore, refreshTmpToken, resolveCredential } from "@cloudbase/toolbox";
-import { debug } from "./utils/logger.js";
+import { readFileSync, statSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
 import {
-  getSite,
-  normalizeSite,
+  AuthSupervisor,
+  authStore,
+  checkAndGetCredential,
+  cloudbaseConfigDir,
+  getProjectDir,
+  refreshTmpToken,
+  resolveCredential,
+} from "@cloudbase/toolbox";
+import { debug } from "./utils/logger.js";
+import { requireProjectRoot } from "./utils/project-config.js";
+import {
   resolveApiKeyExchangeRegion,
   resolveSite,
+  resolveSiteAndRegion,
   SITE_REGION_MAP,
+  type SiteId,
 } from "./utils/site-map.js";
 
 const auth = AuthSupervisor.getInstance({});
@@ -342,6 +353,17 @@ export function buildAuthConfigSummary(options: ResolvedAuthOptions) {
 }
 
 /**
+ * Resolve the site for this login (explicit site, then TCB_SITE, then region).
+ * The result selects the OAuth endpoint and authorization page only.
+ * The stored credential stays one flat record.
+ */
+export function resolveDeviceLoginSite(
+  siteHints: { region?: string; site?: string } = {},
+): SiteId {
+  return resolveSite(siteHints.region, siteHints.site ?? process.env.TCB_SITE);
+}
+
+/**
  * 构造 device flow 的 loginByWebAuth 基础参数（onDeviceCode 由调用方按需注入）。
  *
  * 所有 device 登录路径（ensureLogin 与 auth 工具 start_auth 的 device 分支）必须
@@ -353,10 +375,7 @@ export function buildDeviceLoginOptions(
   resolvedAuthOptions: ResolvedAuthOptions,
   siteHints: { region?: string; site?: string } = {},
 ): Record<string, unknown> {
-  const resolvedSite = resolveSite(
-    siteHints.region,
-    siteHints.site ?? process.env.TCB_SITE,
-  );
+  const resolvedSite = resolveDeviceLoginSite(siteHints);
   const loginOptions: Record<string, unknown> = { flow: "device" };
 
   if (resolvedAuthOptions.clientId) {
@@ -427,74 +446,92 @@ export interface LoginState {
   secretKey: string;
   token?: string;
   envId?: string;
+  /**
+   * 主账号 uin。本地凭证（`~/.config/.cloudbase/auth.json`）自带，
+   * 由 `@cloudbase/toolbox` 的 `resolveCredential()` 透传。
+   * 注意：临时密钥续期响应里没有 uin，须由调用方保留旧值（见 resolveFlatLoginState）。
+   */
+  uin?: string | number;
 }
 
-// ---- 多 site 凭证分槽（credential[site]）----
-// 存储结构：credential = { domestic?: {...}, intl?: {...} }
-// 旧格式（单槽 flat）视为 domestic 槽位，读取兼容、写回时升级分槽。
+/**
+ * 本轮生效的凭据从哪来。只回答「来源」，不改变权限范围——
+ * 范围仍由 `credential_scope`（account / single_env）表达。
+ *
+ * - `env`：进程环境变量。宿主按工作区注入，或 `login_by_api_key` 显式传入。
+ * - `project`：项目级文件 `~/.config/.cloudbase/projects/<项目根>/auth.json`，
+ *   按工作目录自动采纳。
+ * - `global`：全局 `~/.config/.cloudbase/auth.json`（账号级登录态）。
+ */
+export type CredentialSource = "env" | "project" | "global";
 
-type SlotId = "domestic" | "intl";
+let credentialSource: CredentialSource | null = null;
+/**
+ * 从项目级凭据回填进进程 env 的那一份 key/envId。
+ * 用来区分「宿主注入的 env」与「我们自己回填的 env」——否则
+ * `peekLoginState` 第二次调用会走 env 分支，把项目级来源报成 `env`。
+ */
+let adoptedProjectApiKey: string | null = null;
+let adoptedProjectEnvId: string | null = null;
 
-const LEGACY_SITE: SlotId = "domestic";
+export function getCredentialSource(): CredentialSource | null {
+  return credentialSource;
+}
 
-function isSlottedCredential(value: unknown): value is Record<SlotId, unknown> {
+// One flat credential in auth.json, shared with the CLI. Legacy slotted
+// files ({ domestic, intl }) are collapsed once on read; the other site is dropped.
+
+function isSlottedCredential(value: unknown): value is { domestic?: unknown; intl?: unknown } {
   if (!value || typeof value !== "object") {
     return false;
   }
   return "domestic" in value || "intl" in value;
 }
 
-async function readStoredCredentialRaw(): Promise<unknown> {
-  return authStore.get("credential");
+function hasResolvableSecrets(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+  const credential = resolveCredential(value as Parameters<typeof resolveCredential>[0]);
+  return Boolean(credential?.secretId && credential?.secretKey);
 }
 
-/**
- * 读取指定 site 槽位的原始凭证；旧格式（单槽 flat）视为 domestic 槽位。
- */
-async function readSiteCredentialRaw(site: SlotId): Promise<unknown> {
-  const raw = await readStoredCredentialRaw();
-  if (!raw) {
+/** Read CLI config.json isIntl. Missing or non-boolean values are ignored. Never writes the file. */
+function readCliIsIntl(): boolean | undefined {
+  try {
+    const text = readFileSync(join(cloudbaseConfigDir, "config.json"), "utf8");
+    const parsed = JSON.parse(text) as { isIntl?: unknown };
+    return typeof parsed.isIntl === "boolean" ? parsed.isIntl : undefined;
+  } catch {
     return undefined;
   }
-  if (isSlottedCredential(raw)) {
-    return raw[site];
-  }
-  return site === LEGACY_SITE ? raw : undefined;
 }
 
 /**
- * 将凭证写入指定 site 槽位，保留其他槽位数据。
- * base 缺省时读取当前存储；旧单槽数据会被迁移为 domestic 槽位（写回时升级分槽）。
+ * Collapse a legacy slotted credential to one flat record.
+ * The rewritten file is the completion marker; a crash leaves the slotted file for the next read.
  */
-async function writeSiteCredential(
-  site: SlotId,
-  credential: unknown,
-  base?: unknown,
-): Promise<void> {
-  const current = base ?? (await readStoredCredentialRaw());
-  const slotted: Partial<Record<SlotId, unknown>> =
-    current && isSlottedCredential(current)
-      ? { ...current }
-      : { domestic: current ?? {} };
-  slotted[site] = credential ?? {};
-  await authStore.set("credential", slotted);
-}
-
-/**
- * 确保存储已为分槽格式并返回槽位快照。
- * 用于登录前迁移旧单槽数据，避免 @cloudbase/toolbox 内部误命中旧凭证而跳过新站点登录。
- */
-export async function ensureSlottedCredential(): Promise<Record<string, unknown>> {
-  const raw = await readStoredCredentialRaw();
-  if (raw && isSlottedCredential(raw)) {
-    return { ...raw };
+async function migrateSlottedCredentialToFlat(): Promise<void> {
+  const raw = await authStore.get("credential");
+  if (!isSlottedCredential(raw)) {
+    return;
   }
-  const slotted: Record<string, unknown> = { domestic: raw ?? {} };
-  await authStore.set("credential", slotted);
-  return slotted;
+  const domestic = hasResolvableSecrets(raw.domestic) ? raw.domestic : undefined;
+  const intl = hasResolvableSecrets(raw.intl) ? raw.intl : undefined;
+  const isIntl = readCliIsIntl();
+  let site: SiteId;
+  if (isIntl === true && intl) {
+    site = "intl";
+  } else if (isIntl === false && domestic) {
+    site = "domestic";
+  } else {
+    site = resolveSiteAndRegion().site;
+  }
+  const chosen = site === "intl" ? (intl ?? domestic) : (domestic ?? intl);
+  await authStore.set("credential", chosen ?? {});
 }
 
-function isSlotTokenExpired(
+function isTempTokenExpired(
   credential: { accessTokenExpired?: number | string },
   gap = 120,
 ): boolean {
@@ -505,30 +542,37 @@ function isSlotTokenExpired(
 }
 
 /**
- * 读取并解析指定 site 的登录态，必要时走 refreshToken 续期（镜像 @cloudbase/toolbox 行为）。
+ * Read the single flat credential and refresh it when the temp token is expired.
+ * Refresh responses omit uin, so the previous uin is copied back onto the stored record.
  */
-async function resolveSiteLoginState(site: SlotId): Promise<LoginState | null> {
-  const raw = await readSiteCredentialRaw(site);
-  if (!raw) {
+async function resolveFlatLoginState(): Promise<LoginState | null> {
+  const raw = await authStore.get("credential");
+  if (!hasResolvableSecrets(raw)) {
     return null;
   }
-  const credential = resolveCredential(raw as any);
+  const credential = resolveCredential(raw as Parameters<typeof resolveCredential>[0]);
   if (!credential?.secretId || !credential?.secretKey) {
     return null;
   }
 
   if (credential.refreshToken) {
-    if (!isSlotTokenExpired(credential)) {
+    if (!isTempTokenExpired(credential)) {
       return credential as LoginState;
     }
     if (Date.now() < Number(credential.expired)) {
       try {
         const refreshed = await refreshTmpToken(credential);
-        await writeSiteCredential(site, refreshed ?? {});
-        const resolved = resolveCredential(refreshed ?? {});
+        const refreshedCredential =
+          refreshed &&
+          (refreshed as { uin?: unknown }).uin === undefined &&
+          credential.uin !== undefined
+            ? { ...refreshed, uin: credential.uin }
+            : refreshed;
+        await authStore.set("credential", refreshedCredential ?? {});
+        const resolved = resolveCredential((refreshedCredential ?? {}) as Parameters<typeof resolveCredential>[0]);
         return resolved?.secretId ? (resolved as LoginState) : null;
       } catch (e) {
-        const code = (e as any)?.code;
+        const code = (e as { code?: string })?.code;
         if (code === "AUTH_FAIL" || code === "InternalError.GetRoleError") {
           return null;
         }
@@ -541,27 +585,171 @@ async function resolveSiteLoginState(site: SlotId): Promise<LoginState | null> {
   return credential as LoginState;
 }
 
-function isUsableCredential(value: unknown): boolean {
-  return (
-    !!value &&
-    typeof value === "object" &&
-    Object.keys(value as Record<string, unknown>).length > 0
-  );
+/**
+ * 读项目级凭据文件 `~/.config/.cloudbase/projects/<项目根>/auth.json` 的原始内容。
+ *
+ * 只读、不建目录——没绑定的项目不该因为我们探一下就多出一个空目录。
+ * 判据与 `@cloudbase/toolbox` 的 `getProjectApiKeyCredential()` 一致：必须同时有
+ * 密钥与 `authSource`，也就是只有 API Key 来源的凭据会落到项目级（web/device
+ * 登录态永远进全局），这样两边的判据不会分叉。
+ */
+function readProjectCredentialFile(projectRoot: string): Record<string, unknown> | null {
+  try {
+    const raw = readFileSync(join(getProjectDir(projectRoot), "auth.json"), "utf8");
+    const parsed = JSON.parse(raw) as { credential?: Record<string, unknown> };
+    const stored = parsed?.credential;
+    if (!stored || typeof stored !== "object") {
+      return null;
+    }
+    if (!stored.secretId || !stored.authSource) {
+      return null;
+    }
+    return stored;
+  } catch {
+    return null;
+  }
 }
 
 /**
- * 返回当前存在可用凭证的 site 槽位列表（凭证续期失败视为不可用）。
- * 用于歧义 region（如 ap-singapore）时判定用户实际所属站点。
+ * 删掉项目级凭据文件。只删这一个文件，目录留着——删目录会顺带清掉同在里面的
+ * `project.json` 等项目配置。
+ *
+ * 不走 toolbox 的 `logout({cwd})`：那个接口会**无条件先删全局凭据**，而「退出本项目」
+ * 不该把用户的账号级登录一起注销掉。
  */
-export async function listUsableCredentialSites(): Promise<SlotId[]> {
-  const usable: SlotId[] = [];
-  for (const site of ["domestic", "intl"] as const) {
-    const state = await resolveSiteLoginState(site).catch(() => null);
-    if (state) {
-      usable.push(site);
-    }
+function deleteProjectCredentialFile(projectRoot: string): void {
+  try {
+    unlinkSync(join(getProjectDir(projectRoot), "auth.json"));
+  } catch {
+    // 文件本来就不在：登出是幂等的，不报错
   }
-  return usable;
+}
+
+/**
+ * 项目级凭据优先于账号级全局登录态。
+ *
+ * 与 `readProjectEnvId()`「项目配置优先于账号级登录态」保持同一原则：项目级凭据是
+ * API Key 登录按 cwd 落下的那一份，随仓库走、跨进程存活，新起的 stdio 进程不必重复登录。
+ *
+ * 命中后把 apiKey/envId 回填进进程 env（与 `login_by_api_key` 同一做法），
+ * 让下游的 credential_scope / auth_mode / 环境候选 / 绑定校验保持同一套判断，
+ * 不必各自再认一遍项目级文件。
+ *
+ * 过期与续期交给 toolbox 的 `checkAndGetCredential()`：API Key 凭据用 apiKey 重换，
+ * 换取结果回写项目级（refreshToken 续期仍写全局——项目级凭据只有 API Key 一种来源）。
+ * 不可用（换取失败、密钥失效）时返回 null，由调用方回落全局登录态。
+ */
+async function resolveProjectLoginState(): Promise<LoginState | null> {
+  let projectRoot: string;
+  try {
+    projectRoot = requireProjectRoot();
+  } catch {
+    // 宿主配置目录等非法项目根：不参与项目级凭据
+    return null;
+  }
+  if (!readProjectCredentialFile(projectRoot)) {
+    return null;
+  }
+  const credential = (await checkAndGetCredential({ cwd: projectRoot })) as
+    | (LoginState & { apiKey?: string; authSource?: string })
+    | null;
+  if (!credential?.secretId) {
+    debug("peekLoginState: project credential unusable, falling back to global", {
+      projectRoot,
+    });
+    return null;
+  }
+  if (credential.authSource === "api_key" && credential.apiKey && credential.envId) {
+    process.env.CLOUDBASE_API_KEY = credential.apiKey;
+    process.env.CLOUDBASE_ENV_ID = credential.envId;
+    adoptedProjectApiKey = credential.apiKey;
+    adoptedProjectEnvId = credential.envId;
+  }
+  return credential as LoginState;
+}
+
+/** 清掉我们回填进 env 的那一份，别把已失效的 key 留在进程里。 */
+function clearAdoptedProjectEnv(): void {
+  if (adoptedProjectApiKey !== null && process.env.CLOUDBASE_API_KEY === adoptedProjectApiKey) {
+    delete process.env.CLOUDBASE_API_KEY;
+    delete process.env.CLOUDBASE_ENV_ID;
+  }
+  adoptedProjectApiKey = null;
+  adoptedProjectEnvId = null;
+}
+
+/**
+ * env 里的这一份 key 是不是我们自己从项目级回填的。
+ * 是的话来源报 `project`，别报成 `env`——否则第二次调用就会把来源说反。
+ */
+function isAdoptedProjectCredential(apiKey: string, envId: string): boolean {
+  return adoptedProjectApiKey !== null && apiKey === adoptedProjectApiKey && envId === adoptedProjectEnvId;
+}
+
+/**
+ * env 里的这一份凭据能不能被 `logout()` 清掉。
+ *
+ * 能清掉的只有两种情况：是我们从项目级凭据文件回填的，或者它与当前项目级凭据文件里
+ * 那一份相同（`auth(login_by_api_key)` 写进程 env 的同时也把同一个 key 落到项目级）。
+ * 这两种都能沿 `logout()` 清掉：删项目级文件、再清 env。
+ *
+ * 其余情况是用户自己在 shell 或宿主配置里设的变量，进程删不掉，只能提示他去源头改。
+ */
+export function isEnvCredentialRemovableByLogout(): boolean {
+  const apiKey = getCloudBaseApiKeyFromEnv();
+  const envId = process.env.CLOUDBASE_ENV_ID;
+  if (!apiKey || !envId) {
+    return false;
+  }
+  if (isAdoptedProjectCredential(apiKey, envId)) {
+    return true;
+  }
+  try {
+    const stored = readProjectCredentialFile(requireProjectRoot()) as
+      | { apiKey?: unknown; envId?: unknown }
+      | null;
+    return stored?.apiKey === apiKey && stored?.envId === envId;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * 全局凭据文件 `~/.config/.cloudbase/auth.json` 与 CloudBase CLI 共用一份：用户会在终端里
+ * `tcb login`，宿主连接器的登录按钮执行的也是 `tcb login --flow web --yes`，两者都在
+ * **另一个进程**里重写这个文件。
+ *
+ * 而 `@cloudbase/toolbox` 的 `LocalStore` 把文件解析结果缓存在实例字段上、生命周期内不失效
+ * （`lib/localstore.js`：`getDB() { const db = this.db || await getAsyncDB(...) }`），
+ * 于是这里有两个方向的问题：
+ *
+ * 1. 外部刚写入的凭据读不到——本进程仍按启动时那份快照判断登录态；
+ * 2. 更危险：本进程后续任何一次写回（临时密钥续期、logout）都会把**陈旧快照整个序列化回盘**，
+ *    直接覆盖外部刚写入的凭据。
+ *
+ * 因此把检查放在两个凭据入口上——`peekLoginState()`（登录态读取，以及它之后发生的续期写回）
+ * 与 `logout()`（删除）——比对文件 mtime，变了就丢弃缓存强制重读。
+ * MCP 内没有绕过这两个入口的凭据读写路径，所以二者覆盖了全部读写。
+ */
+const globalCredentialFile = join(cloudbaseConfigDir, "auth.json");
+let lastSeenCredentialMtimeMs: number | undefined;
+
+function dropStaleCredentialStoreCache(): void {
+  let mtimeMs: number | undefined;
+  try {
+    mtimeMs = statSync(globalCredentialFile).mtimeMs;
+  } catch {
+    // 文件不存在（或不可读）：外部可能刚清空凭据，同样要让缓存失效
+    mtimeMs = undefined;
+  }
+  if (mtimeMs === lastSeenCredentialMtimeMs) {
+    return;
+  }
+  lastSeenCredentialMtimeMs = mtimeMs;
+  // `db` 是 @cloudbase/toolbox LocalStore 的私有缓存字段，没有公开的失效接口；
+  // 清掉它，下一次 get/set/delete 就会重新读盘。字段若被上游改名，
+  // 这里退化为旧行为（缓存不失效），不会抛错。
+  delete (authStore as unknown as { db?: unknown }).db;
 }
 
 export async function peekLoginState(options?: {
@@ -569,15 +757,18 @@ export async function peekLoginState(options?: {
   site?: string;
   region?: string;
 }): Promise<LoginState | null> {
+  dropStaleCredentialStoreCache();
+  credentialSource = null;
   const envVarLoginState = normalizeLoginStateFromEnvVars(options);
+  // 回填的那份 key 换不出临时密钥时置位：项目级文件里是同一份，不必再试一次
+  let projectCredentialSkipped = false;
 
   if (envVarLoginState) {
     // API Key 模式：需要先用 API Key 换取临时密钥
     if ('_type' in envVarLoginState && envVarLoginState._type === 'api_key') {
       debug("peekLoginState: detected CLOUDBASE_API_KEY env var");
       try {
-        // 优先使用 IDE 注入的工作目录，其次 process.cwd()
-        const projectCwd = process.env.WORKSPACE_FOLDER_PATHS || process.cwd();
+        const projectCwd = requireProjectRoot();
         // 换取网关按站点选型：显式 intl → ap-singapore；domestic/歧义 → toolbox 默认
         // ap-shanghai（国内站多地域环境均经其全局路由，详见 resolveApiKeyExchangeRegion）
         const exchangeRegion = resolveApiKeyExchangeRegion({
@@ -589,47 +780,49 @@ export async function peekLoginState(options?: {
           envVarLoginState.envId,
           { cwd: projectCwd, ...(exchangeRegion ? { region: exchangeRegion } : {}) }
         );
+        // 这一份 env 如果是我们上一轮从项目级回填的，来源仍算 project
+        credentialSource = isAdoptedProjectCredential(
+          envVarLoginState.apiKey,
+          envVarLoginState.envId,
+        )
+          ? "project"
+          : "env";
         return credential;
       } catch (e) {
         debug("peekLoginState: API Key login failed", { error: e instanceof Error ? e.message : String(e) });
-        return null;
+        // 我们回填的那份失效（密钥被撤、环境被删）：先清掉残留，别让它一直占着 env
+        // 把状态查询、登出、重新登录全堵死；项目文件本身不动，用户重新登录会覆盖它。
+        // 清完继续往下走，让账号级登录态接上。
+        if (isAdoptedProjectCredential(envVarLoginState.apiKey, envVarLoginState.envId)) {
+          clearAdoptedProjectEnv();
+          projectCredentialSkipped = true;
+        } else {
+          // 用户自己在 shell / 宿主配置里设的变量，登不登得上由他那边决定
+          return null;
+        }
       }
     }
 
-    // 腾讯云密钥模式：直接返回
-    debug("loginByApiSecret");
-    return envVarLoginState as LoginState;
-  }
-
-  // 按 site 读取分槽凭证（缺省按 TCB_SITE/region 解析站点，默认 domestic）
-  const explicitSite = normalizeSite(options?.site) ?? normalizeSite(process.env.TCB_SITE);
-  const site: SlotId = explicitSite ?? resolveSite(options?.region);
-  let slotLoginState = await resolveSiteLoginState(site);
-
-  // 歧义 region（如 ap-singapore 同时属于 domestic 与 intl）且未显式指定 site 时，
-  // 解析槽位为空则回退检查另一槽位：仅另一槽位有可用凭证时直接使用，
-  // 避免对单站点用户误报 AUTH_REQUIRED（如国内站 ap-singapore 环境场景）。
-  if (!slotLoginState && !explicitSite && getSite(options?.region) === "ambiguous") {
-    const fallbackSite: SlotId = site === "domestic" ? "intl" : "domestic";
-    const fallbackLoginState = await resolveSiteLoginState(fallbackSite);
-    if (fallbackLoginState) {
-      debug("peekLoginState: ambiguous region, using the only usable site slot", {
-        resolvedSite: site,
-        fallbackSite,
-      });
-      return fallbackLoginState;
+    if (!projectCredentialSkipped) {
+      // 腾讯云密钥模式：直接返回
+      debug("loginByApiSecret");
+      credentialSource = "env";
+      return envVarLoginState as LoginState;
     }
   }
 
-  if (slotLoginState) {
-    return slotLoginState;
+  // 项目级凭据优先于账号级登录态（与 readProjectEnvId 同一原则）
+  const projectLoginState = projectCredentialSkipped ? null : await resolveProjectLoginState();
+  if (projectLoginState) {
+    credentialSource = "project";
+    return projectLoginState;
   }
 
-  // 兼容旧单槽数据（视为 domestic），走 toolbox 读取/续期
-  if (site === LEGACY_SITE) {
-    return auth.getLoginState();
-  }
-  return null;
+  // Site selects endpoints, not which credential is stored. One flat record is shared.
+  await migrateSlottedCredentialToFlat();
+  const flatLoginState = await resolveFlatLoginState();
+  credentialSource = flatLoginState ? "global" : null;
+  return flatLoginState;
 }
 
 export async function ensureLogin(options?: EnsureLoginOptions) {
@@ -656,8 +849,8 @@ export async function ensureLogin(options?: EnsureLoginOptions) {
     }
 
     const mode = resolvedAuthOptions.authMode;
-    // 按显式 site > TCB_SITE > region 映射表解析站点（ap-singapore 歧义默认 intl，兼容既有国际站行为）
-    const resolvedSite: SlotId = resolveSite(
+    // Site selects the login URL only. ap-singapore is ambiguous and defaults to intl.
+    const resolvedSite: SiteId = resolveSite(
       options?.region,
       options?.site ?? process.env.TCB_SITE,
     );
@@ -702,24 +895,11 @@ export async function ensureLogin(options?: EnsureLoginOptions) {
       }
     }
     debug("beforeloginByWebAuth", { loginOptions });
-    // 登录前迁移旧单槽数据为分槽格式，避免 toolbox 内部命中旧凭证而跳过新站点登录
-    const slotsBefore = await ensureSlottedCredential();
     try {
-      const loginResult = await auth.loginByWebAuth(
+      // toolbox writes the new credential as flat auth.json. Leave that shape unchanged.
+      await auth.loginByWebAuth(
         loginOptions as Parameters<typeof auth.loginByWebAuth>[0],
       );
-      // toolbox 将新凭证写入 flat 'credential'，将其并入对应 site 槽位，保留其他槽位
-      const newRaw = await readStoredCredentialRaw();
-      let credentialToSlot: unknown = loginResult;
-      if (isSlottedCredential(newRaw)) {
-        credentialToSlot = newRaw[resolvedSite] ?? newRaw.domestic;
-      } else if (newRaw) {
-        credentialToSlot = newRaw;
-      }
-      if (isUsableCredential(credentialToSlot)) {
-        const merged = { ...slotsBefore, [resolvedSite]: credentialToSlot };
-        await authStore.set("credential", merged);
-      }
       resolveAuthProgressState();
     } catch (error) {
       rejectAuthProgressState(error);
@@ -742,16 +922,47 @@ export async function getLoginState(options?: EnsureLoginOptions) {
   return ensureLogin(options);
 }
 
-export async function logout(options?: { site?: string }) {
-  const site: SlotId = normalizeSite(options?.site) ?? "domestic";
-  const raw = await readStoredCredentialRaw();
-  if (raw && isSlottedCredential(raw)) {
-    const slotted: Record<string, unknown> = { ...raw };
-    delete slotted[site];
-    await authStore.set("credential", slotted);
-  } else if (site === LEGACY_SITE) {
-    const cwd = process.env.WORKSPACE_FOLDER_PATHS || process.cwd();
-    await auth.logout({ cwd });
+/**
+ * 退出登录：只清「当前生效的那一份」。
+ *
+ * 项目级凭据优先于账号级登录态，所以项目里有 API Key 时，登出只删项目文件、清掉
+ * 回填的环境变量，账号登录原样保留（删完它自动接上）。再调一次才轮到全局。
+ *
+ * 不把 cwd 交给 toolbox 的 `logout()`：那个接口会**无条件先删全局凭据**，
+ * 「退出本项目」不该把用户的账号级登录一起注销掉。
+ */
+export async function logout(_options?: { site?: string }): Promise<{
+  removed: Array<"project" | "global">;
+}> {
+  // 先同步缓存再删：否则 toolbox 会把本进程启动时的陈旧快照写回盘，
+  // 把外部（CLI / 宿主登录按钮）刚写入的凭据一起抹掉。
+  dropStaleCredentialStoreCache();
+
+  const removed: Array<"project" | "global"> = [];
+  let projectRoot: string | undefined;
+  try {
+    projectRoot = requireProjectRoot();
+  } catch {
+    // 宿主配置目录等非法项目根：没有项目级凭据
+    projectRoot = undefined;
   }
+
+  const envApiKey = getCloudBaseApiKeyFromEnv();
+  const hasProjectCredential = !!(projectRoot && readProjectCredentialFile(projectRoot));
+  // env 里那份是用户自己设的（进程删不掉）时，既不算项目级生效，也不该顺手注销账号登录
+  const projectInEffect =
+    hasProjectCredential && (!envApiKey || isEnvCredentialRemovableByLogout());
+
+  if (projectInEffect && projectRoot) {
+    deleteProjectCredentialFile(projectRoot);
+    clearAdoptedProjectEnv();
+    removed.push("project");
+  } else if (!envApiKey) {
+    await auth.logout();
+    removed.push("global");
+  }
+
+  credentialSource = null;
   resetAuthProgressState();
+  return { removed };
 }

@@ -44,7 +44,6 @@ function str(value: unknown): string | undefined {
 const PG_WRITE_ACTIONS = new Set([
   "execute",
   "applyMigration",
-  "rollbackMigration",
   "repairMigration",
   "planMigration",
 ]);
@@ -53,7 +52,6 @@ const MYSQL_WRITE_ACTIONS = new Set([
   "executeSQL",
   "runStatement",
   "initializeSchema",
-  "provisionMySQL",
   "destroyMySQL",
 ]);
 
@@ -95,7 +93,7 @@ export function extractWriteOp(toolName: string, argsRaw: string | undefined): W
         label: `MySQL · ${action}`,
       };
     }
-    if (action === "provisionMySQL" || action === "destroyMySQL") {
+    if (action === "destroyMySQL") {
       return {
         toolName: canonical,
         action,

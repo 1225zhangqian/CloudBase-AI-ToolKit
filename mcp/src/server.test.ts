@@ -21,6 +21,7 @@ const {
   mockRegisterAgentTools,
   mockRegisterAppTools,
   mockRegisterMsgPushTools,
+  mockRegisterFeedbackTools,
   mockResolveSiteAndRegion,
 } = vi.hoisted(() => ({
   mockRegisterEnvTools: vi.fn(),
@@ -43,6 +44,7 @@ const {
   mockRegisterAgentTools: vi.fn(),
   mockRegisterAppTools: vi.fn(),
   mockRegisterMsgPushTools: vi.fn(),
+  mockRegisterFeedbackTools: vi.fn(),
   mockResolveSiteAndRegion: vi.fn(() => ({ site: "domestic", region: "ap-shanghai" })),
 }));
 
@@ -66,6 +68,7 @@ vi.mock("./tools/logs.js", () => ({ registerLogTools: mockRegisterLogTools }));
 vi.mock("./tools/agents.js", () => ({ registerAgentTools: mockRegisterAgentTools }));
 vi.mock("./tools/apps.js", () => ({ registerAppTools: mockRegisterAppTools }));
 vi.mock("./tools/msg-push.js", () => ({ registerMsgPushTools: mockRegisterMsgPushTools }));
+vi.mock("./tools/feedback.js", () => ({ registerFeedbackTools: mockRegisterFeedbackTools }));
 vi.mock("./utils/tool-wrapper.js", () => ({
   wrapServerWithTelemetry: vi.fn(),
   applyCategoryAnnotationMeta: (config: unknown) => config,
@@ -74,13 +77,12 @@ vi.mock("./utils/cloud-mode.js", () => ({
   enableCloudMode: vi.fn(),
   isCloudMode: vi.fn(() => false),
 }));
-vi.mock("./utils/site-map.js", () => ({
-  resolveSiteAndRegion: mockResolveSiteAndRegion,
-  SITE_REGION_MAP: {
-    domestic: { capabilities: { noSql: true } },
-    intl: { capabilities: { noSql: false } },
-  },
-}));
+// 只替掉需要打桩的解析链，其余导出（SITE_REGION_MAP / SITE_IDS / getConsoleDevUrl …）保留真实实现。
+// 整块替换会让被测模块新增任何一次对 site-map 的导出引用都直接崩在 mock 上，而不是崩在被测逻辑上。
+vi.mock("./utils/site-map.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./utils/site-map.js")>();
+  return { ...actual, resolveSiteAndRegion: mockResolveSiteAndRegion };
+});
 vi.mock("@modelcontextprotocol/sdk/types.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@modelcontextprotocol/sdk/types.js")>();
   return {
@@ -109,6 +111,7 @@ describe("server plugin registration", () => {
     expect(mockRegisterPgDatabaseTools).toHaveBeenCalledTimes(1);
     expect(mockRegisterPgStorageTools).toHaveBeenCalledTimes(1);
     expect(mockRegisterSqlDatabaseTools).toHaveBeenCalledTimes(1);
+    expect(mockRegisterFeedbackTools).toHaveBeenCalledTimes(1);
   });
 
   it("should allow MySQL tools to be explicitly enabled with PG plugins", async () => {

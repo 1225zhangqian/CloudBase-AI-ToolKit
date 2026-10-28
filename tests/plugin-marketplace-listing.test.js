@@ -26,8 +26,14 @@ const MATRIX_PATH = path.join(
   "specs/plugin-marketplace-listing/markets.yaml",
 );
 
+// The matrix is internal-only (specs/ is gitignored), so a public checkout and CI
+// have no markets.yaml. Tests that need real data skip; the pure-logic ones below
+// always run, which is what keeps the tooling honest in the open repo.
+const HAS_MATRIX = fs.existsSync(MATRIX_PATH);
+const testWithMatrix = HAS_MATRIX ? test : test.skip;
+
 describe("plugin marketplace listing matrix", () => {
-  test("loads and validates the repo markets.yaml", () => {
+  testWithMatrix("loads and validates the repo markets.yaml", () => {
     const matrix = loadMatrix(MATRIX_PATH);
     expect(matrix.version).toBe(1);
     expect(matrix.markets.length).toBeGreaterThan(20);
@@ -142,7 +148,36 @@ describe("plugin marketplace priority + CLI", () => {
     expect(priority).toBe("needs_packaging_or_manifest");
   });
 
-  test("offline analyze writes md and json", () => {
+  // A channel we have already packaged but that is sitting in someone else's
+  // queue must not be reported as "ready to submit" — it cannot move from here.
+  test("separates waiting-on-review blockers from our own packaging gaps", () => {
+    const base = {
+      channel_type: "official_curated_marketplace",
+      listing_statuses: {
+        official_curated: "submittable",
+        community_directory: "not_applicable",
+        self_marketplace: "not_applicable",
+        native_connector_or_builtin: "not_applicable",
+        open_plugin_spec: "listed",
+        mcp_or_skill_registry: "not_applicable",
+        docs_only: "listed",
+      },
+      eligibility: "public_github_repo_required",
+      priority_hint: null,
+    };
+    expect(
+      classifyPriority(
+        { ...base, blockers: ["Awaiting publisher review since 2026-07-28; no reply"] },
+        [],
+      ),
+    ).toBe("needs_partner_outreach");
+    expect(
+      classifyPriority({ ...base, blockers: ["Submission deferred — needs human login"] }, []),
+    ).toBe("needs_partner_outreach");
+    expect(classifyPriority({ ...base, blockers: [] }, [])).toBe("ready_to_submit");
+  });
+
+  testWithMatrix("offline analyze writes md and json", () => {
     const matrix = loadMatrix(MATRIX_PATH);
     const report = analyzeMatrix({ matrix, rootDir: ROOT_DIR });
     expect(report.total_markets).toBe(matrix.markets.length);
@@ -177,7 +212,7 @@ describe("plugin marketplace priority + CLI", () => {
     expect(server.repository.subfolder).toBe("mcp");
   });
 
-  test("CLI offline mode exits 0", () => {
+  test("CLI offline mode exits 0 (with or without the internal matrix)", () => {
     const outDir = fs.mkdtempSync(path.join(os.tmpdir(), "pm-cli-"));
     const result = spawnSync(
       process.execPath,
@@ -189,7 +224,13 @@ describe("plugin marketplace priority + CLI", () => {
       { encoding: "utf8" },
     );
     expect(result.status).toBe(0);
-    expect(fs.existsSync(path.join(outDir, "latest.md"))).toBe(true);
+    if (HAS_MATRIX) {
+      expect(fs.existsSync(path.join(outDir, "latest.md"))).toBe(true);
+    } else {
+      // Absent data must be a clean no-op with an explanation, not a crash.
+      expect(result.stdout).toMatch(/internal-only/);
+      expect(fs.existsSync(path.join(outDir, "latest.md"))).toBe(false);
+    }
   });
 
   test("CLI strict mode fails when critical evidence is missing", () => {

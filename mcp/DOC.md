@@ -15,6 +15,7 @@
 - **🎯 数据模型查询**：数据模型查询工具，支持查询和列表数据模型（只读操作）。list操作返回基础信息，get操作返回详细信息含简化的Schema（字段列表、格式、关联关系等），docs操作生成SDK使用文档，提供低代码数据模型的查看和使用能力。
 - **🌍 静态托管管理**：实现上传文件到静态网站托管、获取文件列表、删除文件或文件夹、搜索文件、绑定和解绑自定义域名、获取静态网站配置、检查域名配置、修改域名配置等功能。
 - **💻临时文件管理**：能在临时目录创建文件，支持文本内容或 base64 编码的二进制内容；读取临时目录中的文件，支持文本和二进制文件。
+- **起步面板（MCP Apps）**：在声明 `io.modelcontextprotocol/ui` 的客户端里，`auth` 工具附带一个只读面板 `ui://cloudbase/get-started`，用人话展示连接状态（位置 / 可访问范围 / 环境 ID），并只给出一个当前该做的主行动；唯一会发出的调用是只读的 `auth(status)`。不渲染该扩展的客户端行为不变。
 
 ## 使用示例
 
@@ -39,7 +40,7 @@
   "mcpServers": {
     "cloudbase-mcp": {
       "command": "npx",
-      "args": ["npm-global-exec@latest", "@cloudbase/cloudbase-mcp@latest"],
+      "args": ["-y", "@cloudbase/cloudbase-mcp@latest"],
       "env": {
         "TENCENTCLOUD_SECRETID": "腾讯云 SecretId",
         "TENCENTCLOUD_SECRETKEY": "腾讯云 SecretKey",
@@ -56,6 +57,18 @@
 
 - 需要将 `TENCENTCLOUD_SECRETID` 和 `TENCENTCLOUD_SECRETKEY`  / `TENCENTCLOUD_SESSIONTOKEN`配置为**您在云开发控制台获取的 SecretId 和 SecretKey**  （[获取腾讯云 API 密钥](https://console.cloud.tencent.com/cam/capi)）
 - 需要将 `CLOUDBASE_ENV_ID` 配置为**您在云开发控制台获取的环境 ID**, [获取云开发环境 ID](https://tcb.cloud.tencent.com/dev) 
+
+确认与开关（破坏性删除前的确认框）：
+
+- `CLOUDBASE_MCP_SKIP_ELICITATIONS`：逗号分隔，写工具名（`manageFunctions`）或单个动作（`manageFunctions.deleteFunction`）即跳过确认；区分大小写、无通配，无法识别的条目会被忽略并记日志。跳过只是不再询问，**不绕过**任何认证、权限与只读限制。
+- `CLOUDBASE_MCP_ELICIT_AUTO_APPROVE`：默认 `allow` —— 客户端处于完全访问/不询问模式时（应答耗时 < 500ms）按"未询问"放行；设为 `block` 则同样按未确认处理，不执行。
+
+凭证形态入参的写入前核对（软确认）：
+
+- 当参数里出现凭证形态字符串（三段式 JWT，或 `cb_secret_…` / `cb_publishable_…` 密钥）时，写入前会要求一次核对：拿这串与原始来源逐字比对后确认。消息里不放明文，只给长度、分段长度与 sha256 指纹前 12 位。
+- **不校验凭证是否有效**：不验签、不查 JWKS、不发任何网络请求；服务端拿不到用户最初提供的那份，比对只能由客户端完成。
+- 只有扫到凭证形态字符串时才生效（否则零变化）；客户端不支持表单 elicitation 时照常执行；**几百毫秒内返回的核对按"没人看过"处理，不执行**。
+- `CLOUDBASE_MCP_SKIP_CREDENTIAL_GUARD`：逗号分隔，写工具名（`manageCloudRun`）或单个动作（`manageCloudRun.updateConfig`）即跳过该核对；区分大小写、无通配，无法识别的条目会被忽略并记日志。
 
 
 ---

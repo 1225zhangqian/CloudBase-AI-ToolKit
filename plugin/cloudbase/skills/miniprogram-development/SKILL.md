@@ -1,7 +1,8 @@
 ---
 name: miniprogram-development
 description: WeChat Mini Program development skill for building, debugging, previewing, testing, publishing, and optimizing mini program projects (小程序开发、调试、预览、发布). Covers project structure and config (`project.config.json`, `appid`, `miniprogramRoot`, `tabBar`, routing/navigation, icon assets), WeChat Developer Tools Nightly workflows (`wechatide` CLI, WeChat IDE Skills/MCP), `miniprogram-ci` preview/upload, console/network debugging, message push (消息推送) and customer-service auto-reply (客服消息), mini program SEO / search indexing (小程序搜索优化、页面收录、搜索推广、mpcrawler), and CloudBase integration (`wx.cloud`, 腾讯云开发, 云开发) when explicitly used. Use when users create, develop, modify, debug, preview, deploy, publish, or promote WeChat Mini Programs. NOT for Web frontend (use web-development), pure backend services (use cloudrun-development / cloud-functions), or UI-design-only tasks (use ui-design).
-version: 2.34.3
+version: 2.36.1
+license: MIT
 alwaysApply: false
 ---
 
@@ -15,17 +16,19 @@ If a referenced sibling skill file is missing from this environment, ask the use
 - Change Safety Protocol: `../cloudbase-platform/references/protocols/change-safety-protocol.md`
 - Deployment Gate: `../cloudbase-platform/references/protocols/deployment-gate.md`
 
-**Post-deployment (optional, non-intrusive)**: after a mini program upload/publish is verified successful, you may offer **at most once** to generate anonymized shareables (visual card + paste-ready copy) — see `../cloudbase-platform/references/protocols/deployment-share.md` for trigger boundaries, required information, anonymization red lines, and deliverable formats. Never follow up if declined; never publish on the user's behalf.
+**Post-deployment (optional, non-intrusive)**: after a mini program upload/publish is verified successful, you may offer **at most once** to generate anonymized shareables (visual card + paste-ready copy) and, in that same offer, optionally submit the work to the case wall — see `../cloudbase-platform/references/protocols/deployment-share.md` for trigger boundaries, required information, anonymization red lines, and deliverable formats. Never follow up if declined; never publish or submit on the user's behalf.
 
 ## Activation Contract
 
 ### Use this first when
 
 - The request is about WeChat Mini Program structure, pages, preview, publishing, or CloudBase mini program integration.
+- The user asks about mini program account registration or subject type (个人 / 个体工商户 / 企业主体, 快速注册并认证小程序, 小程序主体变更), or reports that the DevTools 云开发 entry is grayed out or their environment cannot be found.
 
 ### Read before writing code if
 
 - The user mentions `wx.cloud`, CloudBase mini programs, OPENID, mini program deployment/debug workflows, Nightly DevTools, `wechatide`, or WeChat IDE Skills.
+- The user mentions 测试号 / trial accounts, a grayed-out 云开发 entry, or a mini program environment that is invisible in DevTools.
 - The user mentions message push (消息推送), customer-service auto-reply (客服消息/自动回复), or binding MsgType/Event callbacks to cloud functions.
 
 ### Then also read
@@ -46,10 +49,13 @@ If a referenced sibling skill file is missing from this environment, ask the use
 - Mixing Web SDK assumptions into `wx.cloud` projects.
 - Applying CloudBase constraints before confirming the project actually uses CloudBase.
 - Assuming Stable WeChat Developer Tools includes Nightly Skills/`wechatide` (it may not).
+- Running `which wechatide`, finding nothing, and quietly switching to manual import. Missing `wechatide` is a setup gap to report and offer to fix, not an environment limit — state that Nightly is required, offer to install it, and wait for the user's decision before falling back.
 - Forcing CloudBase MCP Tencent Cloud login for daily mini program cloud ops when Nightly `wechatide` already works.
 - Inventing `wechatide` tool names or flags instead of using `--help` / Nightly `tools.yaml`.
 - Bypassing wxide CLI / IDE for message-push ops with low-level transport before `cloud_*_msg_push` is exposed (see [message-push-customer-service.md](references/message-push-customer-service.md)).
 - Assuming cloud-function return values auto-reply to customer-service chats (must use `cloud.openapi.customerServiceMessage.send`).
+- Treating a grayed-out 云开发 entry, or an environment missing from DevTools, as a DevTools bug — trial/test accounts do not support CloudBase, and when the mini program's bound Tencent Cloud account differs from the account that created the environment, the environment is simply not listed. Diagnose the cause before touching the project (see [Common Pitfalls](references/pitfalls.md) §6).
+- Recommending a personal-subject (个人主体) mini program account because registration is free — personal subjects cannot bind a WeChat Pay merchant account, so physical goods and offline services are out; they also have far fewer service categories, and switching subject later requires notarization plus a paid review. The reverse mistake is just as bad: do not push a virtual-goods-only idea to a company account on the grounds that "personal cannot take payments" — 虚拟支付 is open to personal subjects whose service category includes 工具. Ask what the app will sell before recommending a subject (see [CloudBase integration reference](references/cloudbase-integration.md) §0.1).
 - Making code or configuration changes without first following the Change Safety Protocol (`cloudbase-platform/references/protocols/change-safety-protocol.md`).
 - Performing mini program upload/publish without first completing the checks in `cloudbase-platform/references/protocols/deployment-gate.md`.
 
@@ -86,6 +92,7 @@ Use this skill for **WeChat Mini Program development** when you need to:
    - If the task involves debugging, previewing, publishing, opening DevTools, console/network, or `wechatide`, read [debug and preview reference](references/devtools-debug-preview.md) first
    - If choosing between WeChat IDE Skills and CloudBase MCP, read [WeChat IDE Skills vs CloudBase MCP](references/wxide-vs-cloudbase-mcp.md)
    - If the task involves CloudBase, `wx.cloud`, cloud functions, CloudBase database/storage, or CloudBase identity handling, read [CloudBase integration reference](references/cloudbase-integration.md)
+   - If the task hits account / subject prerequisites (小程序尚未注册、主体选择、测试号、云开发入口置灰、环境看不到), read [CloudBase integration reference](references/cloudbase-integration.md) section 0 first
    - If the task involves mini program SEO / WeChat search optimization / page indexing / search promotion (小程序搜索优化、页面收录、搜索推广、关键词排名), read [Mini Program SEO & WeChat Search Optimization](references/seo-search-optimization.md) first
    - If the task involves message push (消息推送), customer-service auto-reply (客服消息自动回复), MsgType/Event → cloud function binding, or push-related function logs, read [Message Push & Customer Service Auto-Reply](references/message-push-customer-service.md) first
    - If the task involves `tabBar`, icon assets, or label spacing, prefer the text-only custom `tabBar` default below unless the user explicitly requires icons
@@ -95,9 +102,10 @@ Use this skill for **WeChat Mini Program development** when you need to:
    - Only apply CloudBase-specific auth, database, storage, or cloud function constraints when the project is using CloudBase
 
 5. **Recommend the right preview/debug/cloud-ops path**
-   - Prefer **Nightly** WeChat Developer Tools (built-in Skills/MCP) and execute via `wechatide` when available — see [devtools-debug-preview.md](references/devtools-debug-preview.md)
+   - Default target: **Nightly** WeChat Developer Tools (built-in Skills/MCP), executed through `wechatide` — see [devtools-debug-preview.md](references/devtools-debug-preview.md)
    - Nightly download: https://developers.weixin.qq.com/miniprogram/dev/devtools/nightly_backup.html
-   - If Nightly / `wechatide` is unavailable, fall back to `miniprogram-ci` for preview/upload and CloudBase MCP for cloud resources
+   - A missing `wechatide` is a **one-time setup gap, not an environment limit**. Tell the user Nightly is required for the CLI-driven path, offer to download/install it, and **wait for their answer**. Only after they decline or cannot install do you continue with `miniprogram-ci` + CloudBase MCP.
+   - Never present stable DevTools + hand import as the recommended default, and never make the "keep it simple" trade-off on the user's behalf. Manual import is a downgrade the user chooses, not one you assign.
 
 ---
 
@@ -150,9 +158,10 @@ Keep the custom `tabBar` layout text-only, and use flex centering or matching `h
 
 ## Debugging, Preview, and Publishing
 
-- Prefer **Nightly** DevTools + `wechatide` for open project, compile, simulator, console/network debug, preview, upload, and daily cloud ops (WeChat login — no separate Tencent Cloud login)
+- **Default path**: **Nightly** DevTools + `wechatide` for open project, compile, simulator, console/network debug, preview, upload, and daily cloud ops (WeChat login — no separate Tencent Cloud login)
 - Always pass required context: `-c <clientName>`, absolute `--project`, valid `appid`, and cloud `env` when needed
-- If Nightly / `wechatide` is not available, use `miniprogram-ci` as the fallback for preview/upload/npm, and CloudBase MCP for cloud resources; tell the user to install Nightly for full Skills/MCP
+- **If `wechatide` is missing**: report it as a setup gap, state that Nightly is required for the CLI-driven path, offer to install it, and wait for the user's answer — do not downgrade on your own
+- Only after the user declines or cannot install Nightly: use `miniprogram-ci` for preview/upload/npm plus CloudBase MCP for cloud resources, and say which capabilities are now missing (simulator, console/network, automation, CLI cloud ops)
 - For detailed workflows, read [debug and preview reference](references/devtools-debug-preview.md) and [WeChat IDE Skills vs CloudBase MCP](references/wxide-vs-cloudbase-mcp.md)
 
 ## Message Push & Customer Service Auto-Reply
@@ -221,4 +230,4 @@ Page({
 - [WeChat IDE Skills vs CloudBase MCP](references/wxide-vs-cloudbase-mcp.md) — layering and when to use which execution surface
 - [Message Push & Customer Service Auto-Reply](references/message-push-customer-service.md) — 消息推送 / 客服自动回复 via wxide CLI + IDE (no low-level bypass; pending `cloud_*_msg_push`)
 - [Mini Program SEO & WeChat Search Optimization](references/seo-search-optimization.md) — 小程序搜索优化 / page indexing / search promotion (`mpcrawler`, URL reachability, `navigator` jumps, titles & thumbnails)
-- [Common Pitfalls](references/pitfalls.md) — read before generating code for optional chaining, TDesign styling, Canvas + storage, and environment issues
+- [Common Pitfalls](references/pitfalls.md) — read before generating code for optional chaining, TDesign styling, Canvas + storage, and the 云开发 entry / environment issues (§6)

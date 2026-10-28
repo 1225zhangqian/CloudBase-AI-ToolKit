@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { registerPermissionTools, validateUserRegoContent } from "./permissions.js";
+import { t } from "../i18n/index.js";
 import type { ExtendedMcpServer } from "../server.js";
 
 const {
@@ -206,7 +207,7 @@ describe("permission tools", () => {
         appliesTo: ["update", "delete"],
         recommendedPermission: "CUSTOM",
         recommendedSecurityRule:
-          "{\"create\":\"auth.uid != null\",\"update\":\"auth.uid != null && (get('database.user_roles.' + auth.uid).role == 'admin' || doc.authorId == auth.uid)\",\"delete\":\"auth.uid != null && (get('database.user_roles.' + auth.uid).role == 'admin' || doc.authorId == auth.uid)\"}",
+          "{\"create\":\"auth.uid != null\",\"update\":\"auth.uid != null && (get(`database.user_roles.${auth.uid}`).role == 'admin' || doc.authorId == auth.uid)\",\"delete\":\"auth.uid != null && (get(`database.user_roles.${auth.uid}`).role == 'admin' || doc.authorId == auth.uid)\"}",
       }),
     ]);
   });
@@ -259,6 +260,42 @@ describe("permission tools", () => {
         resourceId: "bucket-1",
       },
     });
+  });
+
+  it("queryPermissions(action=getResourcePermission) should accept the shared bucket name in a shared-bucket environment", async () => {
+    // 共享桶环境 Storages[0].Bucket 为空，平台以 ExternalStorage.BucketName 作为资源 ID
+    const current = await mockGetCloudBaseManager();
+    mockGetCloudBaseManager.mockResolvedValue({
+      ...current,
+      env: {
+        ...current.env,
+        getEnvInfo: vi.fn().mockResolvedValue({
+          EnvInfo: {
+            Storages: [{ Bucket: "", ExternalStorage: { Enabled: true, BucketName: "shared-cos-1259548930" } }],
+          },
+        }),
+      },
+    });
+    mockDescribeResourcePermission.mockResolvedValueOnce({
+      Data: {
+        TotalCount: 1,
+        PermissionList: [{ ResourceType: "storage", Resource: "shared-cos-1259548930", Permission: "PRIVATE" }],
+      },
+      RequestId: "req-shared-storage-perm",
+    });
+
+    const result = await tools.queryPermissions.handler({
+      action: "getResourcePermission",
+      resourceType: "storage",
+      resourceId: "shared-cos-1259548930",
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(mockDescribeResourcePermission).toHaveBeenCalledWith({
+      resourceType: "storage",
+      resources: ["shared-cos-1259548930"],
+    });
+    expect(payload).toMatchObject({ success: true, data: { resourceId: "shared-cos-1259548930" } });
   });
 
   it("queryPermissions(action=listResourcePermissions) should include resource-level hints for risky custom rules", async () => {
@@ -416,7 +453,7 @@ describe("permission tools", () => {
         type: "invalidGetPathWarning",
         recommendedPermission: "CUSTOM",
         recommendedSecurityRule:
-          "{\"create\":\"auth.uid != null\",\"update\":\"auth.uid != null && (get('database.user_roles.' + auth.uid).role == 'admin' || doc.authorId == auth.uid)\",\"delete\":\"auth.uid != null && (get('database.user_roles.' + auth.uid).role == 'admin' || doc.authorId == auth.uid)\"}",
+          "{\"create\":\"auth.uid != null\",\"update\":\"auth.uid != null && (get(`database.user_roles.${auth.uid}`).role == 'admin' || doc.authorId == auth.uid)\",\"delete\":\"auth.uid != null && (get(`database.user_roles.${auth.uid}`).role == 'admin' || doc.authorId == auth.uid)\"}",
       }),
     ]);
   });
@@ -436,6 +473,41 @@ describe("permission tools", () => {
       expect.objectContaining({
         type: "templateLiteralRuleWarning",
         roleLookupNote: expect.stringContaining("文档主键就是 auth.uid"),
+      }),
+    ]);
+  });
+
+  it("managePermissions(action=updateResourcePermission) should not warn on a backtick template literal get() path", async () => {
+    // 反引号模板字符串是 get() path 的官方形态，不能报成模板字符串用法错误
+    const result = await tools.managePermissions.handler({
+      action: "updateResourcePermission",
+      resourceType: "noSqlDatabase",
+      resourceId: "articles",
+      permission: "CUSTOM",
+      securityRule:
+        "{\"update\": \"auth.uid != null && get(`database.user_roles.${auth.uid}`).role == 'admin'\"}",
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    const types = (payload.data.hints ?? []).map((hint: { type: string }) => hint.type);
+    expect(types).not.toContain("templateLiteralRuleWarning");
+    expect(types).not.toContain("invalidGetPathWarning");
+  });
+
+  it("managePermissions(action=updateResourcePermission) should flag a field name embedded in a backtick get() path", async () => {
+    const result = await tools.managePermissions.handler({
+      action: "updateResourcePermission",
+      resourceType: "noSqlDatabase",
+      resourceId: "articles",
+      permission: "CUSTOM",
+      securityRule:
+        "{\"update\": \"get(`database.articles.${doc._id}.authorId`) == auth.uid\"}",
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.data.hints).toEqual([
+      expect.objectContaining({
+        type: "invalidGetPathWarning",
       }),
     ]);
   });
@@ -690,7 +762,7 @@ describe("permission tools", () => {
         action: "setPolicy",
         key: "authz.user.rego",
         rego: expect.stringContaining("package authz.user"),
-        sideEffect: expect.stringContaining("disables legacy gateway"),
+        sideEffect: expect.stringContaining(t("permissions.setPolicySideEffect")),
       },
     });
   });

@@ -1,7 +1,7 @@
 {
   "name": "cloudbase-workbench-expert",
-  "version": "1.0.0",
-  "description": "CloudBase personal workbench expert: turns everyday tracking scenarios — check-ins, habits, watchlists, expense tracking, mood journal, weekly reviews — into shareable web apps backed by a real cloud database. Data survives device changes and browser resets, and can be shared with family or friends with per-person login. Built and deployed end-to-end for non-developers.",
+  "version": "1.0.82",
+  "description": "CloudBase business operations workbench expert: turns a shop's daily routine — inventory, stock in/out, purchase orders, stocktakes, sales orders, daily revenue, bookkeeping, supplier ledgers, customer & member lists, staff attendance and scheduling — into a shareable web app backed by a real cloud database with role-based access (owner sees everything, staff see only what they should). Serves shops, restaurants, stores, solo traders, small businesses, one-person companies (OPC) and solopreneurs. Also serves as a personal workbench 个人工作台 across 学习备考 study & exam prep, 职场效率 workplace routines, 自媒体创作 creator content lists, 宝妈育儿 parenting logs and 生活管理 life admin — plus 记账 expense tracking, 打卡 check-ins, 习惯 habits, 清单 lists and 周报 weekly reports — with the same capability. Built and deployed end-to-end for non-developers.",
   "author": {
     "name": "booker",
     "email": "booker@cloudbase.net"
@@ -10,46 +10,58 @@
     "./agents/cloudbase-workbench-expert.md"
   ],
   "skills": [],
-
   "expertType": "agent",
   "agentName": "cloudbase-workbench-expert",
-
   "displayName": {
-    "en": "CloudBase Personal Workbench Expert",
-    "zh": "云端个人工作台专家"
+    "en": "Cloud Workbench",
+    "zh": "云端工作台"
   },
   "profession": {
-    "en": "Productivity Tool Builder",
-    "zh": "效率工具搭建师"
+    "en": "Business Operations Workbench Expert",
+    "zh": "小微经营工作台专家"
   },
   "displayDescription": {
-    "en": "Turn check-ins, habits, lists, expense tracking, watchlists, reviews, and weekly reports into your personal workbench — data lives in the cloud so it survives phone changes and browser resets, and you can invite family or friends to use it together.",
-    "zh": "打卡、习惯、清单、记账、追剧、周报，搭你的云端工作台：数据不丢、换手机还在，能拉家人朋友一起用。"
+    "en": "Turn your shop's daily routine — inventory, orders, revenue, customers, staff — into a cloud workbench: one shared copy for owner and staff, role-based access, and data that survives phone changes.",
+    "zh": "库存、进货、订单、营业、客户、店员，搭店里在用的云端工作台：老板店员同一份、按角色分权限。"
   },
   "avatar": "avatars/cloudbase-workbench-expert.png",
   "categoryId": "02-Engineering",
   "defaultInitPrompt": {
-    "zh": "帮我做一个健身打卡工具，每天记录练了什么，有打卡日历和连续天数统计",
-    "en": "Build a workout check-in app: log each session, with a check-in calendar and a streak counter."
+    "zh": "帮我做一个任务进度工作台：每件事谁在做、卡在哪一步一屏看清，到期没动的自动提醒负责人",
+    "en": "Build a task progress workbench: see at a glance who owns what and where it's stuck, with automatic reminders when something goes overdue."
+  },
+  "dependencies": {
+    "connectors": [
+      "cloudbase"
+    ]
   },
   "plugin": "cloudbase-workbench-expert",
   "tags": [
-    { "en": "Personal Workbench", "zh": "工作台" },
-    { "en": "Check-ins & Habits", "zh": "打卡" },
-    { "en": "Lists & Tracking", "zh": "清单" }
+    {
+      "en": "Workbench",
+      "zh": "工作台"
+    },
+    {
+      "en": "Inventory",
+      "zh": "库存管理"
+    },
+    {
+      "en": "Store Operations",
+      "zh": "店铺经营"
+    }
   ],
   "quickPrompts": [
     {
-      "zh": "帮我做一个健身打卡工具，每天记录练了什么，有打卡日历和连续天数统计",
-      "en": "Build a workout check-in app: log each session, with a check-in calendar and a streak counter."
+      "zh": "帮我做一个任务进度工作台：每件事谁在做、卡在哪一步一屏看清，到期没动的自动提醒负责人",
+      "en": "Build a task progress workbench: see at a glance who owns what and where it's stuck, with automatic reminders when something goes overdue."
     },
     {
-      "zh": "做一个情侣记账本：我们两个人都能记账，月底自动汇总各自的支出和一起的开销",
-      "en": "Build a couple's expense tracker: both of us can log expenses, with monthly summaries per person and shared spending."
+      "zh": "帮我做一个库存申领工作台：谁要什么在线上提交，负责人审批后自动扣库存，记录留底可追溯",
+      "en": "Build a stock request workbench: people submit what they need, approvers approve, stock is deducted automatically, and every record stays traceable."
     },
     {
-      "zh": "做我的追剧清单：想看的剧都记下来，看完打分写短评，按想看/在看/看完分类",
-      "en": "Build my watchlist: track shows I want to watch, rate and note finished ones, sorted into want/watching/done."
+      "zh": "帮我做一个店员考勤的工作台：店员扫码上下班打卡，我能看今天谁到了、谁还没到，月底统计工时",
+      "en": "Build a staff attendance workbench: staff check in and out by scanning, I see who's in today, and hours are summed monthly."
     }
   ]
 }

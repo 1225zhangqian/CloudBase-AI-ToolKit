@@ -1,0 +1,116 @@
+# Tutorial: WorkBuddy + CloudBase Database in Practice
+
+This tutorial demonstrates how to use CloudBase to operate cloud databases in WorkBuddy, including collection management, data CRUD, and permission configuration.
+
+## Estimated Time
+
+About 10 minutes
+
+## Prerequisites
+
+- [WorkBuddy](https://www.codebuddy.cn/docs/workbuddy) installed, with CloudBase enabled via the **Connect App** button or by typing `/cloudbase` (see the [configuration guide](../ide-setup/workbuddy))
+- A [CloudBase environment](https://docs.cloudbase.net/quick-start/create-env) set up
+
+## Scenario: Build an Article Management System
+
+We'll create a simple article management system with full CRUD functionality.
+
+---
+
+### 1. Enable CloudBase
+
+Type `/cloudbase` in the WorkBuddy conversation, select the CloudBase Skill, and you're ready to go.
+
+### 2. Create a Database Collection
+
+Type in the WorkBuddy AI conversation:
+
+```
+In my cloud environment, create a collection called "articles" to store article data
+```
+
+### 3. Insert Test Data
+
+Continue typing:
+
+```
+Insert three test articles into the articles collection:
+1. Title: "WorkBuddy Getting Started Guide", Author: "Alice", Category: "Tech", Reads: 120
+2. Title: "CloudBase Tips & Tricks", Author: "Bob", Category: "Tech", Reads: 85
+3. Title: "AI Coding Practice", Author: "Charlie", Category: "AI", Reads: 200
+```
+
+### 4. Query Data
+
+Next, try querying data:
+
+```
+Query articles where readCount > 100, sorted by readCount descending
+```
+
+The AI will return the query results.
+
+### 5. Update Data
+
+Type:
+
+```
+Update the readCount of the article titled "WorkBuddy Getting Started Guide" to 150
+```
+
+### 6. Delete Data
+
+Type:
+
+```
+Delete articles from the articles collection where readCount is less than 100
+```
+
+### 7. Create a Data Model (Optional)
+
+For structured data, you can create a data model:
+
+```
+Create a data model for the articles collection with these fields:
+- title: string, required
+- author: string, required
+- category: string
+- readCount: number, default 0
+- createdAt: date
+```
+
+## Cloud Storage Operations
+
+In addition to the database, CloudBase also provides cloud storage services.
+
+### Upload a File
+
+Type in WorkBuddy:
+
+```
+Upload the public/logo.png file from my local project to the images/ directory in cloud storage
+```
+
+### Get a File URL
+
+```
+Get a temporary access URL for images/logo.png
+```
+
+## Common Database Operations Quick Reference
+
+| Operation | Example Prompt |
+|------|-----------|
+| Create collection | `Create a collection called "users"` |
+| Insert data | `Insert a record into the users collection: {name: "Test User", age: 25}` |
+| Query data | `Query users collection where age is greater than 18` |
+| Update data | `Update the record in users collection where name is "Test User", set age to 26` |
+| Delete data | `Delete the record in users collection where name is "Test User"` |
+| Upload file | `Upload the file uploads/report.pdf to cloud storage` |
+| Get file URL | `Get a temporary URL for reports/report.pdf` |
+
+## Next Steps
+
+- Learn more about the [NoSQL Database Skill](../prompts/cloudbase-document-database-web-sdk)
+- Learn about [MySQL Database Operations](../prompts/relational-database-mcp-cloudbase)
+- Explore more [MCP Tools](../mcp-tools)

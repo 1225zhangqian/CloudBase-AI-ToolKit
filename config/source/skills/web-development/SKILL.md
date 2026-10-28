@@ -1,7 +1,8 @@
 ---
 name: web-development
 description: Use when users need to implement, integrate, debug, build, deploy, or validate a Web frontend after the product direction is already clear, especially for React, Vue, Vite, browser flows, or CloudBase Web integration.
-version: 2.33.2
+version: 2.36.1
+license: MIT
 alwaysApply: false
 ---
 
@@ -36,7 +37,7 @@ If a referenced sibling skill file is missing from this environment, ask the use
 - General React / Vue / Vite guidance -> `frameworks.md`
 - Browser flow checks or page validation -> `browser-testing.md`
 - Login flow -> `../auth-tool-cloudbase/SKILL.md`, then `../auth-web-cloudbase/SKILL.md`
-- Official Account JSAPI Pay, Native QR-code Pay, or WeChat OAuth on CloudBase -> `../cloudbase-wechat-integration/SKILL.md` (official docs: `https://docs.cloudbase.net/integration/introduce/index.md`)
+- Official Account JSAPI Pay, Native QR-code Pay, or WeChat OAuth on CloudBase -> `../cloudbase-wechat-integration/SKILL.md` (official docs: `https://docs.cloudbase.net/integration/introduce.md`)
 - CloudBase database work -> matching database skill
 
 ### Do NOT use for
@@ -176,6 +177,7 @@ Use this section only when the Web project needs CloudBase platform features.
 
 ### Static hosting defaults
 
+- **Name the deployment path — do not just say "deploy to static hosting".** A first-time frontend deploy goes through `manageApps({ action: "deployApp", ... })`: each app gets its own subdomain and keeps a version history (`queryApps({ action: "getAppVersion" })` lists releases, `manageApps({ action: "deleteAppVersion" })` removes one), which is what makes rollback possible. A project originally deployed through hosting (shared domain path) keeps using `manageHosting({ action: "upload", ... })`. Never fall back to `tcb deploy`.
 - Build before deployment
 - Prefer relative asset paths for static hosting compatibility
 - Use hash routing by default when the project lacks server-side route rewrites
@@ -199,7 +201,7 @@ Use this section only when the Web project needs CloudBase platform features.
 import cloudbase from "@cloudbase/js-sdk";
 
 const app = cloudbase.init({
-  env: "your-full-env-id", // Canonical full CloudBase environment ID resolved from envQuery or the console
+  env: "your-full-env-id", // Canonical full CloudBase environment ID resolved from queryEnv or the console
 });
 
 const auth = app.auth

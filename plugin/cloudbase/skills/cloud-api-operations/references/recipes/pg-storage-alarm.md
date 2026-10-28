@@ -7,7 +7,7 @@
 - 新建使用率阈值告警策略，并绑定到指定实例
 - 已有策略但不生效：需要回查绑定维度（`resourceId` / `uid` 为 null、策略被 `alarm_disabled` 禁用）
 
-本篇只覆盖告警策略的创建 / 绑定 / 回查；查监控数据（`GetMonitorData`）或控制台可视化不在这里。
+本篇只覆盖告警策略的创建 / 绑定 / 回查。**查**监控数据（`GetMonitorData`，含 `queryEnv` 为何不覆盖 PG）→ [Recipe 12](./pg-monitor-data.md)；控制台可视化不在这里。
 
 ## 前置权限
 
@@ -20,12 +20,14 @@
 
 补权限的一键链接（`TCB_QcsRole` 为例，角色名与 `principal` 按实际角色替换）：
 
-- `https://console.cloud.tencent.com/cam/role/grant?roleName=TCB_QcsRole&policyName=QcloudMonitorFullAccess&principal=eyJzZXJ2aWNlIjoidGNiLmNsb3VkLnRlbmNlbnQuY29tIn0%3D`
-- `https://console.cloud.tencent.com/cam/role/grant?roleName=TCB_QcsRole&policyName=QcloudPostgreSQLReadOnlyAccess&principal=eyJzZXJ2aWNlIjoidGNiLmNsb3VkLnRlbmNlbnQuY29tIn0%3D`
+- `https://console.cloud.tencent.com/cam/role/grant?roleName=TCB_QcsRole&policyName=QcloudMonitorFullAccess&principal=eyJzZXJ2aWNlIjpbInRjYi5jbG91ZC50ZW5jZW50LmNvbSJdfQ%3D%3D`
+- `https://console.cloud.tencent.com/cam/role/grant?roleName=TCB_QcsRole&policyName=QcloudPostgreSQLReadOnlyAccess&principal=eyJzZXJ2aWNlIjpbInRjYi5jbG91ZC50ZW5jZW50LmNvbSJdfQ%3D%3D`
+
+两条可以合成一条：`policyName` 支持逗号连接多个策略（`policyName=QcloudMonitorFullAccess,QcloudPostgreSQLReadOnlyAccess`）。
 
 账号级身份（腾讯云密钥 / 子账号 / device 登录）缺权限时，由主账号给**这个身份**追加策略，别去点角色的链接。
 
-链接的拼法与角色载体的读法见 [calling-methods.md §3](../calling-methods.md)。
+链接的拼法、`principal` 的固定取值与使用边界见 [calling-methods.md §3.2](../calling-methods.md)。
 
 官方 API 文档：监控告警 API 概览 https://cloud.tencent.com/document/product/649/30343（单个 Action 详细文档在 `document/api/248/` 下）。
 

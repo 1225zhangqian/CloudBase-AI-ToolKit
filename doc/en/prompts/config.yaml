@@ -1,0 +1,244 @@
+categories:
+  - id: auth
+    label: Authentication
+    order: 1
+  - id: database
+    label: Database
+    order: 2
+  - id: backend
+    label: Backend Development
+    order: 3
+  - id: frontend
+    label: App Integration
+    order: 4
+  - id: ai
+    label: AI
+    order: 5
+  - id: tools
+    label: Dev Tools
+    order: 6
+
+rules:
+  - id: auth-tool
+    title: "Authentication: Provider Configuration"
+    description: Configure and manage CloudBase authentication providers; enable/disable login methods (SMS, email, WeChat, Google, anonymous, username/password, etc.)
+    shortDescription: Configure auth providers
+    category: auth
+    order: 1
+    prompts:
+      - "Help me configure SMS login in the CloudBase console"
+      - "Enable email verification-code login in CloudBase"
+      - "Configure WeChat Open Platform login in CloudBase"
+      - "Enable anonymous login in CloudBase"
+
+  - id: auth-web
+    title: "Authentication: Web SDK"
+    description: Implement frontend authentication using the CloudBase Web SDK
+    shortDescription: Web SDK authentication
+    category: auth
+    order: 2
+    prompts:
+      - "Help me implement a Web login page using CloudBase Auth"
+      - "Implement phone signup & login in a Web app using CloudBase Auth"
+
+  - id: auth-wechat
+    title: "Authentication: WeChat Mini Program"
+    description: Use CloudBase Auth in WeChat Mini Programs
+    shortDescription: Mini Program authentication
+    category: auth
+    order: 3
+    prompts:
+      - "Implement user login in a WeChat Mini Program using CloudBase Auth"
+      - "Create a Mini Program app that supports WeChat login with CloudBase Auth"
+
+  - id: auth-http-api
+    title: "Authentication: App Integration"
+    description: Use CloudBase HTTP API for authentication, suitable for Android, iOS, Cocos, Flutter, React Native and other native apps/frameworks
+    shortDescription: Android/iOS native apps
+    category: auth
+    order: 4
+    ruleDir: http-api
+    prompts:
+      - "Implement user login in an Android app using CloudBase HTTP API"
+      - "Implement user signup and login in an iOS app using CloudBase HTTP API"
+
+  - id: auth-nodejs
+    title: "Authentication: Node.js (Server)"
+    description: Implement server-side authentication using the CloudBase Node SDK
+    shortDescription: Node.js server authentication
+    category: auth
+    order: 5
+    prompts:
+      - "Help me implement a cloud function to verify user identity and fetch user info"
+      - "Create a Node.js backend service that authenticates users via CloudBase Auth"
+
+  - id: no-sql-web-sdk
+    title: "Document Database: Web SDK"
+    description: Use the CloudBase document database Web SDK for data operations
+    shortDescription: Web SDK document database
+    category: database
+    order: 1
+    prompts:
+      - "Create a todo app and store data in CloudBase document database"
+      - "Implement pagination and complex queries using CloudBase document database in a Web app"
+
+  - id: no-sql-wx-mp-sdk
+    title: "Document Database: Mini Program SDK"
+    description: Use the CloudBase document database SDK in WeChat Mini Programs
+    shortDescription: Mini Program document database
+    category: database
+    order: 2
+    prompts:
+      - "Query and update data in a WeChat Mini Program using CloudBase document database"
+      - "Create a Mini Program app using CloudBase document database"
+
+  - id: relational-database-tool
+    title: "Relational Database: Tools & Rules"
+    description: "Manage CloudBase relational database (MySQL) with tools and rules. Supports connecting your own database: https://docs.cloudbase.net/database/configuration/db/hosted-mysql/init"
+    shortDescription: MySQL relational database
+    category: database
+    order: 3
+    prompts:
+      - "Create a users table in CloudBase relational database and configure permissions"
+      - "Run SQL queries and updates in CloudBase relational database"
+
+  - id: relational-database-web
+    title: "Relational Database: Web SDK"
+    description: "Use CloudBase relational database in Web apps. Supports connecting your own database: https://docs.cloudbase.net/database/configuration/db/hosted-mysql/init"
+    shortDescription: Web SDK relational database
+    category: database
+    order: 4
+    prompts:
+      - "Create a Web app that uses CloudBase relational database"
+      - "Implement data queries and mutations in a Web app using CloudBase relational database SDK"
+
+  - id: database-http-api
+    title: "Database: App Integration"
+    description: Use CloudBase HTTP API for database operations, suitable for Android/iOS native apps
+    shortDescription: Android/iOS native apps
+    category: database
+    order: 6
+    ruleDir: http-api
+    prompts:
+      - "Query and update data in an Android app using CloudBase HTTP API"
+      - "Operate the database in an iOS app using CloudBase HTTP API"
+
+  - id: cloud-functions
+    title: "Backend Development: Cloud Functions"
+    description: Develop and deploy Node.js Cloud Functions, including runtime selection, deployment, log queries, and HTTP access configuration
+    shortDescription: Node.js Cloud Functions
+    category: backend
+    order: 1
+    prompts:
+      - "Create and deploy a CloudBase Cloud Function"
+      - "Configure HTTP access for a CloudBase Cloud Function"
+      - "Query CloudBase Cloud Function execution logs"
+      - "Update environment variables for a CloudBase Cloud Function"
+
+  - id: cloudrun-development
+    title: "Backend Development: CloudRun"
+    description: Develop and deploy backend services in any language with CloudRun
+    shortDescription: Node.js, Python, Go, Java, etc.
+    category: backend
+    order: 2
+    prompts:
+      - "Deploy a Node.js backend service to CloudBase CloudRun"
+      - "Create a multi-language backend service in CloudBase CloudRun"
+
+  - id: web-development
+    title: "App Integration: Web Apps"
+    description: General Web app development, build/debug flows, browser validation, and CloudBase integration
+    shortDescription: React, Vue, Vite, browser validation
+    category: frontend
+    order: 1
+    prompts:
+      - "Set up a React + Vite Web app and plan local dev/build workflow"
+      - "Debug a Vue page interaction issue and provide browser validation steps"
+      - "Integrate this Web frontend with CloudBase and deploy to static hosting"
+
+  - id: miniprogram-development
+    title: "App Integration: WeChat Mini Programs"
+    description: WeChat Mini Program development rules and CloudBase integration
+    shortDescription: Mini Program development & integration
+    category: frontend
+    order: 2
+    prompts:
+      - "Create a WeChat Mini Program project and integrate CloudBase"
+      - "Implement full integration between a Mini Program and CloudBase"
+      - "Help me optimize Mini Program SEO: make pages discoverable by WeChat search (Mini Program search optimization guide)"
+
+  - id: ui-design
+    title: "App Integration: UI Design"
+    description: Visual direction, design specs, and frontend prototype guidance
+    shortDescription: Professional UI design guidance
+    category: frontend
+    order: 3
+    prompts:
+      - "Design a modern UI for a CloudBase app"
+      - "Create a beautiful login page integrated with CloudBase Auth"
+
+  - id: http-api
+    title: "App Integration: App Integration"
+    description: Use CloudBase HTTP API to access platform capabilities, suitable for Android/iOS and any native language
+    shortDescription: Android/iOS native apps
+    category: frontend
+    order: 4
+    prompts:
+      - "Call CloudBase services via HTTP API"
+      - "Integrate CloudBase HTTP API in an Android app"
+      - "Integrate CloudBase HTTP API in an iOS app"
+
+  - id: spec-workflow
+    title: "Dev Tools: Spec Workflow"
+    description: An engineering planning workflow that drives work via requirements analysis, technical design, and task breakdown
+    shortDescription: Requirements, design, task breakdown
+    category: tools
+    order: 1
+    prompts:
+      - "Help me build a new CloudBase feature using the Spec workflow"
+      - "Create complete requirements, technical design, and task breakdown for a CloudBase project"
+
+  - id: cloudbase-platform
+    title: "Dev Tools: CloudBase Platform"
+    description: CloudBase platform knowledge base and best practices
+    shortDescription: Platform knowledge & best practices
+    category: tools
+    order: 2
+    prompts:
+      - "Help me understand CloudBase platform capabilities (functions, Mini Program CloudBase, database, etc.)"
+      - "Create a complete CloudBase app architecture including functions, database, and storage"
+      - "Explain CloudBase Cloud Function use cases and best practices"
+      - "Explain Mini Program CloudBase concepts and best practices"
+
+  - id: ai-model-web
+    title: Integrate AI in Web Apps
+    description: Use CloudBase AI models in browser/Web apps, supports text generation and streaming
+    shortDescription: AI in Web apps
+    category: ai
+    order: 1
+    prompts:
+      - "Integrate CloudBase AI models in a React Web app for text generation"
+      - "Create a chat UI that uses CloudBase AI with streaming responses"
+      - "Use CloudBase AI (Hunyuan) in a Vue app to generate content"
+
+  - id: ai-model-nodejs
+    title: Integrate AI in Node.js Backends
+    description: Use CloudBase AI models in Node.js backend services or cloud functions; supports text generation, streaming, and image generation
+    shortDescription: AI in backend services
+    category: ai
+    order: 2
+    prompts:
+      - "Integrate AI models in a CloudBase cloud function for text generation"
+      - "Create a cloud function that generates images using CloudBase AI"
+      - "Use CloudBase AI models in an Express backend service"
+
+  - id: ai-model-wechat
+    title: Integrate AI in WeChat Mini Programs
+    description: Use CloudBase AI models in WeChat Mini Programs, supports text generation and streaming
+    shortDescription: AI in Mini Programs
+    category: ai
+    order: 3
+    prompts:
+      - "Integrate CloudBase AI models in a WeChat Mini Program for chat"
+      - "Create a Mini Program app that uses CloudBase AI with streaming responses"
+      - "Generate content with Hunyuan in a Mini Program and display it"

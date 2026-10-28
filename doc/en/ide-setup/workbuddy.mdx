@@ -1,0 +1,97 @@
+import IDESelector from '../components/IDESelector';
+import RelatedResources from '../components/RelatedResources';
+import WorkBuddyExpertCards from '../components/WorkBuddyExpertCards';
+
+# WorkBuddy Configuration Guide
+
+After configuration, you can directly operate CloudBase services through WorkBuddy's AI conversations.
+
+**Examples:**
+
+- "Build a WeChat Mini Program ordering system with CloudBase" — AI scaffolds pages, creates the cloud database, writes cloud functions, and guides preview
+- "Build a reservation management system that lets users place orders and admins update status" — AI models it with CloudBase PostgreSQL, configures permissions, and wires up frontend and backend
+- "Add phone-number login to a Web app" — AI enables the auth method and integrates the CloudBase SDK
+
+No need to switch to the cloud console — all operations can be done in WorkBuddy using natural language.
+
+## Prerequisites
+
+Before configuring, ensure the following conditions are met:
+
+<details>
+<summary><strong>Node.js environment and CloudBase environment ready</strong></summary>
+
+**Node.js Environment:** Make sure Node.js v18.15.0 or later is installed:
+
+```bash
+node --version
+```
+
+If not installed, download from the [Node.js website](https://nodejs.org/en/download).
+
+**CloudBase Environment:** See the guide [Create a CloudBase Environment](../../../quick-start/create-env). New users on the domestic site can try it for free.
+
+</details>
+
+---
+
+<IDESelector defaultIDE="workbuddy" />
+
+## Using the Built-in Connector (Recommended)
+
+WorkBuddy ships the CloudBase MCP connector, so there is nothing to install. Two entry points lead to the same list:
+
+- **In the chat**: click **Connectors** at the bottom left of the input box, type `cloudbase` in the search box, then turn on the switch next to **Tencent CloudBase**
+- **Connector page**: in the left sidebar open **Experts** → **Connectors**, find **Tencent CloudBase**, click the **+** on its card, then click **Connect** in the dialog
+
+Search by name (`cloudbase`), not by describing the task, or you get a list of unrelated connectors. Connectors that are already connected do not show up in search results; if nothing matches, check the connected list first.
+
+The first enable walks through one authorization. Right now that page only offers a WeChat QR code; scan it, agree, and come back to WorkBuddy with the connector connected.
+
+> ⚠️ If you only hold an environment-level API Key and have no Tencent Cloud account to sign in with, this page cannot be completed, because the connector needs an account that can scan and authorize. Use the CLI instead: `tcb login --flow web` (the CLI opens a browser and its page offers **Use API Key**) or `tcb login --cloudbase-api-key <key> -e <envId>`, then let the agent drive the CLI in the conversation.
+
+![WorkBuddy built-in CloudBase connector](https://7463-tcb-advanced-a656fc-1257967285.tcb.qcloud.la/assets/workbuddy-connector-full.png)
+
+![CloudBase connector details](https://7463-tcb-advanced-a656fc-1257967285.tcb.qcloud.la/assets/workbuddy-connector-detail.png)
+
+Once enabled, you can directly use CloudBase capabilities in your conversations.
+
+### Using Quick Commands
+
+You can also type `/cloudbase` in the conversation to select a CloudBase Skill, then describe what you want to build:
+
+![Type /cloudbase in conversation to select CloudBase Skill](https://7463-tcb-advanced-a656fc-1257967285.tcb.qcloud.la/assets/workbuddy-cloudbase-skill.png)
+
+After selecting the CloudBase Skill, enter your requirements to start development:
+
+![Enter requirements to start CloudBase development](https://7463-tcb-advanced-a656fc-1257967285.tcb.qcloud.la/assets/workbuddy-cloudbase-input.png)
+
+WorkBuddy will automatically load CloudBase MCP capabilities, query your environment, and begin executing your requirements:
+
+![CloudBase Skill conversation demo](https://7463-tcb-advanced-a656fc-1257967285.tcb.qcloud.la/assets/workbuddy-cloudbase-demo.png)
+
+When development is complete, WorkBuddy will display a project summary including architecture, feature list, and deployment URL:
+
+![Project summary and architecture display](https://7463-tcb-advanced-a656fc-1257967285.tcb.qcloud.la/assets/workbuddy-cloudbase-architecture.png)
+
+Click the deployment URL to access the final deployed application:
+
+![Deployed application](https://7463-tcb-advanced-a656fc-1257967285.tcb.qcloud.la/assets/workbuddy-cloudbase-final.png)
+
+## Bundled CloudBase experts {#cloudbase-experts}
+
+Beyond the connector, WorkBuddy's expert center ships four CloudBase experts. Install one and it assembles the CloudBase capabilities that scenario needs, so you can just describe what you want; the first run asks you to connect the CloudBase connector above.
+
+<WorkBuddyExpertCards lang="en" />
+
+## FAQ
+
+**Q: MCP connection failed?**
+A: Check if the config file format is correct, restart WorkBuddy, and verify your network connection.
+
+**Q: Showing 0 tools?**
+A: See the [FAQ](../faq#mcp-shows-0-tools).
+
+More questions: [Full FAQ](../faq)
+
+<RelatedResources ideName="WorkBuddy" ideDocUrl="https://www.codebuddy.cn/docs/workbuddy/From-Beginner-to-Expert-Guide/Function-Description/MCP-Guide" />

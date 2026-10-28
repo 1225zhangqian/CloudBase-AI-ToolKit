@@ -1,9 +1,99 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { delimiter, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { loadEnvVariables } from "@cloudbase/toolbox";
+import { t } from "../i18n/index.js";
 import type { ProjectConfig } from "./site-map.js";
 
 const CLOUDBASE_RC_FILENAME = "cloudbaserc.json";
+
+const PROJECT_ROOT_ENV_KEYS = [
+  "WORKSPACE_FOLDER_PATHS",
+  "PROJECT_ROOT",
+  // 宿主（CodeBuddy / WorkBuddy / Claude Code）注入的工作区目录。
+  // 只认进程 cwd 是不够的：宿主明明已经把工作区告诉了我们，不接就白白丢掉。
+  "CODEBUDDY_PROJECT_DIR",
+  "CLAUDE_PROJECT_DIR",
+  "GITHUB_WORKSPACE",
+  "CI_PROJECT_DIR",
+  "BUILD_SOURCESDIRECTORY",
+] as const;
+
+/** Thrown when the resolved directory is a host config root, not a project. */
+export class ProjectRootError extends Error {
+  readonly dir: string;
+
+  constructor(dir: string) {
+    super("setup.projectRoot.hostConfigDir");
+    this.name = "ProjectRootError";
+    this.dir = dir;
+  }
+}
+
+function firstPathSegment(value: string): string | undefined {
+  return value
+    .split(delimiter)
+    .map((segment) => segment.trim())
+    .find((segment) => segment.length > 0);
+}
+
+function isUnderHostConfig(candidate: string): boolean {
+  const hostRoot = resolve(homedir(), ".dsh");
+  const resolved = resolve(candidate);
+  const rel = relative(hostRoot, resolved);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
+/**
+ * Project directory for reads and writes.
+ *
+ * Explicit path, then host-injected workspace env vars, then process.cwd().
+ * A result under ~/.dsh is refused so tools do not treat the host profile as a project.
+ */
+export function resolveProjectRoot(explicit?: string): string {
+  const trimmed = explicit?.trim();
+  let chosen: string;
+  if (trimmed) {
+    chosen = resolve(trimmed);
+  } else {
+    let fromEnv: string | undefined;
+    for (const key of PROJECT_ROOT_ENV_KEYS) {
+      const raw = process.env[key];
+      if (!raw?.trim()) continue;
+      const first = firstPathSegment(raw);
+      if (first) {
+        fromEnv = resolve(first);
+        break;
+      }
+    }
+    chosen = fromEnv ?? resolve(process.cwd());
+  }
+  if (isUnderHostConfig(chosen)) {
+    throw new ProjectRootError(chosen);
+  }
+  return chosen;
+}
+
+/** Same as resolveProjectRoot, with the refusal already translated for tool output. */
+export function requireProjectRoot(explicit?: string): string {
+  try {
+    return resolveProjectRoot(explicit);
+  } catch (error) {
+    if (error instanceof ProjectRootError) {
+      throw new Error(t("setup.projectRoot.hostConfigDir", { dir: error.dir }));
+    }
+    throw error;
+  }
+}
+
+function projectRootForConfig(cwd?: string): string | undefined {
+  try {
+    return resolveProjectRoot(cwd);
+  } catch (error) {
+    if (error instanceof ProjectRootError) return undefined;
+    throw error;
+  }
+}
 
 /**
  * `cloudbaserc.json` 中对绑定有效的字段。
@@ -75,7 +165,8 @@ function resolveBindingValue(raw: string, projectRoot: string): string | undefin
  */
 export function readCloudbaseRcBinding(cwd?: string): CloudBaseRcBinding | undefined {
   try {
-    const projectRoot = cwd ?? process.env.WORKSPACE_FOLDER_PATHS ?? process.cwd();
+    const projectRoot = projectRootForConfig(cwd);
+    if (!projectRoot) return undefined;
     const configPath = join(projectRoot, CLOUDBASE_RC_FILENAME);
     if (!existsSync(configPath)) {
       return undefined;
@@ -109,7 +200,8 @@ export function readCloudbaseRcBinding(cwd?: string): CloudBaseRcBinding | undef
  */
 export function readProjectConfig(cwd?: string): ProjectConfig | undefined {
   try {
-    const projectRoot = cwd ?? process.env.WORKSPACE_FOLDER_PATHS ?? process.cwd();
+    const projectRoot = projectRootForConfig(cwd);
+    if (!projectRoot) return undefined;
     const configPath = join(projectRoot, ".cloudbase", "project.json");
     if (!existsSync(configPath)) {
       return undefined;
@@ -145,4 +237,47 @@ export function readProjectEnvId(cwd?: string): string | undefined {
     }
   }
   return readCloudbaseRcBinding(cwd)?.envId;
+}
+
+/**
+ * 合并写入项目级配置 `.cloudbase/project.json`（机器管理文件）。
+ *
+ * 仅 patch 传入的字段（undefined 不覆盖既有值）；文件不存在时创建（含 `.cloudbase`
+ * 目录）。cloudbaserc.json 保持**只读不写**——那是 CLI 维护的人工部署配置。
+ * 写失败不抛出（fail-safe），由调用方决定是否提示。
+ *
+ * @returns 是否写入成功
+ */
+export function writeProjectConfig(
+  patch: Partial<ProjectConfig>,
+  cwd?: string,
+): boolean {
+  try {
+    const projectRoot = projectRootForConfig(cwd);
+    if (!projectRoot) return false;
+    const configPath = join(projectRoot, ".cloudbase", "project.json");
+    let existing: Record<string, unknown> = {};
+    if (existsSync(configPath)) {
+      try {
+        const parsed = JSON.parse(readFileSync(configPath, "utf-8"));
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          existing = parsed;
+        }
+      } catch {
+        // 坏 JSON：不读旧值，直接以 patch 覆盖（避免永久性损坏阻塞绑定）
+      }
+    }
+    const next = { ...existing };
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === undefined) {
+        continue;
+      }
+      next[key] = value;
+    }
+    mkdirSync(dirname(configPath), { recursive: true });
+    writeFileSync(configPath, `${JSON.stringify(next, null, 2)}\n`, "utf-8");
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -204,6 +204,44 @@ const EVIDENCE_CHECKS = {
     };
   },
 
+  qoder_plugin_manifest: (rootDir) => {
+    const rel = "plugin/cloudbase/.qoder-plugin/plugin.json";
+    return fileExistsEvidence("qoder_plugin_manifest", rootDir, rel);
+  },
+
+  packaged_skill_zip: (rootDir) => {
+    const rel = "dist";
+    const dirPath = abs(rootDir, rel);
+    // dist/ is gitignored, so a clean checkout (CI) legitimately has no zip here.
+    // Advisory, not missing: otherwise the strict gate fails on every fresh clone
+    // for a step that only happens right before a manual submission.
+    if (!fs.existsSync(dirPath)) {
+      return {
+        id: "packaged_skill_zip",
+        status: "advisory",
+        detail: `No ${rel}/ in this checkout (gitignored) — run the pack script before submitting`,
+        paths: [rel],
+      };
+    }
+    const zips = fs
+      .readdirSync(dirPath)
+      .filter((name) => /^cloudbase-skill-.*\.zip$/.test(name));
+    if (zips.length === 0) {
+      return {
+        id: "packaged_skill_zip",
+        status: "advisory",
+        detail: "No dist/cloudbase-skill-*.zip yet — run the pack script before submitting",
+        paths: [rel],
+      };
+    }
+    return {
+      id: "packaged_skill_zip",
+      status: "present",
+      detail: `Found ${zips.join(", ")}`,
+      paths: zips.map((name) => `${rel}/${name}`),
+    };
+  },
+
   mcp_registry_server_json: (rootDir) => {
     const serverRel = "mcp/server.json";
     const pkgRel = "mcp/package.json";

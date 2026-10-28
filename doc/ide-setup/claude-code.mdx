@@ -9,9 +9,9 @@ Claude Code 可以通过 **插件市场** 安装 CloudBase 插件，一次性获
 
 **例如：**
 
-- "用云开发做一个微信小程序点餐系统" - AI 搭页面、建云数据库、写云函数并引导预览
-- "做一个预约管理系统，支持用户下单和后台改状态" - AI 用 CloudBase PostgreSQL 建模、配权限并接好前后端
-- "给 Web 应用加上手机号登录" - AI 启用认证方式并接入 CloudBase SDK
+- “用云开发做一个微信小程序点餐系统” - AI 搭页面、建云数据库、写云函数并引导预览
+- “做一个预约管理系统，支持用户下单和后台改状态” - AI 用 CloudBase PostgreSQL 建模、配权限并接好前后端
+- “给 Web 应用加上手机号登录” - AI 启用认证方式并接入 CloudBase SDK
 
 无需切换到云控制台，所有操作都可以在 Claude Code 中用自然语言完成。
 
@@ -30,7 +30,22 @@ node --version
 
 如果未安装，请从 [Node.js 官网](https://nodejs.org/en/download) 下载安装。
 
-**云开发环境：** 请参考文档 [开通云开发环境](../../../quick-start/create-env)。新用户可以免费开通体验。
+**云开发环境：** 请参考文档 [开通云开发环境](../../../quick-start/create-env)。国内站新用户可以免费开通体验。
+
+</details>
+
+<details>
+<summary><strong>已安装 Git（插件市场方式需要）</strong></summary>
+
+添加插件市场时，Claude Code 会用 `git clone` 拉取市场仓库；机器上找不到 `git` 会直接失败（Windows 常见报错 `program not found`）：
+
+```bash
+git --version
+```
+
+Windows 用户请安装 [Git for Windows](https://git-scm.com/download/win)。安装后请重新打开终端或 Claude Code，新进程才会读到更新后的 PATH。
+
+只做 MCP 配置（方式二）不需要 Git。
 
 </details>
 
@@ -56,9 +71,12 @@ claude plugin install cloudbase@tencent-cloudbase
 
 如果只需 MCP 工具连接，也可以手工配置：
 
-<IDESelector defaultIDE="claude-code" showInstallButton={false} />
+<IDESelector defaultIDE="claude-code" />
 
 ## 常见问题
+
+**Q: 添加插件市场时报 `program not found`？**
+A: 机器上没有可用的 `git`。安装 [Git for Windows](https://git-scm.com/download/win) 后重新打开终端，再执行 `claude plugin marketplace add`。
 
 **Q: MCP 连接失败？**
 A: 检查 `.mcp.json` 文件格式是否正确，确认 npx 命令可用，重启 Claude Code 应用。

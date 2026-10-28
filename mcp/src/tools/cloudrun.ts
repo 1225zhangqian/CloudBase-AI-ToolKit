@@ -3,11 +3,17 @@ import fs from 'fs';
 import path from 'path';
 import { z } from "zod";
 import { getCloudBaseManager, getEnvId } from '../cloudbase-manager.js';
+import { t } from '../i18n/index.js';
 import { ExtendedMcpServer } from '../server.js';
 import type { CloudBaseOptions } from '../types.js';
 import { debug } from '../utils/logger.js';
+import { requireProjectRoot } from '../utils/project-config.js';
 import { preferGatewayOrFallback, resolveGatewayAccessUrls } from '../utils/gateway-access-urls.js';
 import { sendDeployNotification } from '../utils/notification.js';
+import {
+  buildArtifactCardPayload,
+  resolveArtifactEnvContext,
+} from './artifact-card-payload.js';
 import { buildCamAuthGuidance, isCamAuthError } from './capi.js';
 import {
   listLikelyRedeployFields,
@@ -16,6 +22,7 @@ import {
   summarizeConfigSnapshot,
   type CloudRunServerConfigLike,
 } from './cloudrun-config.js';
+import { mcpUiMeta } from "../utils/mcp-ui.js";
 
 // CloudRun service types
 export const CLOUDRUN_SERVICE_TYPES = ['function', 'container'] as const;
@@ -73,118 +80,147 @@ export function maskCloudRunDetailEnvParams<
 
 // Input schema for queryCloudRun tool
 const queryCloudRunInputSchema = {
-  action: z.enum(['list', 'detail', 'templates', 'getDeployLog', 'getProcessLog', 'getDeployRecords', 'envStatus']).describe('查询操作类型：list=获取云托管服务列表（支持分页和筛选），detail=查询指定服务的详细信息（包含服务配置和最新部署状态），templates=获取可用的项目模板列表（用于初始化新项目），getDeployLog=获取构建日志（仅云端源码构建有意义，走 CODING/DescribeCloudRunBuildLog；已有镜像部署无构建过程；未登录 CODING 的账号会报错），getProcessLog=获取运行日志（部署阶段步骤+容器启动/运行日志，走 tcbr/DescribeCloudRunProcessLog；镜像部署与源码构建均可用，不依赖 CODING；RunId 来自 detail/getDeployRecords 的 latestDeploy.RunId），getDeployRecords=获取指定服务的部署记录列表（按部署时间倒序，含 BuildId/RunId/FlowRatio/Status 等字段，用于查看历史发布与回滚上下文），envStatus=查询当前环境云托管是否已开通及开通状态（Status=creating开通中/normal已开通），用于initEnv之后轮询进度或deploy之前确认环境是否就绪'),
+  action: z.enum(['list', 'detail', 'templates', 'getDeployLog', 'getProcessLog', 'getDeployRecords', 'envStatus', 'getManageTask']).describe('cloudrun.schema.query.action'),
 
   // List operation parameters
-  pageSize: z.number().min(1).max(100).optional().default(10).describe('分页大小，控制每页返回的服务数量。取值范围：1-100，默认值：10。建议根据网络性能和显示需求调整'),
-  pageNum: z.number().min(1).optional().default(1).describe('页码，用于分页查询。从1开始，默认值：1。配合pageSize使用可实现分页浏览'),
-  serverName: z.string().optional().describe('服务名称筛选条件，支持模糊匹配。例如：输入"test"可匹配"test-service"、"my-test-app"等服务名称。留空则查询所有服务'),
-  serverType: z.enum(CLOUDRUN_SERVICE_TYPES).optional().describe('服务类型筛选条件：function=函数型云托管（仅支持Node.js，有特殊的开发要求和限制，适合简单的API服务），container=容器型服务（推荐使用，支持任意语言和框架如Java/Go/Python/PHP/.NET等，适合大多数应用场景）'),
-  envId: z.string().optional().describe('环境 ID（action=envStatus 时使用；不传则使用当前配置的环境）。格式如 env-xxxxxx'),
+  pageSize: z.number().min(1).max(100).optional().default(10).describe('cloudrun.schema.query.pageSize'),
+  pageNum: z.number().min(1).optional().default(1).describe('cloudrun.schema.query.pageNum'),
+  serverName: z.string().optional().describe('cloudrun.schema.query.serverName'),
+  serverType: z.enum(CLOUDRUN_SERVICE_TYPES).optional().describe('cloudrun.schema.query.serverType'),
+  envId: z.string().optional().describe('cloudrun.schema.query.envId'),
 
   // Detail and log operation parameters
-  detailServerName: z.string().optional().describe('要查询详细信息、部署记录、构建日志或运行日志的服务名称。当action为detail、getDeployLog、getProcessLog或getDeployRecords时建议提供，必须是已存在的服务名称。可通过list操作获取可用的服务名称列表'),
-  buildId: z.number().optional().describe('构建ID，仅在action=getDeployLog时使用（构建日志，仅云端源码构建）。不传时默认返回最近一次部署的构建日志'),
-  runId: z.string().optional().describe('运行ID（RunId），仅在action=getProcessLog时使用。不传时默认取该服务最近一次部署记录的 RunId（与 detail/getDeployRecords 的 latestDeploy.RunId 同源）。镜像部署与源码构建均可查询运行日志'),
-  revealEnvParams: z.boolean().optional().default(false).describe('是否返回服务环境变量（ServerConfig.EnvParams）明文值（仅 action=detail 时生效）。默认 false，值脱敏为 "***"（保留 key，足够排查配置了哪些变量、变更是否生效）；true 时返回明文，敏感变量（如带密码的 DATABASE_URL）可能暴露给模型上下文，谨慎使用'),
+  detailServerName: z.string().optional().describe('cloudrun.schema.query.detailServerName'),
+  buildId: z.number().optional().describe('cloudrun.schema.query.buildId'),
+  runId: z.string().optional().describe('cloudrun.schema.query.runId'),
+  revealEnvParams: z.boolean().optional().default(false).describe('cloudrun.schema.query.revealEnvParams'),
 };
+
+/** init 缺省模板，与 schema 默认值保持一致（SDK 侧同样回退到该模板） */
+const DEFAULT_INIT_TEMPLATE = "helloworld";
+
+/**
+ * Service naming rule, matching `cloudrun.schema.manage.serverName`: upper/lowercase letters,
+ * digits, hyphens and underscores, starting with a letter, 3-45 characters.
+ *
+ * The value doubles as an on-disk path segment. `action=init` resolves it against `targetPath`
+ * (the Manager SDK calls `path.resolve(targetPath, serverName)` and extracts the downloaded
+ * template archive there) and then writes `targetPath/<serverName>/cloudbaserc.json`. Anchoring
+ * the pattern keeps it a single path segment, so `..`, `/` and `\` are rejected before the
+ * handler runs.
+ */
+const CLOUDRUN_SERVER_NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9_-]{2,44}$/;
+
+/**
+ * `initEnv` provisions the environment rather than a service, so it is the single manage action that
+ * never reads `serverName` — its own parameter description says so. Presence is enforced in the
+ * handler for every action not listed here, which also keeps a newly added action from silently
+ * receiving `undefined`.
+ */
+const CLOUDRUN_MANAGE_ACTIONS_WITHOUT_SERVER_NAME = new Set(['initEnv']);
 
 // Input schema for manageCloudRun tool
 const ManageCloudRunInputSchema = {
-  action: z.enum(['init', 'download', 'run', 'deploy', 'delete', 'createAgent', 'updateConfig', 'initEnv', 'traffic']).describe('云托管服务管理操作类型：init=从模板初始化新的云托管项目代码（在targetPath目录下创建以serverName命名的子目录，支持多种语言和框架模板），download=从云端下载现有服务的代码到本地进行开发，run=在本地运行函数型云托管服务（用于开发和调试，仅支持函数型服务），deploy=触发部署并轻量等待任务注册（不会 hang 等完整构建）。源码构建（targetPath）返回 buildId，用 getDeployLog 轮询后再 getProcessLog；已有镜像部署（imageUrl，DeployType=image，BuildId 常为 0）跳过 getDeployLog，用 detail/getDeployRecords 取 RunId 后 getProcessLog。传 imageUrl 时 targetPath 可省略；已存在服务会 Read-Merge-Write 保留远程 VpcConf/EnvParams/OpenAccessTypes），updateConfig=仅更新服务配置不重新上传代码（对齐控制台服务设置，走 SubmitServerConfigChangeDiff；不需要 targetPath），delete=删除指定的云托管服务（不可恢复，需要确认），createAgent=创建函数型Agent（基于函数型云托管开发AI智能体），initEnv=开通当前环境的云托管（异步创建云托管环境，幂等：已开通直接返回；适合新环境首次部署前使用），traffic=流量管理与灰度发布（set=调整稳定版/灰度版流量比例，promote=将灰度版本升级为全量，rollback=回滚到上一个稳定版本；对应 tcb cloudrun traffic 命令）'),
-  serverName: z.string().describe('云托管服务名称，用于标识和管理服务。命名规则：支持大小写字母、数字、连字符和下划线，必须以字母开头，长度3-45个字符。在init操作中会作为在targetPath下创建的子目录名，在其他操作中作为目标服务名。initEnv 操作不需要此参数'),
+  action: z.enum(['init', 'download', 'run', 'deploy', 'delete', 'createAgent', 'updateConfig', 'initEnv', 'traffic']).describe('cloudrun.schema.manage.action'),
+  // Optional so that `initEnv` can be called the way it is documented (envId only) instead of forcing
+  // callers to invent a placeholder name. The pattern still applies whenever a value is present; the
+  // handler fails closed on a missing value for every action that actually uses it.
+  serverName: z.string().regex(CLOUDRUN_SERVER_NAME_PATTERN).optional().describe('cloudrun.schema.manage.serverName'),
 
   // Traffic management operation parameters (action=traffic)
-  trafficOp: z.enum(['set', 'promote', 'rollback']).optional().describe('流量管理子操作（action=traffic 时使用）：set=调整灰度流量比例（需先部署新版本至灰度，通过 stablePercent/canaryPercent 设置稳定版与灰度版流量比例，两者之和必须等于100）；promote=将灰度版本全量发布（灰度版本流量置为100%并关闭灰度发布，等价于 tcb cloudrun traffic promote）；rollback=回滚到上一个稳定版本（停止当前灰度/发布中的版本，回到稳定版本，等价于 tcb cloudrun traffic rollback）'),
-  stablePercent: z.number().min(0).max(100).optional().describe('稳定版本流量比例（trafficOp=set 时使用），取值范围0-100。与 canaryPercent 之和必须等于100。例如希望 90% 流量打到稳定版、10% 打到灰度版，则 stablePercent=90, canaryPercent=10'),
-  canaryPercent: z.number().min(0).max(100).optional().describe('灰度版本流量比例（trafficOp=set 时使用），取值范围0-100。与 stablePercent 之和必须等于100。例如希望 90% 流量打到稳定版、10% 打到灰度版，则 stablePercent=90, canaryPercent=10'),
+  trafficOp: z.enum(['set', 'promote', 'rollback']).optional().describe('cloudrun.schema.manage.trafficOp'),
+  stablePercent: z.number().min(0).max(100).optional().describe('cloudrun.schema.manage.stablePercent'),
+  canaryPercent: z.number().min(0).max(100).optional().describe('cloudrun.schema.manage.canaryPercent'),
 
   // InitEnv operation parameters
-  envId: z.string().optional().describe('环境 ID（action=initEnv 时使用；不传则使用当前配置的环境）。格式如 env-xxxxxx'),
-  packageType: z.enum(CLOUDRUN_PACKAGE_TYPES).optional().default('Trial').describe('云托管环境套餐类型（action=initEnv 时使用）：Trial=试用，Standard=标准，Professional=专业，Enterprise=企业。默认 Trial'),
-  vpcId: z.string().optional().describe('VPC 网络 ID（action=initEnv 时可选）。当平台拒绝系统创建网络时必填，格式如 vpc-xxxxxxxx。与 subnetIds 一起透传给 CreateCloudRunEnv 的 VpcId/SubNetIds。多数场景可不传（由系统创建网络）'),
-  subnetIds: z.array(z.string()).optional().describe('子网 ID 列表（action=initEnv 时可选）。当需指定自有 VPC 时必填，如 ["subnet-xxxxxxxx"]。与 vpcId 一起透传给 CreateCloudRunEnv 的 SubNetIds'),
+  envId: z.string().optional().describe('cloudrun.schema.manage.envId'),
+  packageType: z.enum(CLOUDRUN_PACKAGE_TYPES).optional().default('Trial').describe('cloudrun.schema.manage.packageType'),
+  vpcId: z.string().optional().describe('cloudrun.schema.manage.vpcId'),
+  subnetIds: z.array(z.string()).optional().describe('cloudrun.schema.manage.subnetIds'),
 
   // Deploy operation parameters
-  targetPath: z.string().optional().describe('本地代码路径，必须是绝对路径。在deploy操作中指定要部署的代码目录，在download操作中指定下载目标目录，在init操作中指定云托管服务的上级目录（会在该目录下创建以serverName命名的子目录）。updateConfig 不需要此参数。建议约定：项目根目录下的cloudrun/目录，例如：/Users/username/projects/my-project/cloudrun。使用 imageUrl 部署已有镜像时此参数可省略。注意：本地有源码目录不等于必须走源码构建；若用户指定镜像请优先传 imageUrl，不要仅因存在 targetPath 就回退到源码构建'),
-  imageUrl: z.string().optional().describe('已有镜像部署（action=deploy 时使用）：直接指定容器镜像地址，如 ccr.ccs.tencentyun.com/ns/img:v1 或公网 registry 地址。传入后走 DeployType="image"（容器型）部署，无需本地源码目录（targetPath 可省略）。支持：1) 公网匿名可拉取的镜像直填地址；2) 私有/需登录的镜像（如 ghcr.io）需先在本地 docker pull → docker tag/push 到腾讯云 CCR → 填入 CCR 地址。不传则维持源码构建（本地代码打包上传）。约束：若用户明确提到使用某个镜像、或无需重新构建代码，则必须传 imageUrl 走镜像部署，不要回退到源码构建。注意：无论哪种部署方式，环境都需先开通云托管（未开通时先调用 initEnv，Status=normal 后再部署）'),
-  envParamsReplaceAll: z.boolean().optional().default(false).describe('EnvParams 合并策略（deploy / updateConfig）：false（默认）= 与远程按 key 合并（输入覆盖同名 key，远程其余 key 保留）；true= 用输入 EnvParams 整包替换远程。仅当显式传入 EnvParams 时生效'),
+  targetPath: z.string().optional().describe('cloudrun.schema.manage.targetPath'),
+  imageUrl: z.string().optional().describe('cloudrun.schema.manage.imageUrl'),
+  envParamsReplaceAll: z.boolean().optional().default(false).describe('cloudrun.schema.manage.envParamsReplaceAll'),
   serverConfig: z.object({
-    OpenAccessTypes: z.array(z.enum(CLOUDRUN_ACCESS_TYPES)).optional().describe('公网访问类型配置，控制服务的访问权限：OA=办公网访问，PUBLIC=公网访问（默认，可通过HTTPS域名访问），MINIAPP=小程序访问，VPC=VPC访问（仅同VPC内可访问）。可配置多个类型'),
-    Cpu: z.number().positive().optional().describe('CPU规格配置，单位为核。可选值：0.25、0.5、1、2、4、8等。注意：内存规格必须是CPU规格的2倍（如CPU=0.25时内存=0.5，CPU=1时内存=2）。影响服务性能和计费'),
-    Mem: z.number().positive().optional().describe('内存规格配置，单位为GB。可选值：0.5、1、2、4、8、16等。注意：必须是CPU规格的2倍。影响服务性能和计费'),
-    MinNum: z.number().min(0).optional().describe('最小实例数配置，控制服务的最小运行实例数量。设置为0时支持缩容到0（无请求时不产生费用），设置为大于0时始终保持指定数量的实例运行（确保快速响应但会增加成本）。建议设置为1以降低冷启动延迟，提升用户体验'),
-    MaxNum: z.number().min(1).optional().describe('最大实例数配置，控制服务的最大运行实例数量。当请求量增加时，服务最多可以扩展到指定数量的实例，超过此数量后将拒绝新的请求。建议根据业务峰值设置'),
+    OpenAccessTypes: z.array(z.enum(CLOUDRUN_ACCESS_TYPES)).optional().describe('cloudrun.schema.manage.serverConfig.openAccessTypes'),
+    Cpu: z.number().positive().optional().describe('cloudrun.schema.manage.serverConfig.cpu'),
+    Mem: z.number().positive().optional().describe('cloudrun.schema.manage.serverConfig.mem'),
+    MinNum: z.number().min(0).optional().describe('cloudrun.schema.manage.serverConfig.minNum'),
+    MaxNum: z.number().min(1).optional().describe('cloudrun.schema.manage.serverConfig.maxNum'),
     PolicyDetails: z.array(z.object({
-      PolicyType: z.enum(['cpu', 'mem', 'cpu/mem']).describe('扩缩容类型：cpu=基于CPU使用率扩缩容，mem=基于内存使用率扩缩容，cpu/mem=基于CPU和内存使用率扩缩容'),
-      PolicyThreshold: z.number().min(1).max(100).describe('扩缩容阈值，单位为百分比。如60表示当资源使用率达到60%时触发扩缩容')
-    })).optional().describe('扩缩容配置数组，用于配置服务的自动扩缩容策略。可配置多个扩缩容策略'),
-    CustomLogs: z.string().optional().describe('自定义日志配置，用于配置服务的日志收集和存储策略'),
-    Port: z.number().min(1).max(65535).optional().describe('服务监听端口配置。函数型服务固定为3000，容器型服务可自定义。服务代码必须监听此端口才能正常接收请求'),
-    EnvParams: z.string().optional().describe('环境变量配置，JSON字符串格式。用于传递配置信息给服务代码，如\'{"DATABASE_URL":"postgres://user:pass@10.x.x.x:5432/db","NODE_ENV":"production"}\'。SDK v5.6.1+ 会自动对传入的环境变量进行 AES-256-CBC 加密传输。⚠️ 若 EnvParams 含 DATABASE_URL / MYSQL_* / POSTGRES_* / REDIS_* 等传统 TCP 连库变量，必须同时配置 VpcConf，否则实例通常无法访问 VPC 内数据库'),
-    Dockerfile: z.string().optional().describe('Dockerfile文件名配置，仅容器型服务需要。指定用于构建容器镜像的Dockerfile文件路径，默认为项目根目录下的Dockerfile'),
-    BuildDir: z.string().optional().describe('构建目录配置，指定代码构建的目录路径。当代码结构与标准不同时使用，默认为项目根目录'),
-    InternalAccess: z.string().optional().describe('内网访问开关配置，控制是否启用内网访问。true=启用内网访问（可通过云开发SDK直接调用），false=关闭内网访问（仅公网访问）'),
-    InternalDomain: z.string().optional().describe('内网域名配置，用于配置服务的内网访问域名。仅在启用内网访问时有效'),
-    EntryPoint: z.array(z.string()).optional().describe('Dockerfile EntryPoint参数配置，仅容器型服务需要。指定容器启动时的入口程序数组，如["node","app.js"]'),
-    Cmd: z.array(z.string()).optional().describe('Dockerfile Cmd参数配置，仅容器型服务需要。指定容器启动时的默认命令数组，如["npm","start"]'),
-    InitialDelaySeconds: z.number().min(0).optional().describe('端口健康检查初始延迟（秒）。部署完成后先等待 N 秒才开始端口探测，之后约每 5s 检查一次、连续约 30 次；30 次全失败才判定部署失败（约 150s 探测窗口），不是「N 秒后立即失败」。启动耗时长的应用建议调到 60–120'),
-    LogType: z.string().optional().describe('日志类型配置，指定服务的日志收集类型。影响日志的采集方式和存储格式'),
-    LogSetId: z.string().optional().describe('CLS日志集ID配置，指定日志服务（CLS）的日志集ID。需要先开通CLS日志服务'),
-    LogTopicId: z.string().optional().describe('CLS日志主题ID配置，指定日志服务（CLS）的日志主题ID。需要先开通CLS日志服务'),
-    LogParseType: z.string().optional().describe('日志解析类型配置，指定日志的解析方式。用于将原始日志解析为结构化数据'),
-    Tag: z.string().optional().describe('服务标签配置，用于标识服务类型。如设置为"function:"表示函数型服务。SDK会自动根据配置生成'),
-    OperationMode: z.string().optional().describe('运行模式配置，指定服务的运行模式。影响服务的调度和资源分配方式'),
-    SessionAffinity: z.string().optional().describe('会话保持配置，用于控制是否启用会话保持功能。启用后会将同一客户端的请求路由到同一实例'),
+      PolicyType: z.enum(['cpu', 'mem', 'cpu/mem']).describe('cloudrun.schema.manage.serverConfig.policyDetails.policyType'),
+      PolicyThreshold: z.number().min(1).max(100).describe('cloudrun.schema.manage.serverConfig.policyDetails.policyThreshold')
+    })).optional().describe('cloudrun.schema.manage.serverConfig.policyDetails'),
+    CustomLogs: z.string().optional().describe('cloudrun.schema.manage.serverConfig.customLogs'),
+    Port: z.number().min(1).max(65535).optional().describe('cloudrun.schema.manage.serverConfig.port'),
+    EnvParams: z.string().optional().describe('cloudrun.schema.manage.serverConfig.envParams'),
+    Dockerfile: z.string().optional().describe('cloudrun.schema.manage.serverConfig.dockerfile'),
+    BuildDir: z.string().optional().describe('cloudrun.schema.manage.serverConfig.buildDir'),
+    InternalAccess: z.string().optional().describe('cloudrun.schema.manage.serverConfig.internalAccess'),
+    InternalDomain: z.string().optional().describe('cloudrun.schema.manage.serverConfig.internalDomain'),
+    EntryPoint: z.array(z.string()).optional().describe('cloudrun.schema.manage.serverConfig.entryPoint'),
+    Cmd: z.array(z.string()).optional().describe('cloudrun.schema.manage.serverConfig.cmd'),
+    InitialDelaySeconds: z.number().min(0).optional().describe('cloudrun.schema.manage.serverConfig.initialDelaySeconds'),
+    LogType: z.string().optional().describe('cloudrun.schema.manage.serverConfig.logType'),
+    LogSetId: z.string().optional().describe('cloudrun.schema.manage.serverConfig.logSetId'),
+    LogTopicId: z.string().optional().describe('cloudrun.schema.manage.serverConfig.logTopicId'),
+    LogParseType: z.string().optional().describe('cloudrun.schema.manage.serverConfig.logParseType'),
+    Tag: z.string().optional().describe('cloudrun.schema.manage.serverConfig.tag'),
+    OperationMode: z.string().optional().describe('cloudrun.schema.manage.serverConfig.operationMode'),
+    SessionAffinity: z.string().optional().describe('cloudrun.schema.manage.serverConfig.sessionAffinity'),
     TimerScale: z.array(z.object({
-      CycleType: z.enum(['none', 'daily', 'weekly', 'monthly']).describe('循环类型：none=无循环，daily=每日循环，weekly=每周循环，monthly=每月循环'),
-      StartDate: z.string().optional().describe('循环起始日期，格式：YYYY-MM-DD'),
-      EndDate: z.string().optional().describe('循环结束日期，格式：YYYY-MM-DD'),
-      StartTime: z.string().describe('起始时间，格式：HH:mm:ss'),
-      EndTime: z.string().describe('结束时间，格式：HH:mm:ss'),
-      ReplicaNum: z.number().min(0).describe('定时扩缩容的目标副本数，最小值0（缩容到0）')
-    })).optional().describe('定时扩缩容配置数组，用于配置服务的定时自动扩缩容策略。可配置多个时间段的扩缩容计划，支持每日/每周/每月循环'),
+      CycleType: z.enum(['none', 'daily', 'weekly', 'monthly']).describe('cloudrun.schema.manage.serverConfig.timerScale.cycleType'),
+      StartDate: z.string().optional().describe('cloudrun.schema.manage.serverConfig.timerScale.startDate'),
+      EndDate: z.string().optional().describe('cloudrun.schema.manage.serverConfig.timerScale.endDate'),
+      StartTime: z.string().describe('cloudrun.schema.manage.serverConfig.timerScale.startTime'),
+      EndTime: z.string().describe('cloudrun.schema.manage.serverConfig.timerScale.endTime'),
+      ReplicaNum: z.number().min(0).describe('cloudrun.schema.manage.serverConfig.timerScale.replicaNum')
+    })).optional().describe('cloudrun.schema.manage.serverConfig.timerScale'),
     VpcConf: z.object({
-      VpcId: z.string().describe('VPC网络ID，格式如 vpc-xxxxxxxx。必须与目标数据库/Redis 处于同一地域，并优先选择同一 VPC。禁止猜测或使用占位符；须来自数据库控制台、已有资源详情、callCloudApi 或用户确认。建议首次创建即配置；已存在服务也可在 deploy 时传入，部署后必须用 queryCloudRun detail 复核是否生效'),
-      SubnetId: z.string().describe('子网ID，格式如 subnet-xxxxxxxx。云托管实例将占用该子网 IP，需确保有足够可用 IP'),
-    }).optional().describe('VPC网络配置（实例出网/私有网络）。用于让云托管实例接入指定 VPC，从而内网访问 MySQL/PostgreSQL/Redis/CVM 等资源。与 OpenAccessTypes（外部如何访问本服务）是不同概念。TCP 连库场景必须配置。禁止猜测 VpcId/SubnetId，须来自数据库控制台、已有资源详情、callCloudApi 或用户确认。创建时映射为 SDK vpcInfo(CreateType=2)；已存在服务可用 updateConfig 或 deploy（RMW 会保留未传入的远程 VpcConf）。部署/更新后必须用 queryCloudRun detail 复核 ServerConfig.VpcConf'),
+      VpcId: z.string().describe('cloudrun.schema.manage.serverConfig.vpcConf.vpcId'),
+      SubnetId: z.string().describe('cloudrun.schema.manage.serverConfig.vpcConf.subnetId'),
+    }).optional().describe('cloudrun.schema.manage.serverConfig.vpcConf'),
     VolumesConf: z.array(z.object({
-      VolumeName: z.string().describe('存储卷名称'),
-      VolumeType: z.string().describe('存储卷类型，如CFS表示云文件存储'),
-      VolumePath: z.string().describe('存储卷挂载路径，服务代码中的目标路径')
-    })).optional().describe('存储卷配置数组，用于挂载云存储（如CFS）到服务实例中。可用于持久化数据或共享文件'),
+      VolumeName: z.string().describe('cloudrun.schema.manage.serverConfig.volumesConf.volumeName'),
+      VolumeType: z.string().describe('cloudrun.schema.manage.serverConfig.volumesConf.volumeType'),
+      VolumePath: z.string().describe('cloudrun.schema.manage.serverConfig.volumesConf.volumePath')
+    })).optional().describe('cloudrun.schema.manage.serverConfig.volumesConf'),
     PublicNetConf: z.object({
-      PublicAccess: z.boolean().optional().describe('是否开启公网访问，true=开启公网访问，false=关闭公网访问'),
-      PublicAccessPath: z.string().optional().describe('公网访问路径配置')
-    }).optional().describe('公网访问配置，用于控制服务的公网访问策略。可配置是否开启公网访问及访问路径'),
-  }).optional().describe('服务配置项，用于 deploy / updateConfig。包括资源规格、访问权限、环境变量、日志、网络等。deploy 未提供时对已存在服务仍会从远程合并保留 VpcConf/EnvParams/OpenAccessTypes；updateConfig 至少需要一个配置字段'),
+      PublicAccess: z.boolean().optional().describe('cloudrun.schema.manage.serverConfig.publicNetConf.publicAccess'),
+      PublicAccessPath: z.string().optional().describe('cloudrun.schema.manage.serverConfig.publicNetConf.publicAccessPath')
+    }).optional().describe('cloudrun.schema.manage.serverConfig.publicNetConf'),
+  }).optional().describe('cloudrun.schema.manage.serverConfig'),
 
   // Init operation parameters
-  template: z.string().optional().default('helloworld').describe('项目模板标识符，用于指定初始化项目时使用的模板。可通过queryCloudRun的templates操作获取可用模板列表。常用模板：helloworld=Hello World示例，nodejs=Node.js项目模板，python=Python项目模板等'),
+  template: z.string().optional().default(DEFAULT_INIT_TEMPLATE).describe('cloudrun.schema.manage.template'),
 
   // Run operation parameters (function services only)
   runOptions: z.object({
-    port: z.number().min(1).max(65535).optional().default(3000).describe('本地运行端口配置，仅函数型服务有效。指定服务在本地运行时监听的端口号，默认3000。确保端口未被其他程序占用'),
-    envParams: z.record(z.string()).optional().describe('本地运行时的附加环境变量配置，用于本地开发和调试。格式为键值对，如{"DEBUG":"true","LOG_LEVEL":"debug"}。这些变量仅在本地运行时生效'),
-    runMode: z.enum(['normal', 'agent']).optional().default('normal').describe('运行模式：normal=普通函数模式，agent=Agent模式（用于AI智能体开发）'),
-    agentId: z.string().optional().describe('Agent ID，在agent模式下使用，用于标识特定的Agent实例')
-  }).optional().describe('本地运行参数配置，仅函数型云托管服务支持。用于配置本地开发环境的运行参数，不影响云端部署'),
+    port: z.number().min(1).max(65535).optional().default(3000).describe('cloudrun.schema.manage.runOptions.port'),
+    envParams: z.record(z.string()).optional().describe('cloudrun.schema.manage.runOptions.envParams'),
+    runMode: z.enum(['normal', 'agent']).optional().default('normal').describe('cloudrun.schema.manage.runOptions.runMode'),
+    agentId: z.string().optional().describe('cloudrun.schema.manage.runOptions.agentId')
+  }).optional().describe('cloudrun.schema.manage.runOptions'),
 
   // Agent creation parameters
   agentConfig: z.object({
-    agentName: z.string().describe('Agent名称，用于生成BotId'),
-    botTag: z.string().optional().describe('Bot标签，用于生成BotId，不提供时自动生成'),
-    description: z.string().optional().describe('Agent描述信息'),
-    template: z.string().optional().default('blank').describe('Agent模板类型，默认为blank（空白模板）')
-  }).optional().describe('Agent配置项，仅在createAgent操作时使用'),
+    agentName: z.string().describe('cloudrun.schema.manage.agentConfig.agentName'),
+    botTag: z.string().optional().describe('cloudrun.schema.manage.agentConfig.botTag'),
+    description: z.string().optional().describe('cloudrun.schema.manage.agentConfig.description'),
+    template: z.string().optional().default('blank').describe('cloudrun.schema.manage.agentConfig.template')
+  }).optional().describe('cloudrun.schema.manage.agentConfig'),
 
   // Common parameters
-  force: z.boolean().optional().default(false).describe('强制操作开关，用于跳过确认提示。默认false（需要确认），设置为true时跳过所有确认步骤。删除操作时强烈建议设置为true以避免误操作'),
-  serverType: z.enum(CLOUDRUN_SERVICE_TYPES).optional().describe('服务类型配置：function=函数型云托管（仅支持Node.js，有特殊的开发要求和限制，适合简单的API服务），container=容器型服务（推荐使用，支持任意语言和框架如Java/Go/Python/PHP/.NET等，适合大多数应用场景）。不提供时自动检测：1)现有服务类型 2)有Dockerfile→container 3)有@cloudbase/aiagent-framework依赖→function 4)其他情况→container'),
+  force: z.boolean().optional().default(false).describe('cloudrun.schema.manage.force'),
+  serverType: z.enum(CLOUDRUN_SERVICE_TYPES).optional().describe('cloudrun.schema.manage.serverType'),
+
+  // Deploy operation parameters
+  waitRegistration: z.boolean().optional().default(true).describe('cloudrun.schema.manage.waitRegistration'),
 };
 
 type queryCloudRunInput = {
-  action: 'list' | 'detail' | 'templates' | 'getDeployLog' | 'getProcessLog' | 'getDeployRecords' | 'envStatus';
+  action: 'list' | 'detail' | 'templates' | 'getDeployLog' | 'getProcessLog' | 'getDeployRecords' | 'envStatus' | 'getManageTask';
   pageSize?: number;
   pageNum?: number;
   serverName?: string;
@@ -198,6 +234,11 @@ type queryCloudRunInput = {
 
 type ManageCloudRunInput = {
   action: 'init' | 'download' | 'run' | 'deploy' | 'delete' | 'createAgent' | 'updateConfig' | 'initEnv' | 'traffic';
+  /**
+   * Required by every action except `initEnv`. The schema types it as optional (initEnv takes no
+   * service name), so the handler enforces presence before any branch reads it — see the guard at the
+   * top of the manage handler.
+   */
   serverName: string;
   targetPath?: string;
   imageUrl?: string;
@@ -225,6 +266,7 @@ type ManageCloudRunInput = {
     description?: string;
     template?: string;
   };
+  waitRegistration?: boolean;
 };
 
 /**
@@ -263,35 +305,50 @@ function checkIfAgentProject(projectPath: string): boolean {
 }
 
 /**
- * Validate and normalize file path.
- * Accepts absolute paths as-is; for relative paths, resolves against CWD and
- * ensures the result does not escape the CWD (path-traversal protection).
- * @param inputPath User provided path
- * @returns Absolute path
+ * Validate and normalize a file path.
+ * Absolute paths are accepted as-is. Relative paths resolve against the project
+ * root and must stay inside it.
  */
-function validateAndNormalizePath(inputPath: string): string {
-  const normalizedPath = path.resolve(inputPath);
-
-  // On Windows, path.resolve may return a path on a different drive/UNC share.
-  // That is safe — the user explicitly provided an absolute path there.
-  // Only apply the traversal check when the resolved path shares the same root
-  // as CWD (i.e. the path was relative or on the same drive).
-  const cwd = process.cwd();
-  const cwdRoot = path.parse(cwd).root;
-  const pathRoot = path.parse(normalizedPath).root;
-
-  if (cwdRoot === pathRoot) {
-    // Same filesystem root — ensure the resolved path is still inside CWD
-    // (or is exactly CWD) to block "../" traversal.
-    const prefix = cwd.endsWith(path.sep) ? cwd : cwd + path.sep;
-    if (!normalizedPath.startsWith(prefix) && normalizedPath !== cwd) {
-      throw new Error(`Path must be within current working directory: ${cwd}`);
-    }
+export function validateAndNormalizePath(inputPath: string): string {
+  if (path.isAbsolute(inputPath)) {
+    return path.resolve(inputPath);
   }
-  // Cross-root absolute paths (e.g. D:\ on Windows when CWD is C:\) are
-  // allowed — the user own the machine and the path is explicitly absolute.
+
+  const projectRoot = requireProjectRoot();
+  const normalizedPath = path.resolve(projectRoot, inputPath);
+  const prefix = projectRoot.endsWith(path.sep) ? projectRoot : projectRoot + path.sep;
+  if (!normalizedPath.startsWith(prefix) && normalizedPath !== projectRoot) {
+    throw new Error(
+      t("cloudrun.error.pathOutsideCwd", { cwd: projectRoot, resolvedPath: normalizedPath }),
+    );
+  }
 
   return normalizedPath;
+}
+
+/**
+ * Resolve `<targetPath>/<serverName>` and refuse anything that is not a direct child of `targetPath`.
+ *
+ * `CLOUDRUN_SERVER_NAME_PATTERN` already rejects separators and dots, so a well-formed name cannot
+ * escape — this is the second line at the sink, where the name becomes a local directory: `init` and
+ * `download` hand it to the Manager SDK (which resolves it against `targetPath` and extracts the
+ * downloaded archive there), and `createAgent` writes a project skeleton into it. Widening the naming
+ * rule later must not be able to re-open traversal, and callers take the resolved path from here
+ * instead of re-joining the name themselves.
+ *
+ * Exported for tests: the schema rejects the hostile inputs, so containment is exercised directly.
+ */
+export function resolveCloudRunProjectDir(targetPath: string, serverName: string): string {
+  const base = path.resolve(targetPath);
+  const projectDir = path.resolve(base, serverName);
+  const relative = path.relative(base, projectDir);
+  // One segment, directly under `targetPath`: the basename equality rejects a value carrying
+  // separators ('.', '/tmp/x', 'a/../b'), and the relative check rejects everything that leaves `base`.
+  const isSingleSegment = path.basename(projectDir) === serverName;
+  if (!isSingleSegment || !relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(t("cloudrun.error.serverNameOutsideTargetPath", { serverName, targetPath }));
+  }
+  return projectDir;
 }
 
 export function buildManageCloudRunErrorMessage(action: ManageCloudRunInput["action"] | string, serverName: string, error: unknown): string {
@@ -303,23 +360,23 @@ export function buildManageCloudRunErrorMessage(action: ManageCloudRunInput["act
   }
 
   if (/已有部署发布任务运行中|部署发布任务运行中/i.test(baseMessage)) {
-    suggestions.push(`服务 \`${serverName}\` 当前已有部署任务在执行，请等待现有任务完成后再重试。`);
-    suggestions.push("如果你确认要覆盖当前流程，可在合适时机使用 `force=true` 再次发起。");
+    suggestions.push(t("cloudrun.error.deployTaskRunning", { serverName }));
+    suggestions.push(t("cloudrun.error.deployTaskRunningForce", { serverName }));
   }
 
   if (/云托管资源未开通|无法使用系统创建网络|VpcInfo/i.test(baseMessage)) {
-    suggestions.push(
-      "CreateCloudRunServer 需要有效 VPC：请传 serverConfig.VpcConf（VpcId+SubnetId），" +
-        "或在 initEnv 时传入 vpcId/subnetIds（环境开通后 deploy 会自动从 EnvBaseInfo 回填）。" +
-        "若平台拒绝系统创建网络，必须指定上海地域 VPC。",
-    );
+    suggestions.push(t("cloudrun.error.vpcRequired"));
   }
 
   if (suggestions.length === 0) {
-    suggestions.push("请检查服务状态、部署参数和目标目录后重试。");
+    suggestions.push(t("cloudrun.error.genericRetry"));
   }
 
-  return `[manageCloudRun/${action}] ${baseMessage}\n建议：${suggestions.join(" ")}`;
+  return t("cloudrun.error.buildManage", {
+    action,
+    baseMessage,
+    suggestions: suggestions.join(" "),
+  });
 }
 
 /**
@@ -422,6 +479,7 @@ export function buildGetDeployLogCodingFallback(options: {
   };
 } {
   const runId = isValidCloudRunRunId(options.runId) ? options.runId.trim() : undefined;
+  const runIdSuffix = runId ? `, runId="${runId}"` : "";
   // Narrow to follow-up actions only — never suggest getDeployLog again.
   const next_step: CloudRunDeployFollowUpNextStep = runId
     ? {
@@ -432,7 +490,7 @@ export function buildGetDeployLogCodingFallback(options: {
           detailServerName: options.serverName,
           runId,
         },
-        note: "getDeployLog needs CODING / DescribeCloudRunBuildLog. Use getProcessLog for deploy-step and runtime logs.",
+        note: t("cloudrun.fallback.noteCoding"),
       }
     : {
         tool: "queryCloudRun",
@@ -441,7 +499,7 @@ export function buildGetDeployLogCodingFallback(options: {
           action: "getDeployRecords",
           detailServerName: options.serverName,
         },
-        note: "Read latestDeploy.RunId from getDeployRecords, then queryCloudRun(action=\"getProcessLog\"). Skip retrying getDeployLog for CODING login errors.",
+        note: t("cloudrun.fallback.noteRecords"),
       };
 
   const nextActions: CloudRunGetProcessLogNextAction[] = [
@@ -468,8 +526,14 @@ export function buildGetDeployLogCodingFallback(options: {
 
   const message =
     options.reason === "image_no_build"
-      ? `Service '${options.serverName}' has no cloud source build (BuildId=0). Skip getDeployLog; use queryCloudRun(action="getProcessLog"${runId ? `, runId="${runId}"` : ""}) for deploy-step and runtime logs.`
-      : `getDeployLog (DescribeCloudRunBuildLog) failed because this account is not a CODING user. Do not retry getDeployLog. Use queryCloudRun(action="getProcessLog", detailServerName="${options.serverName}"${runId ? `, runId="${runId}"` : ""}) — RunId comes from getDeployRecords/latestDeploy.`;
+      ? t("cloudrun.fallback.messageNoBuild", {
+          serverName: options.serverName,
+          runIdSuffix,
+        })
+      : t("cloudrun.fallback.messageCoding", {
+          serverName: options.serverName,
+          runIdSuffix,
+        });
 
   return {
     success: false,
@@ -652,7 +716,7 @@ export function buildCloudRunDeployNextStep(options: {
           detailServerName: serverName,
           runId: options.runId.trim(),
         },
-        note: "Image deploy has no CODING build process; skip getDeployLog. Poll getProcessLog for deploy-step and container runtime logs.",
+        note: t("cloudrun.nextStep.imageWithRunId"),
       };
     }
     return {
@@ -663,8 +727,8 @@ export function buildCloudRunDeployNextStep(options: {
         detailServerName: serverName,
       },
       note: registered
-        ? "Image deploy: read latestDeploy.RunId, then queryCloudRun(action=\"getProcessLog\", runId=...). Skip getDeployLog."
-        : "Image deploy registration still queueing; retry getDeployRecords for RunId, then getProcessLog. Skip getDeployLog.",
+        ? t("cloudrun.nextStep.imageRegistered")
+        : t("cloudrun.nextStep.imageQueueing"),
     };
   }
 
@@ -677,7 +741,7 @@ export function buildCloudRunDeployNextStep(options: {
         detailServerName: serverName,
         buildId: options.buildId,
       },
-      note: "Source build: poll getDeployLog for build progress, then getProcessLog (RunId from detail/getDeployRecords) for runtime/deploy-step logs.",
+      note: t("cloudrun.nextStep.sourceWithBuildId"),
     };
   }
 
@@ -689,8 +753,8 @@ export function buildCloudRunDeployNextStep(options: {
       detailServerName: serverName,
     },
     note: registered
-      ? "BuildId not yet available; omit buildId to use the latest deploy record. After build, use getProcessLog for runtime logs."
-      : "Registration timed out; wait a moment then retry getDeployLog, or open consoleUrl. After build, use getProcessLog for runtime logs.",
+      ? t("cloudrun.nextStep.sourceNoBuildId")
+      : t("cloudrun.nextStep.sourceTimeout"),
   };
 }
 
@@ -709,21 +773,43 @@ export function buildCloudRunDeployProgressHint(options: {
 
   if (deployType === "image") {
     if (isValidCloudRunRunId(options.runId)) {
-      return ` Image deploy: use queryCloudRun(action="getProcessLog", detailServerName="${serverName}", runId="${options.runId.trim()}") for runtime/deploy-step logs (skip getDeployLog).`;
+      return t("cloudrun.progress.imageWithRunId", {
+        serverName,
+        runId: options.runId.trim(),
+      });
     }
     if (options.registered) {
-      return ` Image deploy registered${typeof options.taskId === "number" ? ` (taskId=${options.taskId})` : ""}; RunId not yet available — use queryCloudRun(action="getDeployRecords", detailServerName="${serverName}") then getProcessLog (skip getDeployLog), or check ${consoleUrl}.`;
+      return t("cloudrun.progress.imageRegistered", {
+        taskIdSuffix:
+          typeof options.taskId === "number" ? ` (taskId=${options.taskId})` : "",
+        serverName,
+        consoleUrl,
+      });
     }
-    return ` Image deploy registration timed out after ${Math.round(options.waitMs / 1000)}s — retry getDeployRecords for RunId then getProcessLog (skip getDeployLog), or check ${consoleUrl}.`;
+    return t("cloudrun.progress.imageTimeout", {
+      seconds: Math.round(options.waitMs / 1000),
+      consoleUrl,
+    });
   }
 
   if (isValidCloudRunBuildId(options.buildId)) {
-    return ` Use queryCloudRun(action="getDeployLog", detailServerName="${serverName}", buildId=${options.buildId}) to poll build progress, then getProcessLog for runtime logs.`;
+    return t("cloudrun.progress.sourceWithBuildId", {
+      serverName,
+      buildId: options.buildId,
+    });
   }
   if (options.registered) {
-    return ` Task registered (taskId=${options.taskId ?? "unknown"}); BuildId not yet available — retry queryCloudRun(action="getDeployLog", detailServerName="${serverName}") shortly, then getProcessLog, or check ${consoleUrl}.`;
+    return t("cloudrun.progress.sourceRegistered", {
+      taskId: String(options.taskId ?? "unknown"),
+      serverName,
+      consoleUrl,
+    });
   }
-  return ` Build registration timed out after ${Math.round(options.waitMs / 1000)}s — deployment may still be queueing. Check ${consoleUrl} or retry queryCloudRun(action="getDeployLog", detailServerName="${serverName}") later.`;
+  return t("cloudrun.progress.sourceTimeout", {
+    seconds: Math.round(options.waitMs / 1000),
+    consoleUrl,
+    serverName,
+  });
 }
 
 const CLOUDRUN_DB_ENV_KEY_PATTERN =
@@ -760,7 +846,7 @@ export async function queryCloudRunEnvStatus(options: {
   const manager = await getCloudBaseManager({ cloudBaseOptions: options.cloudBaseOptions });
   if (!manager?.commonService) {
     throw new Error(
-      "Current CloudBase Manager does not support commonService; cannot query CloudRun env status.",
+      t("cloudrun.error.commonServiceQueryEnv"),
     );
   }
   return describeCloudRunEnvStatus(manager, options.envId);
@@ -793,6 +879,39 @@ export async function describeCloudRunEnvStatus(
       ? (normalizedStatus as "creating" | "normal")
       : "unknown";
   return { isExist: true, status, baseInfo };
+}
+
+/**
+ * 判断「云托管环境未开通 / 不存在」类错误，用于 `describeCloudRunEnvStatus` 失败的归一化分支。
+ *
+ * ⚠️ 必须**同时**看 `error.code` 与 `error.message`：
+ * 报错文案有三套来源且会不一致 —— 英文错误码（`ResourceNotFound.CloudRunEnv`）、
+ * 中文兜底（`[DescribeEnvBaseInfo] 资源不存在`）、旧式 `InvalidParameter.*Env`。
+ * 只匹配 message 时，中文「资源不存在」不含 `ResourceNotFound`/`未开通`/`未初始化`，
+ * 守卫会失效并把裸错误抛给模型（国际站未开通云托管的环境实测命中，见 F2）。
+ *
+ * 调用方只有 `DescribeEnvBaseInfo`（唯一资源就是环境），因此把「资源不存在」纳入
+ * 未开通判定不会误伤其他语义。
+ */
+export function isCloudRunEnvNotOpenedError(error: unknown): boolean {
+  if (!error) {
+    return false;
+  }
+  const codeCandidates: unknown[] = [
+    (error as { code?: unknown }).code,
+    (error as { Code?: unknown }).Code,
+    (error as { original?: { code?: unknown } }).original?.code,
+    (error as { original?: { Code?: unknown } }).original?.Code,
+  ];
+  const codes = codeCandidates
+    .filter((value): value is string => typeof value === "string")
+    .join(" ");
+  const message = error instanceof Error ? error.message : String(error);
+  const haystack = `${codes} ${message}`;
+  return (
+    /ResourceNotFound|not.?initialized|未开通|未初始化|资源不存在|环境不存在/i.test(haystack) ||
+    /InvalidParameter.*(?:Env|CloudRun)/i.test(haystack)
+  );
 }
 
 /** CloudRun EnvType for CreateCloudRunEnv (baas DescribeEnvBaseInfo enum). */
@@ -918,14 +1037,11 @@ export async function ensureCloudRunEnvInitialized(options: {
     }
     return true;
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    // 错误兜底：未初始化/未开通类错误码。
+    // 错误兜底：未初始化/未开通类错误码。判据统一收敛到 isCloudRunEnvNotOpenedError，
+    // 避免「只匹配 message」被本地化文案（中文「资源不存在」）绕过。
     // 注意：裸 InvalidParameter 可能是普通参数错误，不拦截；仅当其带 Env/CloudRun
     // 上下文（疑似 "EnvironmentId not found / CloudRun Env 未开通"）时才按未初始化处理。
-    if (
-      /ResourceNotFound|not.?initialized|未开通|未初始化/i.test(msg) ||
-      /InvalidParameter.*(?:Env|CloudRun)/i.test(msg)
-    ) {
+    if (isCloudRunEnvNotOpenedError(error)) {
       throwCloudRunEnvNotInitialized(options.envId);
     }
     // 其他错误（网络/权限等）不拦截，让上层按原逻辑处理。
@@ -934,14 +1050,7 @@ export async function ensureCloudRunEnvInitialized(options: {
 }
 
 function throwCloudRunEnvNotInitialized(envId: string): never {
-  throw new Error(
-    `当前环境（${envId}）尚未初始化云托管（CloudRun Env）。` +
-      `不能直接创建服务（CreateCloudRunServer 在无大租户记录时会默认创建到小租户，产生错误的小租户服务与版本）。\n` +
-      `请先开通云托管环境，再重试部署：\n` +
-      `- MCP：manageCloudRun(action="initEnv", envId="${envId}")（异步开通，幂等；开通完成后可用 queryCloudRun(action="envStatus", envId="${envId}") 查询 Status=normal）\n` +
-      `- 或控制台：环境 → 云托管 → 开通（https://tcb.cloud.tencent.com/dev?envId=${envId}#/platform-run）\n` +
-      `初始化完成后重新调用 manageCloudRun(action="deploy")。`,
-  );
+  throw new Error(t("cloudrun.error.envNotInitialized", { envId }));
 }
 
 /**
@@ -977,15 +1086,14 @@ export function detectCloudRunDbNetworkRisk(options: {
     }
     return {
       code: "MISSING_VPC_FOR_DB_ENV",
-      message:
-        "EnvParams appears to include a database/cache connection URL, but serverConfig.VpcConf is missing. CloudRun instances usually cannot reach VPC-private MySQL/PostgreSQL/Redis without VpcConf.",
+      message: t("cloudrun.risk.noJson.message"),
       matchedKeys: ["<non-json-envParams>"],
       remediation: [
-        "Set serverConfig.VpcConf to the same region/VPC (and a subnet with free IPs) as the database.",
-        "Do NOT invent VpcId/SubnetId. Resolve real IDs from the DB console, resource detail, callCloudApi, or the user.",
-        "Use the database private/intranet hostname in EnvParams, not localhost or docker-compose service names.",
-        "Ensure the DB security group allows the CloudRun subnet on the DB port.",
-        "Re-deploy after VpcConf is set. OpenAccessTypes alone does not provide VPC egress to databases.",
+        t("cloudrun.risk.noJson.remediation.1"),
+        t("cloudrun.risk.noJson.remediation.2"),
+        t("cloudrun.risk.noJson.remediation.3"),
+        t("cloudrun.risk.noJson.remediation.4"),
+        t("cloudrun.risk.noJson.remediation.5"),
       ],
     };
   }
@@ -1007,15 +1115,14 @@ export function detectCloudRunDbNetworkRisk(options: {
 
   return {
     code: "MISSING_VPC_FOR_DB_ENV",
-    message:
-      "EnvParams includes database/cache connection settings, but serverConfig.VpcConf is missing. Deploy may succeed while runtime DB connections fail.",
+    message: t("cloudrun.risk.detected.message"),
     matchedKeys,
     remediation: [
-      "Set serverConfig.VpcConf.VpcId and SubnetId to the database VPC/subnet (same region).",
-      "Do NOT invent VpcId/SubnetId. Resolve real IDs from the DB console, resource detail, callCloudApi, or the user.",
-      "Use the private DB endpoint in EnvParams.",
-      "Confirm security group / allowlist permits CloudRun subnet access to the DB port.",
-      "Do not confuse OpenAccessTypes (ingress) with VpcConf (egress to VPC resources).",
+      t("cloudrun.risk.detected.remediation.1"),
+      t("cloudrun.risk.detected.remediation.2"),
+      t("cloudrun.risk.detected.remediation.3"),
+      t("cloudrun.risk.detected.remediation.4"),
+      t("cloudrun.risk.detected.remediation.5"),
     ],
   };
 }
@@ -1133,12 +1240,13 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
   server.registerTool(
     "queryCloudRun",
     {
-      title: "查询 CloudRun 服务信息",
-      description: "查询云托管服务信息，支持获取服务列表、查询服务详情、获取可用模板列表、获取构建日志（getDeployLog，仅云端源码构建/依赖 CODING）、获取运行日志（getProcessLog，镜像与源码部署均可/不依赖 CODING）、获取部署记录以及查询环境云托管开通状态（envStatus）。返回的服务信息包括服务名称、状态、访问类型、配置详情以及最近部署上下文。",
+      title: "cloudrun.query.title",
+      description: "cloudrun.query.description",
       inputSchema: queryCloudRunInputSchema,
       annotations: {
         readOnlyHint: true,
-        openWorldHint: true,
+        destructiveHint: false,
+        openWorldHint: false,
         category: "cloudrun"
       }
     },
@@ -1147,7 +1255,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
       const manager = await getManager();
 
       if (!manager) {
-        throw new Error("Failed to initialize CloudBase manager. Please check your credentials and environment configuration.");
+        throw new Error(t("cloudrun.error.managerInitFailed"));
       }
 
       const cloudrunService = manager.cloudrun;
@@ -1184,7 +1292,9 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                         totalPages: Math.ceil((result.Total || 0) / (input.pageSize || 10))
                       }
                     },
-                    message: `Found ${result.ServerList?.length || 0} CloudRun services`
+                    message: t("cloudrun.list.message", {
+                      count: result.ServerList?.length || 0,
+                    })
                   }, null, 2)
                 }
               ]
@@ -1202,7 +1312,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                     text: JSON.stringify({
                       success: false,
                       error: "detailServerName or serverName is required for detail action",
-                      message: "Please provide detailServerName or serverName."
+                      message: t("cloudrun.error.provideServerName")
                     }, null, 2)
                   }
                 ]
@@ -1218,8 +1328,8 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                     type: "text",
                     text: JSON.stringify({
                       success: false,
-                      error: `Service '${serverName}' not found`,
-                      message: "Please check the service name and try again."
+                      error: t("cloudrun.error.serviceNotFound", { serverName }),
+                      message: t("cloudrun.error.serviceNotFoundRetry")
                     }, null, 2)
                   }
                 ]
@@ -1235,25 +1345,25 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
               latestDeploy = deployRecords?.DeployRecords?.[0] ?? null;
 
               if (!latestDeploy) {
-                message = `Retrieved details for service '${serverName}'. No deploy records found yet.`;
+                message = t("cloudrun.detail.noRecords", { serverName });
               } else if (
                 typeof latestDeploy.Status === "string" &&
                 // Platform may return FAILED/CREATING (uppercase); normalize before matching.
                 latestDeploy.Status.toLowerCase().includes("failed")
               ) {
-                message = `Service '${serverName}' latest deploy failed. Use queryCloudRun(action="getProcessLog") for runtime/deploy-step logs (RunId from latestDeploy); use getDeployLog only for cloud source-build logs (CODING).`;
+                message = t("cloudrun.detail.deployFailed", { serverName });
               } else if (
                 typeof latestDeploy.Status === "string" &&
                 latestDeploy.Status.toLowerCase().includes("creating")
               ) {
-                message = `Service '${serverName}' latest deploy is still running. Please check again later or query the deploy log for progress.`;
+                message = t("cloudrun.detail.deployRunning", { serverName });
               } else {
-                message = `Retrieved details for service '${serverName}'. Latest service status: ${result.BaseInfo?.Status || 'unknown'}, latest deploy status: ${latestDeploy.Status || 'unknown'}.`;
+                message = t("cloudrun.detail.ok", { serverName, status: result.BaseInfo?.Status || 'unknown', deployStatus: latestDeploy.Status || 'unknown' });
               }
             } catch (error) {
               const baseMessage = error instanceof Error ? error.message : String(error);
-              deployRecordsWarning = `Failed to fetch deploy records: ${baseMessage}`;
-              message = `Retrieved details for service '${serverName}', but deploy records are currently unavailable.`;
+              deployRecordsWarning = t("cloudrun.detail.recordsWarning", { baseMessage });
+              message = t("cloudrun.detail.recordsUnavailable", { serverName });
             }
 
             return {
@@ -1291,7 +1401,9 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                     data: {
                       templates: result || []
                     },
-                    message: `Found ${result?.length || 0} available templates`
+                    message: t("cloudrun.templates.message", {
+                      count: result?.length || 0,
+                    })
                   }, null, 2)
                 }
               ]
@@ -1309,7 +1421,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                     text: JSON.stringify({
                       success: false,
                       error: "detailServerName or serverName is required for getDeployLog action",
-                      message: "Please provide detailServerName or serverName."
+                      message: t("cloudrun.error.provideServerName")
                     }, null, 2)
                   }
                 ]
@@ -1326,8 +1438,8 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                     type: "text",
                     text: JSON.stringify({
                       success: false,
-                      error: `Service '${serverName}' has no deploy records.`,
-                      message: "Please deploy the service first, then query the deploy log again."
+                      error: t("cloudrun.error.noDeployRecords", { serverName }),
+                      message: t("cloudrun.error.deployFirst")
                     }, null, 2)
                   }
                 ]
@@ -1429,7 +1541,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                       combinedLogText,
                       ...(processLogsWarning ? { processLogsWarning } : {})
                     },
-                    message: `Retrieved build log for service '${serverName}' (getDeployLog=构建日志; for 运行日志 use getProcessLog with RunId)`
+                    message: t("cloudrun.buildLog.message", { serverName })
                   }, null, 2)
                 }
               ]
@@ -1446,8 +1558,8 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                     type: "text",
                     text: JSON.stringify({
                       success: false,
-                      error: "runId is required, or provide detailServerName/serverName to resolve latest RunId",
-                      message: "Pass runId from detail/getDeployRecords latestDeploy.RunId, or provide a service name to use the latest deploy RunId."
+                      error: t("cloudrun.error.runIdRequired"),
+                      message: t("cloudrun.error.runIdRequiredHint")
                     }, null, 2)
                   }
                 ]
@@ -1479,9 +1591,9 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                     text: JSON.stringify({
                       success: false,
                       error: serverName
-                        ? `Service '${serverName}' has no RunId on the latest deploy record.`
-                        : "runId is required for getProcessLog action",
-                      message: "Deploy the service first, then read RunId from queryCloudRun(action=\"detail\") or getDeployRecords (latestDeploy.RunId)."
+                        ? t("cloudrun.error.noRunIdOnLatest", { serverName })
+                        : t("cloudrun.error.runIdRequiredAction"),
+                      message: t("cloudrun.error.runIdReadGuide")
                     }, null, 2)
                   }
                 ]
@@ -1490,7 +1602,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
 
             if (typeof cloudrunService.getProcessLog !== "function") {
               throw new Error(
-                "Current CloudBase Manager SDK does not support getProcessLog; please upgrade @cloudbase/manager-node.",
+                t("cloudrun.error.getProcessLogUnsupported"),
               );
             }
 
@@ -1518,7 +1630,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                       processLogText,
                       requestId: processLogResult?.RequestId,
                     },
-                    message: `Retrieved process/runtime log for RunId='${runId}' (getProcessLog=运行日志; getDeployLog=构建日志且仅云端构建/依赖 CODING)`
+                    message: t("cloudrun.processLog.message", { runId })
                   }, null, 2)
                 }
               ]
@@ -1535,8 +1647,8 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                     type: "text",
                     text: JSON.stringify({
                       success: false,
-                      error: "detailServerName or serverName is required for getDeployRecords action",
-                      message: "Please provide detailServerName or serverName."
+                      error: t("cloudrun.error.serverNameRequired", { action: "getDeployRecords" }),
+                      message: t("cloudrun.error.provideServerName")
                     }, null, 2)
                   }
                 ]
@@ -1561,7 +1673,99 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                       total: deployRecords.length,
                       latestDeploy: deployRecords[0] ?? null
                     },
-                    message: `Retrieved ${deployRecords.length} deploy records for service '${serverName}'`
+                    message: t("cloudrun.deployRecords.message", { serverName, count: deployRecords.length })
+                  }, null, 2)
+                }
+              ]
+            };
+          }
+
+          case 'getManageTask': {
+            const serverName = getCloudRunQueryServerName(input);
+
+            if (!serverName) {
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: JSON.stringify({
+                      success: false,
+                      error: t("cloudrun.error.serverNameRequired", { action: "getManageTask" }),
+                      message: t("cloudrun.error.provideServerName")
+                    }, null, 2)
+                  }
+                ]
+              };
+            }
+
+            const envId = input.envId?.trim() || (await getEnvId(cloudBaseOptions));
+
+            if (!manager.commonService) {
+              throw new Error(
+                "Current CloudBase Manager does not support commonService; cannot query CloudRun deploy task.",
+              );
+            }
+
+            // tcbr/DescribeServerManageTask：TaskId=0 表示查询该服务最近一次发布任务
+            let rawTask: Record<string, unknown> | null = null;
+            let queryError: string | undefined;
+            try {
+              const resp = await manager
+                .commonService("tcbr", "2022-02-17")
+                .call({
+                  Action: "DescribeServerManageTask",
+                  Param: { EnvId: envId, ServerName: serverName, TaskId: 0 },
+                });
+              const respObj = (resp ?? {}) as Record<string, unknown>;
+              const task = respObj.Task ?? respObj.task;
+              if (task && typeof task === "object") {
+                rawTask = task as Record<string, unknown>;
+              }
+            } catch (error) {
+              queryError = error instanceof Error ? error.message : String(error);
+            }
+
+            const { taskId, taskStatus } = extractServerManageTaskInfo(rawTask ?? {});
+
+            // 任务状态 + 版本状态合看，才能判断部署是在推进还是已经卡住
+            let latestDeploy: Record<string, unknown> | null = null;
+            try {
+              const recordsResult: any = await cloudrunService.getDeployRecords({ serverName });
+              const first = Array.isArray(recordsResult?.DeployRecords)
+                ? recordsResult.DeployRecords[0]
+                : null;
+              if (first && typeof first === "object") {
+                latestDeploy = first;
+              }
+            } catch {
+              // 部署记录不可用时只返回任务信息
+            }
+
+            const deployStatus =
+              typeof latestDeploy?.Status === "string" ? latestDeploy.Status : undefined;
+
+            return {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify({
+                    success: true,
+                    data: {
+                      envId,
+                      serverName,
+                      taskId: taskId ?? null,
+                      taskStatus: taskStatus ?? null,
+                      task: rawTask,
+                      latestDeployStatus: deployStatus ?? null,
+                      latestDeploy,
+                      ...(queryError ? { taskQueryError: queryError } : {}),
+                    },
+                    message: t("cloudrun.manageTask.message", {
+                      serverName,
+                      taskId: taskId ?? "-",
+                      taskStatus: taskStatus ?? "-",
+                      deployStatus: deployStatus ?? "-",
+                    }),
                   }, null, 2)
                 }
               ]
@@ -1581,25 +1785,25 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
               status = await describeCloudRunEnvStatus(manager, envId);
             } catch (error) {
               const baseMessage = error instanceof Error ? error.message : String(error);
-              if (
-                /ResourceNotFound|not.?initialized|未开通|未初始化/i.test(baseMessage) ||
-                /InvalidParameter.*(?:Env|CloudRun)/i.test(baseMessage)
-              ) {
+              if (isCloudRunEnvNotOpenedError(error)) {
                 status = { isExist: false, status: "unopened", baseInfo: {} };
               } else {
-                throw new Error(`[queryCloudRun/envStatus] ${baseMessage}`);
+                throw new Error(t("cloudrun.error.actionFailed", {
+                  context: "queryCloudRun/envStatus",
+                  baseMessage,
+                }));
               }
             }
 
             let message: string;
             if (!status.isExist) {
-              message = `环境 ${envId} 尚未开通云托管。请先调用 manageCloudRun(action="initEnv", envId="${envId}") 开通（异步、幂等），或前往控制台 环境 → 云托管 → 开通；Status=normal 后即可 deploy。`;
+              message = t("cloudrun.envStatus.unopened", { envId });
             } else if (status.status === "creating") {
-              message = `环境 ${envId} 云托管正在开通中（Status=creating）。请稍后重试 manageCloudRun(action="deploy")，或用本 action 再次查询直到 Status=normal。`;
+              message = t("cloudrun.envStatus.creating", { envId });
             } else if (status.status === "normal") {
-              message = `环境 ${envId} 云托管已开通（Status=normal），可直接 manageCloudRun(action="deploy")。`;
+              message = t("cloudrun.envStatus.normal", { envId });
             } else {
-              message = `环境 ${envId} 云托管状态未知（Status=${status.status ?? "unknown"}），请稍后重试。`;
+              message = t("cloudrun.envStatus.unknown", { envId, status: status.status ?? "unknown" });
             }
 
             return {
@@ -1631,7 +1835,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
           }
 
         default:
-          throw new Error(`Unsupported action: ${input.action}`);
+          throw new Error(t("cloudrun.error.unsupportedAction", { action: input.action }));
       }
     }
   );
@@ -1643,23 +1847,33 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
   server.registerTool(
     "manageCloudRun",
     {
-      title: "管理 CloudRun 服务",
-      description: "管理云托管服务，按开发顺序支持：开通云托管环境（initEnv）、初始化项目（可从模板开始，模板列表可通过 queryCloudRun 查询）、下载服务代码、本地运行（仅函数型服务）、部署代码、仅更新配置（updateConfig，无需重新上传代码）、删除服务。deploy 支持两种方式：1) 源码构建（传入 targetPath，本地代码打包上传，默认路径）；2) 已有镜像部署（传入 imageUrl，如 ccr.ccs.tencentyun.com/ns/img:v1，走 DeployType=image 容器型部署，targetPath 可省略）。deploy 语义为「触发部署 + 轻量等待任务注册」（最多约 45s）。源码构建返回 buildId，用 getDeployLog 轮询构建进度后再 getProcessLog；镜像部署（imageUrl）BuildId 常为 0，跳过 getDeployLog，返回 runId/next_step 引导 getProcessLog（或先 getDeployRecords 取 RunId）。若用户明确指定镜像或无需重新构建，必须传 imageUrl，不要仅因本地有源码目录就回退到源码构建。deploy 对已存在服务会先读取远程配置再合并（保留 VpcConf/EnvParams/OpenAccessTypes）。updateConfig 对齐控制台服务设置页。删除操作需要确认，建议设置force=true。新环境首次部署前若提示未开通云托管，先调用 initEnv 开通（异步、幂等）。",
+      title: "cloudrun.manage.title",
+      description: "cloudrun.manage.description",
       inputSchema: ManageCloudRunInputSchema,
+      // MCP Apps：部署结果挂产物卡片面板（只读展示 + 把写意图交给会话）。
+      ...mcpUiMeta("ui://cloudbase/artifact-card"),
       annotations: {
         readOnlyHint: false,
         destructiveHint: true,
         idempotentHint: false,
-        openWorldHint: true,
+        openWorldHint: false,
         category: "cloudrun"
       }
     },
     async (args: ManageCloudRunInput) => {
       const input = args;
+
+      // Presence guard for the parameter the schema leaves optional. Checked before any credential or
+      // network work, so a missing name fails closed here instead of reaching a path join or a cloud
+      // call as `undefined`.
+      if (!CLOUDRUN_MANAGE_ACTIONS_WITHOUT_SERVER_NAME.has(input.action) && !input.serverName) {
+        throw new Error(t("cloudrun.error.manageServerNameRequired", { action: input.action }));
+      }
+
       const manager = await getManager();
 
       if (!manager) {
-        throw new Error("Failed to initialize CloudBase manager. Please check your credentials and environment configuration.");
+        throw new Error(t("cloudrun.error.managerInitFailed"));
       }
 
       const cloudrunService = manager.cloudrun;
@@ -1674,9 +1888,9 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
             const envId = input.envId?.trim() || (await getEnvId(cloudBaseOptions));
             const packageType = input.packageType || 'Trial';
             if (!manager.commonService) {
-              throw new Error(
-                "Current CloudBase Manager does not support commonService; cannot initialize CloudRun env.",
-              );
+    throw new Error(
+      t("cloudrun.error.commonServiceInitEnv"),
+    );
             }
 
             // 幂等：先查当前开通状态，已开通 / 开通中不重复创建。
@@ -1685,13 +1899,13 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
               current = await describeCloudRunEnvStatus(manager, envId);
             } catch (error) {
               const baseMessage = error instanceof Error ? error.message : String(error);
-              if (
-                /ResourceNotFound|not.?initialized|未开通|未初始化/i.test(baseMessage) ||
-                /InvalidParameter.*(?:Env|CloudRun)/i.test(baseMessage)
-              ) {
+              if (isCloudRunEnvNotOpenedError(error)) {
                 current = { isExist: false, status: "unopened", baseInfo: {} };
               } else {
-                throw new Error(`[manageCloudRun/initEnv] ${baseMessage}`);
+                throw new Error(t("cloudrun.error.actionFailed", {
+                  context: "manageCloudRun/initEnv",
+                  baseMessage,
+                }));
               }
             }
 
@@ -1708,7 +1922,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                         packageType: current.baseInfo.PackageType ?? packageType,
                         created: false
                       },
-                      message: `环境 ${envId} 已开通云托管（Status=normal），无需重复开通。可直接 manageCloudRun(action="deploy")。`
+                      message: t("cloudrun.initEnv.alreadyNormal", { envId })
                     }, null, 2)
                   }
                 ]
@@ -1727,7 +1941,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                         status: "creating",
                         created: false
                       },
-                      message: `环境 ${envId} 云托管正在开通中（Status=creating），无需重复开通。请稍后用 queryCloudRun(action="envStatus", envId="${envId}") 查询，Status=normal 后即可 deploy。`
+                      message: t("cloudrun.initEnv.creating", { envId })
                     }, null, 2)
                   }
                 ]
@@ -1770,7 +1984,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                       created: true,
                       ...(tranId ? { tranId } : {})
                     },
-                    message: `已发起云托管开通（异步，Status=creating）。请稍后用 queryCloudRun(action="envStatus", envId="${envId}") 查询状态，Status=normal 后即可 manageCloudRun(action="deploy")。`
+                    message: t("cloudrun.initEnv.started", { envId })
                   }, null, 2)
                 }
               ]
@@ -1781,7 +1995,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
             const trafficOp = input.trafficOp;
             if (!trafficOp) {
               throw new Error(
-                "trafficOp is required for traffic operation (set | promote | rollback)",
+                t("cloudrun.error.trafficOpRequired"),
               );
             }
 
@@ -1793,13 +2007,12 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                 typeof canary !== 'number'
               ) {
                 throw new Error(
-                  "stablePercent and canaryPercent are required for trafficOp=set",
+                  t("cloudrun.error.percentsRequired"),
                 );
               }
               if (stable + canary !== 100) {
                 throw new Error(
-                  `stablePercent + canaryPercent must equal 100 (got ${stable} + ${canary} = ${stable + canary}). ` +
-                    `Example: 90/10 means 90% to stable version, 10% to canary version.`,
+                  t("cloudrun.error.percentSum", { stable, canary, sum: stable + canary }),
                 );
               }
               let setResult: unknown;
@@ -1827,7 +2040,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                         canaryPercent: canary,
                         result: setResult ?? null
                       },
-                      message: `Set traffic for service '${input.serverName}': stable ${stable}% / canary ${canary}%`
+                      message: t("cloudrun.traffic.set.message", { serverName: input.serverName, stable, canary })
                     }, null, 2)
                   }
                 ]
@@ -1854,7 +2067,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                         trafficOp: 'promote',
                         result: promoteResult ?? null
                       },
-                      message: `Promoted canary version to full release for service '${input.serverName}' (100% traffic). This is irreversible.`
+                      message: t("cloudrun.traffic.promote.message", { serverName: input.serverName })
                     }, null, 2)
                   }
                 ]
@@ -1881,7 +2094,9 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
                       trafficOp: 'rollback',
                       result: rollbackResult ?? null
                     },
-                    message: `Rolled back service '${input.serverName}' to the previous stable version.`
+                    message: t("cloudrun.traffic.rollback.message", {
+                      serverName: input.serverName,
+                    })
                   }, null, 2)
                 }
               ]
@@ -1890,11 +2105,11 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
 
           case 'createAgent': {
             if (!targetPath) {
-              throw new Error("targetPath is required for createAgent operation");
+              throw new Error(t("cloudrun.error.targetPathRequired", { action: "createAgent" }));
             }
 
             if (!input.agentConfig) {
-              throw new Error("agentConfig is required for createAgent operation");
+              throw new Error(t("cloudrun.error.agentConfigRequired"));
             }
 
             const { agentName, botTag, description, template = 'blank' } = input.agentConfig;
@@ -1911,7 +2126,7 @@ export function registerCloudRunTools(server: ExtendedMcpServer) {
             });
 
             // Create project directory
-            const projectDir = path.join(targetPath, input.serverName);
+            const projectDir = resolveCloudRunProjectDir(targetPath, input.serverName);
             if (!fs.existsSync(projectDir)) {
               fs.mkdirSync(projectDir, { recursive: true });
             }
@@ -2060,7 +2275,7 @@ for await (let x of res.textStream) {
                       template: template,
                       filesCreated: ['package.json', 'index.js', 'cloudbaserc.json', 'README.md']
                     },
-                    message: `Successfully created Agent '${agentName}' with BotId '${botId}' in ${projectDir}`
+                    message: t("cloudrun.createAgent.message", { agentName, botId, projectDir })
                   }, null, 2)
                 }
               ]
@@ -2069,7 +2284,7 @@ for await (let x of res.textStream) {
 
           case 'deploy': {
             if (!targetPath && !input.imageUrl) {
-              throw new Error("targetPath (source build) or imageUrl (existing image) is required for deploy operation");
+              throw new Error(t("cloudrun.error.deployTargetRequired"));
             }
 
             // Determine service type - use input.serverType if provided, otherwise auto-detect
@@ -2200,6 +2415,11 @@ for await (let x of res.textStream) {
             try {
               result = await cloudrunService.deploy(deployParams);
             } catch (error) {
+              // 部署调用失败照旧**抛**：只有抛出去，运行时的 wrapper 才会做它那套增强
+              // （错误增强、RequestId、版本页脚），遥测也才记为失败。若改成"返回一个 isError 结果"，
+              // 这些都会静默丢失（复核用真实 wrapper 对照过：抛约 300 字符 vs 返回仅后端原文）。
+              // 卡片那一侧由 `isError` 兜底承接（显示「部署失败」+ 上一次的身份），
+              // 失败原因由会话与折叠区承载 —— 这条取舍见 PR 正文。
               throw new Error(buildManageCloudRunErrorMessage('deploy', input.serverName, error));
             }
 
@@ -2217,6 +2437,8 @@ for await (let x of res.textStream) {
               envId: currentEnvId,
               serverName: input.serverName,
               mode: deployType,
+              // waitRegistration=false：只做一次探测即返回，把「等注册」交给调用方按需查询
+              ...(input.waitRegistration === false ? { maxWaitMs: 0 } : {}),
             });
 
             let cloudbasercGenerated = false;
@@ -2297,7 +2519,7 @@ for await (let x of res.textStream) {
             });
             const warnings = dbNetworkRisk ? [dbNetworkRisk] : [];
             const warningSuffix = dbNetworkRisk
-              ? ` Warning: ${dbNetworkRisk.message} Set serverConfig.VpcConf before relying on DB connectivity.`
+              ? t("cloudrun.deploy.warningSuffix", { message: dbNetworkRisk.message })
               : "";
 
             const progressHint = buildCloudRunDeployProgressHint({
@@ -2318,6 +2540,15 @@ for await (let x of res.textStream) {
               buildId: registration.buildId,
               runId: registration.runId,
               registered: registration.registered,
+            });
+
+            // MCP Apps：把这次部署的结果同时交给产物卡片面板（只读展示 + 把写意图交给会话）。
+            // 文本回执逐字不变；环境上下文 best-effort（只多一次只读调用），失败不冒泡。
+            const deployCardEnv = await resolveArtifactEnvContext({
+              manager,
+              envId: currentEnvId,
+              site: cloudBaseOptions?.site,
+              region: cloudBaseOptions?.region,
             });
 
             return {
@@ -2376,17 +2607,44 @@ for await (let x of res.textStream) {
                       // Keep raw SDK result for debugging without implying build finished.
                       ...(result != null ? { deployAccepted: true } : {}),
                     },
-                    message: `Triggered deployment for ${serverType} service '${input.serverName}' ${input.imageUrl ? `from image ${input.imageUrl}` : `from ${targetPath}`}. Deployment is registering/${deployType === "image" ? "starting" : "building"} (status=deploying); this call does not wait for full completion.${progressHint}${warningSuffix}`
+                    message:
+                      t("cloudrun.deploy.message", {
+                        serverType,
+                        serverName: input.serverName,
+                        source: input.imageUrl
+                          ? t("cloudrun.deploy.fromImage", { imageUrl: input.imageUrl })
+                          : t("cloudrun.deploy.fromPath", { targetPath: targetPath ?? process.cwd() }),
+                        phase: deployType === "image"
+                          ? t("cloudrun.deploy.phaseStarting")
+                          : t("cloudrun.deploy.phaseBuilding"),
+                      }) +
+                      progressHint +
+                      warningSuffix
                   }, null, 2)
                 }
-              ]
+              ],
+              structuredContent: buildArtifactCardPayload({
+                success: true,
+                // 这次 deploy 是异步注册：工具自己就把 status 标成 deploying，
+                // 即使同时带上了"已有服务"的地址，也不能说成已上线。
+                pending: true,
+                accessUrl: preferredAccessUrl,
+                accessUrlSource: preferredAccessSource,
+                kind: 'cloudrun',
+                artifactName: input.serverName,
+                envAlias: deployCardEnv.envAlias,
+                envId: currentEnvId,
+                planRaw: deployCardEnv.planRaw,
+                site: deployCardEnv.site,
+                region: deployCardEnv.region,
+              }),
             };
           }
 
           case 'updateConfig': {
             if (!input.serverConfig || Object.keys(input.serverConfig).length === 0) {
               throw new Error(
-                "serverConfig with at least one field is required for updateConfig",
+                t("cloudrun.error.serverConfigRequired"),
               );
             }
 
@@ -2448,7 +2706,7 @@ for await (let x of res.textStream) {
                           appliedConfig: summarizeConfigSnapshot(dirty),
                           verifiedConfig: summarizeConfigSnapshot(remoteServerConfig),
                         },
-                        message: `No effective config changes for '${input.serverName}'.`,
+                        message: t("cloudrun.updateConfig.noop", { serverName: input.serverName }),
                       },
                       null,
                       2,
@@ -2460,9 +2718,9 @@ for await (let x of res.textStream) {
 
             const currentEnvId = await getEnvId(cloudBaseOptions);
             if (!manager.commonService) {
-              throw new Error(
-                "Current CloudBase Manager does not support commonService; cannot call SubmitServerConfigChangeDiff.",
-              );
+                throw new Error(
+                  t("cloudrun.error.commonServiceSubmitDiff"),
+                );
             }
 
             let diffResult: any;
@@ -2485,7 +2743,7 @@ for await (let x of res.textStream) {
                     "updateConfig",
                     input.serverName,
                     new Error(
-                      `${msg} A deploy or config task may still be running. Wait, then retry; or use queryCloudRun(action="getDeployLog").`,
+                      `${msg} ${t("cloudrun.updateConfig.taskRunningHint")}`,
                     ),
                   ),
                 );
@@ -2520,8 +2778,8 @@ for await (let x of res.textStream) {
 
             const redeployHint =
               likelyRedeploy.length > 0
-                ? ` Fields that often trigger redeploy-with-online-image: ${likelyRedeploy.join(", ")}.`
-                : " Change may apply as a hot update (e.g. MinNum/MaxNum/AccessTypes).";
+                ? t("cloudrun.updateConfig.redeployFields", { fields: likelyRedeploy.join(", ") })
+                : t("cloudrun.updateConfig.hotUpdate");
 
             return {
               content: [
@@ -2541,7 +2799,11 @@ for await (let x of res.textStream) {
                         likelyRedeployFields: likelyRedeploy,
                         consoleUrl,
                       },
-                      message: `Submitted config change for '${input.serverName}'.${redeployHint} Verify with queryCloudRun(action="detail"). Console: ${consoleUrl}`,
+                      message: t("cloudrun.updateConfig.message", {
+                        serverName: input.serverName,
+                        redeployHint,
+                        consoleUrl,
+                      }),
                     },
                     null,
                     2,
@@ -2553,13 +2815,13 @@ for await (let x of res.textStream) {
 
           case 'run': {
             if (!targetPath) {
-              throw new Error("targetPath is required for run operation");
+              throw new Error(t("cloudrun.error.targetPathRequired", { action: "run" }));
             }
 
             // Do not support container services locally: basic heuristic - if Dockerfile exists, treat as container
             const dockerfilePath = path.join(targetPath, 'Dockerfile');
             if (fs.existsSync(dockerfilePath)) {
-              throw new Error("Local run is only supported for function-type CloudRun services. Container services are not supported.");
+              throw new Error(t("cloudrun.error.localRunContainerUnsupported"));
             }
 
             // Check if this is an Agent project
@@ -2584,7 +2846,7 @@ for await (let x of res.textStream) {
                           pid: existingPid,
                           cwd: targetPath
                         },
-                        message: `Service '${input.serverName}' is already running locally (pid=${existingPid})`
+                        message: t("cloudrun.run.alreadyRunning", { serverName: input.serverName, pid: existingPid })
                       }, null, 2)
                     }
                   ]
@@ -2654,7 +2916,7 @@ for await (let x of res.textStream) {
 
             child.unref();
             if (typeof child.pid !== 'number') {
-              throw new Error('Failed to start local process: PID is undefined.');
+              throw new Error(t("cloudrun.error.startFailed"));
             }
             runningProcesses.set(input.serverName, child.pid);
 
@@ -2674,7 +2936,7 @@ for await (let x of res.textStream) {
                       command: script,
                       cwd: targetPath
                     },
-                    message: `Started local run for ${runMode} service '${input.serverName}' on port ${runPort} (pid=${child.pid})`
+                    message: t("cloudrun.run.message", { runMode, serverName: input.serverName, port: runPort, pid: child.pid })
                   }, null, 2)
                 }
               ]
@@ -2683,8 +2945,11 @@ for await (let x of res.textStream) {
 
           case 'download': {
             if (!targetPath) {
-              throw new Error("targetPath is required for download operation");
+              throw new Error(t("cloudrun.error.targetPathRequired", { action: "download" }));
             }
+
+            // The SDK extracts into <targetPath>/<serverName>; check that destination at the sink too.
+            resolveCloudRunProjectDir(targetPath, input.serverName);
 
             const result = await cloudrunService.download({
               serverName: input.serverName,
@@ -2719,7 +2984,7 @@ for await (let x of res.textStream) {
                       filesCount: 0,
                       cloudbasercGenerated: true
                     },
-                    message: `Successfully downloaded service '${input.serverName}' to ${targetPath}`
+                    message: t("cloudrun.download.message", { serverName: input.serverName, targetPath })
                   }, null, 2)
                 }
               ]
@@ -2734,8 +2999,8 @@ for await (let x of res.textStream) {
                     type: "text",
                     text: JSON.stringify({
                       success: false,
-                      error: "Delete operation requires confirmation",
-                      message: "Please set force: true to confirm deletion of the service. This action cannot be undone."
+                      error: t("cloudrun.error.deleteConfirm"),
+                      message: t("cloudrun.error.deleteConfirmMessage")
                     }, null, 2)
                   }
                 ]
@@ -2756,7 +3021,7 @@ for await (let x of res.textStream) {
                       serviceName: input.serverName,
                       status: 'deleted'
                     },
-                    message: `Successfully deleted service '${input.serverName}'`
+                    message: t("cloudrun.delete.message", { serverName: input.serverName })
                   }, null, 2)
                 }
               ]
@@ -2765,8 +3030,10 @@ for await (let x of res.textStream) {
 
           case 'init': {
             if (!targetPath) {
-              throw new Error("targetPath is required for init operation");
+              throw new Error(t("cloudrun.error.targetPathRequired", { action: "init" }));
             }
+
+            const resolvedProjectDir = resolveCloudRunProjectDir(targetPath, input.serverName);
 
             const result = await cloudrunService.init({
               serverName: input.serverName,
@@ -2776,7 +3043,7 @@ for await (let x of res.textStream) {
 
             // Generate cloudbaserc.json configuration file
             const currentEnvId = await getEnvId(cloudBaseOptions);
-            const cloudbasercPath = path.join(targetPath, input.serverName, 'cloudbaserc.json');
+            const cloudbasercPath = path.join(resolvedProjectDir, 'cloudbaserc.json');
             const cloudbasercContent = {
               envId: currentEnvId,
               cloudrun: {
@@ -2800,10 +3067,10 @@ for await (let x of res.textStream) {
                       serviceName: input.serverName,
                       template: input.template,
                       initPath: targetPath,
-                      projectDir: result.projectDir || path.join(targetPath, input.serverName),
+                      projectDir: result.projectDir || resolvedProjectDir,
                       cloudbasercGenerated: true
                     },
-                    message: `Successfully initialized service '${input.serverName}' with template '${input.template}' at ${targetPath}`
+                    message: t("cloudrun.init.message", { serverName: input.serverName, template: input.template ?? DEFAULT_INIT_TEMPLATE, targetPath })
                   }, null, 2)
                 }
               ]
@@ -2811,7 +3078,7 @@ for await (let x of res.textStream) {
           }
 
         default:
-          throw new Error(`Unsupported action: ${input.action}`);
+          throw new Error(t("cloudrun.error.unsupportedAction", { action: input.action }));
       }
     }
   );

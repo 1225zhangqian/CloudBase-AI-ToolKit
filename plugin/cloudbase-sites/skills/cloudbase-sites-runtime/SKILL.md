@@ -54,7 +54,7 @@ use the explicit CLI commands in this skill.
 These are the only tools that produce CloudBase side effects. Highlights:
 
 - `downloadTemplate({ template: "react" | "vue", ide })` — pull official template
-- `envQuery({ action: "info" })` + `auth({ action: "set_env", envId })` — bind env
+- `queryEnv({ action: "info" })` + `auth({ action: "set_env", envId })` — bind env
 - `manageApps({ action: "deployApp", ... })` — deploy to CloudApp (independent subdomain)
 - `envDomainManagement({ action: "create", domains })` — whitelist dev origin for CORS
 - `searchKnowledgeBase({ mode: "skill", skillName: "<name>" })` — fetch CloudBase domain skills (see below)
@@ -67,6 +67,7 @@ storage, ai), fetch the corresponding CloudBase domain skill via
 - `web-development`         Web project conventions
 - `auth-tool-cloudbase`               provider config (management-side)
 - `auth-web-cloudbase`                Web SDK auth client code
+- `postgresql-development-cloudbase`  PG mode schema/RLS/`app.rdb()` (PG envs)
 - `cloudbase-document-database-web-sdk`          document database Web SDK
 - `cloud-storage-web`       cloud storage Web SDK
 - `relational-database-web-cloudbase` MySQL Web SDK
@@ -210,7 +211,7 @@ env never collide. The stable `siteName` in `app.json` ensures re-deploys
 preserve the URL.
 
 **Pre-flight:** if `manageApps` fails with "no envId" / env-related error,
-call `envQuery({ action: "info" })`. If multiple envs exist, ask the user
+call `queryEnv({ action: "info" })`. If multiple envs exist, ask the user
 to pick. After binding, retry the deploy.
 
 ## Proactive prompts (do not act unsolicited)
@@ -230,6 +231,14 @@ When you finish a user-requested feature (especially "make me a X app",
 4. **After successful deploy** ask: "要我用 ui-design 能力进一步优化样式和体验吗?"
    If yes, fetch `searchKnowledgeBase(mode="skill", skillName="ui-design")`
    and iterate on the design.
+5. **After a verified successful deploy — at most once** — ask: "要不要把这次
+   「一句话做出这个应用」的过程整理成可分享的素材?(脱敏的图文卡片 + 可粘贴文案)"
+   If yes, follow the `cloudbase-platform` skill's
+   `references/protocols/deployment-share.md` (trigger boundaries, required
+   information, anonymization red lines, deliverable formats). If that skill is
+   not available in this environment, skip this step — do not improvise a share
+   flow from memory. Never follow up if declined; never publish on the user's
+   behalf.
 
 Skip any of these when:
 - The work was a bug fix or trivial refactor.
@@ -257,10 +266,20 @@ Skip any of these when:
 4. **Never spawn `npm run dev` / `vite` / `vite build` yourself.** Lifecycle
    is owned by hooks + the `cloudbase-sites` CLI.
 
-5. **BaaS-first data persistence.** Schema via
-   `writeNoSqlDatabaseStructure(action="createCollection")`; reads/writes
-   via `@cloudbase/js-sdk` from React/Vue code. Reach for cloud functions
-   only when (a) the logic cannot be expressed as security rules AND
+5. **BaaS-first data persistence — detect the env type first.** Before any
+   data-layer work, call `queryEnv({ action: "info" })` and branch on the
+   detected database backend:
+
+   | env type | schema / RLS | browser SDK | domain skill |
+   |---|---|---|---|
+   | PostgreSQL (`RuntimeBackends.postgresql === true`) | `managePgDatabase` (versioned `applyMigration`) | `app.rdb()` / `app.storage.from()` | `postgresql-development-cloudbase` |
+   | NoSQL (document) | `writeNoSqlDatabaseStructure(action="createCollection")` | `app.database()` collections | `cloudbase-document-database-web-sdk` |
+
+   Do NOT load `cloudbase-document-database-web-sdk` (or NoSQL APIs) for a PG
+   environment, and do NOT guess from the skill catalog — the catalog contains
+   both, only `queryEnv` tells them apart. Reads/writes go through
+   `@cloudbase/js-sdk` from React/Vue code either way. Reach for cloud
+   functions only when (a) the logic cannot be expressed as security rules AND
    (b) it needs server-side secrets or a third-party API AND (c) it's a
    scheduled / background job. A Todo / Notes / Chat / Kanban app does NOT
    need cloud functions.
@@ -274,6 +293,24 @@ Skip any of these when:
    `cloudbase-sites deploy` with your own `pnpm build` + `manageApps` call —
    you'd lose version metadata, snapshot, deploy history, and the stable
    siteName.
+
+8. **Icons come from `lucide-react` — preinstalled, never hand-installed.**
+   `cloudbase-sites init` injects `lucide-react` (react) / `lucide-vue-next`
+   (vue) into the scaffold's `package.json` before its single install step.
+   Import icons directly (`import { Heart } from "lucide-react"`). Do NOT run
+   a package-install command just to add icons — sandboxed installs during
+   generation are a known failure point — and do NOT hand-write inline SVG
+   paths when a lucide icon exists.
+
+9. **Fill `VITE_PUBLISHABLE_KEY` automatically — never ask the user.** The
+   template's `src/utils/cloudbase.ts` reads it from `.env.local`; new envs
+   have no publishable key by default. After init: call
+   `queryAppAuth({ action: "getPublishableKey" })`; if empty, call
+   `manageAppAuth({ action: "ensurePublishableKey" })`; then write
+   `VITE_PUBLISHABLE_KEY=<key>` into `.env.local`. This key cannot be
+   skipped — it is the data-plane app credential attached to every browser
+   request, including the login request itself and anonymous reads — but
+   the user should never fill it by hand.
 
 ## Hard rules — always parse CLI stdout as JSON
 

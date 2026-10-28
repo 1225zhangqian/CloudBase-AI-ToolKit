@@ -5,7 +5,9 @@ import { createCloudBaseMcpServer } from "./server.js";
 import {
   telemetryReporter,
   reportToolkitLifecycle,
+  seedStdioEnvBinding,
 } from "./utils/telemetry.js";
+import { runWithEnvSlot } from "./utils/env-binding.js";
 import { info, warn } from "./utils/logger.js";
 
 // 构建时注入的版本号
@@ -137,14 +139,22 @@ const server = createCloudBaseMcpServer({
   client,
 });
 
+async function reportLifecycle(
+  params: Parameters<typeof reportToolkitLifecycle>[0],
+): Promise<void> {
+  const mcpServer = await server;
+  await runWithEnvSlot(mcpServer.envSlot, () => reportToolkitLifecycle(params));
+}
+
 async function main() {
+  const mcpServer = await server;
+  await seedStdioEnvBinding(mcpServer.envSlot);
   const transport = new StdioServerTransport();
-  await (await server).connect(transport);
+  await mcpServer.connect(transport);
   info("TencentCloudBase MCP Server running on stdio");
 
-  // 上报启动信息
   if (telemetryReporter.isEnabled()) {
-    await reportToolkitLifecycle({
+    await reportLifecycle({
       event: "start",
       ide,
       client,
@@ -157,7 +167,7 @@ function setupExitHandlers() {
   const handleExit = async (exitCode: number, signal?: string) => {
     if (telemetryReporter.isEnabled()) {
       const duration = Date.now() - startTime;
-      await reportToolkitLifecycle({
+      await reportLifecycle({
         event: "exit",
         duration,
         exitCode,
@@ -170,8 +180,12 @@ function setupExitHandlers() {
 
   // 正常退出
   process.on("exit", (code) => {
-    // 注意：exit 事件中不能使用异步操作，所以这里只能同步处理
-    // 异步上报在其他信号处理中完成
+    // 这里**报不了** exit：能走到这个钩子，通常意味着**进程被父进程收掉**（宿主 / IDE / 网关
+    // 关掉管道或杀掉进程），此时事件循环已经停下、异步 I/O 不会再被调度 ⇒ 网络上报必然发不出去；
+    // 而同步上报会拖住退出，父进程也可能已经不在监听。
+    // 所以这里保持空实现：**不要在 exit 钩子里做异步 / 网络上报**。
+    // 真正会「先 await 上报、再退出」的是下面几条路（SIGINT / SIGTERM / 未捕获异常）——
+    // 那几条能报，因为进程还在自己的控制流里、事件循环还活着。
   });
 
   // 异常退出处理
@@ -207,7 +221,7 @@ main().catch(async (error) => {
   // 上报启动失败
   if (telemetryReporter.isEnabled()) {
     const duration = Date.now() - startTime;
-    await reportToolkitLifecycle({
+    await reportLifecycle({
       event: "exit",
       duration,
       exitCode: 1,

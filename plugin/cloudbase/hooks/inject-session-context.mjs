@@ -24,7 +24,7 @@ var SKILL_LAYERS = [
   { name: "Frontend", skills: ["web-development", "miniprogram-development", "ui-design"] },
   { name: "Backend", skills: ["cloudrun-development", "cloud-functions", "cloudbase-agent"] },
   { name: "Authentication", skills: ["auth-tool-cloudbase", "auth-web-cloudbase", "auth-wechat-miniprogram", "auth-nodejs-cloudbase"] },
-  { name: "Database", skills: ["cloudbase-document-database-web-sdk", "cloudbase-document-database-in-wechat-miniprogram", "relational-database-web-cloudbase", "relational-database-mcp-cloudbase", "postgresql-development-cloudbase", "data-model-creation"] },
+  { name: "Database", skills: ["cloudbase-document-database-web-sdk", "cloudbase-document-database-in-wechat-miniprogram", "relational-database-web-cloudbase", "relational-database-mcp-cloudbase", "postgresql-development-cloudbase"] },
   { name: "Storage & API", skills: ["cloud-storage-web", "http-api-cloudbase"] },
   { name: "AI Models", skills: ["ai-model-web", "ai-model-nodejs", "ai-model-wechat"] },
   { name: "Integration & Ops", skills: ["cloudbase-wechat-integration", "cloudbase-code-review", "ops-inspector", "spec-workflow"] },
@@ -50,7 +50,6 @@ var SKILL_SHORT_DESC = {
   "relational-database-web-cloudbase": "Web MySQL",
   "relational-database-mcp-cloudbase": "MCP MySQL 操作",
   "postgresql-development-cloudbase": "PostgreSQL 开发",
-  "data-model-creation": "数据模型建模",
   "cloud-storage-web": "云存储上传下载",
   "http-api-cloudbase": "HTTP API（非 SDK）",
   "ai-model-web": "Web AI 模型",
@@ -85,8 +84,13 @@ var RULES_BLOCK = `## CloudBase Plugin (plugin-injected, MUST follow)
 
 ### Hard Rules
 
-1. **Environment Check (FIRST).** Before any CloudBase work, resolve envId + RuntimeMode + RecommendedSkills.
-   When CloudBase MCP tools are available in this session, call \`envQuery({ action: "info" })\`.
+1. **Auth + Environment Check (FIRST — hard gate).** Before any CloudBase work, resolve the session in
+   this order. Every management tool fails with \`AUTH_REQUIRED\` / \`ENV_REQUIRED\` until (a) and (b) are done:
+   (a) \`auth({ action: "status" })\` — confirm the login; if not logged in, complete \`auth({ action: "start_auth" })\`;
+   (b) \`auth({ action: "set_env", envId: "<EnvId>" })\` — bind the target environment when none is bound yet;
+   (c) then \`queryEnv({ action: "info" })\` to resolve envId + RuntimeMode + RecommendedSkills.
+   On those two errors, follow \`next_step\` in the payload instead of retrying the same call — repeating an
+   \`AUTH_REQUIRED\` / \`ENV_REQUIRED\` call cannot succeed.
    If MCP is missing or not yet loaded (first session / post-install before restart), configure MCP for
    the next session and use \`tcb\` CLI now (\`tcb login\` → \`tcb env list\` / \`tcb env use\`; see
    \`skills/cloudbase/references/tooling-fallback.md\`). Do not stall waiting for restart.
@@ -107,7 +111,7 @@ var RULES_BLOCK = `## CloudBase Plugin (plugin-injected, MUST follow)
    documented CLI init paths from \`tooling-fallback.md\` / \`cloudbase-cli\` instead of stalling.
 
 ### CLI Quick Reference
-- Prefer MCP when tools are loaded: \`manageFunctions\`, \`manageHosting\`, \`envQuery\`, \`manageStorage\`
+- Prefer MCP when tools are loaded: \`manageFunctions\`, \`manageHosting\`, \`queryEnv\`, \`manageStorage\`
 - First-session / MCP-missing fallback: \`tcb login\`, \`tcb env use\`, \`tcb fn deploy\`, \`tcb hosting deploy\` (not \`tcb deploy\`)
 - Decision tree: \`skills/cloudbase/references/tooling-fallback.md\``;
 

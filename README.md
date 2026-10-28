@@ -24,23 +24,30 @@ The CloudBase integration layer for AI coding tools: Plugin installs the stack, 
 
 ## Recent updates
 
-**v2.33.x** (2026-09)
+**v2.36.x** (2026-10)
 
-- Functions / Apps: custom container-image deploy for cloud functions with async status query; cloud upload channel (`getUploadUrl` + `deployApp` cosTimestamp)
-- Env binding: `cloudbaserc.json` as field-level fallback for envId / region / site (literal + `{{env.KEY}}`)
-- Errors / Skills: centralized error guidance by structured `Code`; virtual-pay reference; CodeBuddy IDE MCP upgrade skill; WorkBuddy experts
-- Cloud API / Deploy: `callCloudApi` opens monitor & postgres services; declarative deploy with `deployPlan` / `deployApply`; `cloud-api-operations` skill
+- MCP Apps: three panels arrive — get-started, environment usage and deployment result — shipped experimental and off by default; set `CLOUDBASE_MCP_UI=on` to try them
+- Safety: deletes, destructive SQL and the matching `callCloudApi` delete actions pause for a confirmation that names the target; a credential-shaped argument gets one delta check (length plus a sha256 fingerprint, never the value itself)
+- Environment: the usage panel gains a metrics view (QPS, invocations, errors, timeouts, MySQL and CloudRun load) with human names, and MySQL provisioning is retired from the tool surface
+- Onboarding: every `initialize` response carries `instructions` with the first read-only call to make; the remote setup docs now lead with OAuth
 
-**v2.32.x** (2026-08)
+**v2.35.x** (2026-10)
 
-- Auth / Security / IDE: international-site (`TCB_SITE=intl`) login routing; default env-var masking in queryFunctions/queryCloudRun; Kimi Code & Kimi Work support
-- Mini Program: `queryMessagePush` / `manageMessagePush` for event and message-type subscriptions (virtual-pay defaults, idempotent merge, optional appid)
-- Mini Program: message push aware of cloudfunction vs container mode (`ensureContainerMode` / `setContainerCallback`, function-existence check)
-- Gateway: `manageGateway` verifies HTTP service before custom-domain / route create, with certificate auto-select and clearer DNS guidance
+- Hosted / Auth: each hosted MCP request runs on its own transport with client metadata cached per credential, and a project-level credential now takes precedence over the account login state
+- Tools / Skills: MySQL provisioning is retired from the tool surface; every skill package ships a `LICENSE.md` next to `SKILL.md`; a new MCP reference skill documents the remote endpoints, the plugin flags and the tool schemas
+- Feedback: `prepareFeedback` returns the repository's new-issue page instead of an auto-filled error report, and a hosted server now enables the same default plugin set as a local one
+- Onboarding / Docs: every `initialize` response now carries server `instructions` — the call to make first, the order a first run needs, and prompts that can be copied verbatim; the remote setup docs now lead with OAuth, so the URL alone is the configuration and a key pair is the CI path
 
-**v2.31.x** (2026-08)
+**v2.34.x** (2026-09)
 
-- CloudRun: `getDeployLog` failures (CODING login / image deploy with no build) now rewrite to `getProcessLog` / `getDeployRecords` next steps instead of raw English errors
+- i18n / IDE: full tool-copy localization with an instance-level `lang`, plus `auth` `site` / `region` params so international-site login and region routing resolve correctly
+- Cloud API: `callCloudApi` service allowlist widened to 57 with built-in version mapping (multi-version services such as `tke` / `mongodb` / `vod` require an explicit `version`)
+- Deploy / Env: new `appBuild` tool with hosting build neutralization; `queryEnv` reports the region actually applied and `domains` honors a passed envId
+- Skills / Docs: skill fallback reads now point at the official distribution repo with a references address list; SDK-first database decision gate for cloudrun; site doc links moved to the current Markdown addresses; post-deployment share offered after delivery in the expert packs and the deploy skills (opt-in, redacted, at most once)
+- Deploy / Apps: the cloud upload channel now completes end to end (`deployApp` accepts the timestamp `getUploadUrl` returns, `getBuildLog` accepts the build ID a deploy returns), and gateway route creation verifies the upstream exists before writing
+- Skills / Context: new PostgreSQL access-pattern best-practices skill (batching, indexes, RLS role gating, launch capacity); `searchKnowledgeBase`'s inline skill / OpenAPI catalogs now load on demand, cutting the 43-tool surface by 9.1% on every `tools/list`
+- Runtime / Hosting: CloudRun Function mode must not bind `PORT` (the function framework does) and gets a credential decision gate naming `CLOUDBASE_APIKEY`; hosting paths and prefixes are normalized so a leading slash can no longer read as an empty directory
+- Connectors: the international-site WorkBuddy connector (`cloudbase-intl`) is built from the same `config/source/**` corpus as the domestic one — remote `streamableHttp` with standard MCP OAuth instead of local stdio, with China-site hosts rewritten to their international equivalents
 
 [Releases][changelog] · [Star][github-stars-link] · Watch → Releases
 
@@ -97,7 +104,7 @@ Set up CloudBase for me:
 | Claude Code / Codex (native marketplace) | Add this repo as marketplace, then install the `cloudbase` plugin ([plugin docs](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ai-agent-plugins)) |
 | Open Plugin Spec tools | `npx plugins add TencentCloudBase/cloudbase-plugin` |
 | Prefer one CLI for many tools | [CloudBase AI CLI](https://docs.cloudbase.net/cli-v1/ai/introduce): `npm i -g @cloudbase/cli && tcb ai` |
-| CodeBuddy / WorkBuddy / ZCode / Kimi (built-in) | Use the IDE's built-in CloudBase plugin or connector; for CodeBuddy you can also [install via plugin marketplace](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/codebuddy) |
+| CodeBuddy / WorkBuddy / Doubao / MiniMax Code / DeepSeek Harness / ZCode / Kimi (built-in) | Use the IDE's built-in CloudBase plugin or connector; for CodeBuddy you can also [install via plugin marketplace](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/codebuddy) |
 | Other MCP-capable IDEs | MCP config only (below) |
 
 #### Plugin
@@ -121,7 +128,7 @@ Details and IDE differences: [AI plugin docs](https://docs.cloudbase.net/ai/clou
 }
 ```
 
-Hosted HTTP, self-hosted Cloud Mode, and plugin scoping: [Install & connect](#install--connect).
+Remote HTTP, self-hosted Cloud Mode, and plugin scoping: [Install & connect](#install--connect).
 
 </details>
 
@@ -146,6 +153,9 @@ Skills shape structure and practice; MCP handles environment and resources. You 
 | [CloudBase AI CLI](https://docs.cloudbase.net/cli-v1/ai/introduce) | CLI | [Guide](https://docs.cloudbase.net/cli-v1/ai/introduce) |
 | [OpenClaw](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/openclaw) | CLI | [Guide](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/openclaw) |
 | [WorkBuddy](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/workbuddy) | Standalone IDE | [Guide](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/workbuddy) |
+| [Doubao](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/doubao) | Desktop & web (plugin marketplace) | [Guide](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/doubao) |
+| [MiniMax Code](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/minimax-code) | Desktop app & terminal CLI (plugin marketplace) | [Guide](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/minimax-code) |
+| [DeepSeek Harness](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/deepseek-harness) | Desktop app (plugin) | [Guide](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/deepseek-harness) |
 | [ZCode](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/zcode) | Standalone IDE (≥ 3.4.1 built-in) | [Guide](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/zcode) |
 | [Kimi Code](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/kimi-code) | CLI (plugin marketplace) | [Guide](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/kimi-code) |
 | [Kimi Work](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/kimi-code) | Desktop app (plugin panel) | [Guide](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide-setup/kimi-code) |
@@ -246,9 +256,29 @@ Others: [IDE setup guide](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide
 
 ### MCP connection modes
 
-**Local** (default): `npx` on your machine—full features, including local filesystem upload/templates.
+**Remote** (recommended): your IDE connects over HTTP to Tencent Cloud MCP. No local Node, and interactive clients finish authorization in the browser.
 
-**Hosted**: IDE connects over HTTP to Tencent Cloud MCP; no local Node. Some local-file features are unavailable.
+| Site | MCP endpoint |
+|------|--------------|
+| China (domestic) | `https://tcb-api.cloud.tencent.com/mcp/v1` |
+| International | `https://tcb-api.tencentcloud.com/mcp/v1` |
+
+Pick the endpoint matching the site your environment lives in—the two sites use separate accounts, consoles, and credentials.
+
+**OAuth (interactive, recommended)**: the URL is the whole configuration. Your IDE opens the browser for login and consent, and you pick the environment there—no keys in the config file, and nothing to rotate.
+
+```json
+{
+  "mcpServers": {
+    "cloudbase": {
+      "type": "http",
+      "url": "https://tcb-api.cloud.tencent.com/mcp/v1"
+    }
+  }
+}
+```
+
+**Static credentials** (for a client without OAuth, and for CI/CD): append `env_id` and a key pair created on the same site as the endpoint.
 
 ```json
 {
@@ -265,16 +295,23 @@ Others: [IDE setup guide](https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/ide
 }
 ```
 
-Hosted URLs can use `site` (`domestic` / `intl`) to pick the login site (e.g. domestic-site Singapore needs `site=domestic`), plus `enable_plugins` / `disable_plugins` to trim tools. Canonical names live in `mcp/src/server.ts`.
+> A static key pair stays valid until it is rotated or deleted; an OAuth session ends when you log out. Use the static form only where the browser flow is impossible—and keep it out of a repository.
 
-**Hosted MCP E2E** (official SDK client): `npm run test:hosted-mcp:e2e` — see [`tests/hosted-mcp-e2e/README.md`](tests/hosted-mcp-e2e/README.md) for apikey/OAuth modes, TLS-insecure staging, and env vars. Missing credentials skip (exit 0).
+**Local**: runs `npx @cloudbase/cloudbase-mcp@latest` on your machine—full features, including local filesystem upload and template download.
+
+Remote trade-off: local-filesystem features (upload, template download) are unavailable, and the international site does not yet expose NoSQL tools.
+
+Remote URLs also accept `site` (`domestic` / `intl`, only needed for a China-site environment in `ap-singapore`, where the region is ambiguous), plus `enable_plugins` / `disable_plugins` to trim tools. Canonical names live in `mcp/src/server.ts`.
+
+**Remote MCP E2E** (official SDK client): `npm run test:hosted-mcp:e2e` — see [`tests/hosted-mcp-e2e/README.md`](tests/hosted-mcp-e2e/README.md) for apikey/OAuth modes, TLS-insecure staging, and env vars. Missing credentials skip (exit 0).
 
 **Self-hosted Cloud Mode**: set `CLOUDBASE_MCP_CLOUD_MODE=true` (or `MCP_CLOUD_MODE=true`) so local file and process tools are disabled for remote callers.
 
 | Scenario | Suggestion |
 |------|------|
-| Personal | Local `npx` |
-| Team / zero ops | Hosted HTTP |
+| Personal / fastest start | Remote URL (OAuth) |
+| Need local file features | Local `npx` |
+| CI / automation | Remote + static credentials |
 | Self-hosted MCP | Cloud Mode required |
 
 ## Example
@@ -317,7 +354,7 @@ Deploy targets your own CloudBase environment. In local mode MCP runs on your ma
 <details>
 <summary>Is self-hosting the MCP server safe?</summary>
 
-Local `npx` is equivalent to running tools yourself. For remote hosts, set `CLOUDBASE_MCP_CLOUD_MODE=true` to disable local file/process tools. Tencent Cloud hosted HTTP includes this protection.
+Local `npx` is equivalent to running tools yourself. For remote hosts, set `CLOUDBASE_MCP_CLOUD_MODE=true` to disable local file/process tools. Tencent Cloud remote HTTP includes this protection.
 
 </details>
 
@@ -346,7 +383,7 @@ Both the domestic site (cloud.tencent.com) and the international site (tencentcl
 
 Credentials are stored per site (`credential.domestic` / `credential.intl`) so domestic and international logins can coexist; legacy single-slot `auth.json` is read as `domestic` and migrated on first write.
 
-**Hosted mode**: add `site=domestic` to the hosted URL (`https://tcb-api.cloud.tencent.com/mcp/v1?env_id=<env_id>&site=domestic`), since the URL is the only place hosted mode can carry the site (there is no MCP `env` block for HTTP servers).
+**Remote mode**: nothing extra to pass — the endpoint host decides the site (`tcb-api.cloud.tencent.com` = China site, `tcb-api.tencentcloud.com` = international site), and there is no `site` query parameter. This also covers a China-site environment located in `ap-singapore`: keep using the China-site endpoint.
 
 </details>
 
@@ -360,7 +397,10 @@ Credentials are stored per site (`credential.domestic` / `credential.intl`) so d
 
 ## Activity
 
-![Repo Activity](https://repobeats.axiom.co/api/embed/6cd6ed00da4384e43b24805c197f584626946dda.svg "Repobeats analytics image")
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/TencentCloudBase/CloudBase-AI-Toolkit/main/scripts/assets/activity-card-dark.svg">
+  <img alt="Repository activity: 52-week commit trend, monthly npm downloads, and project health" src="https://raw.githubusercontent.com/TencentCloudBase/CloudBase-AI-Toolkit/main/scripts/assets/activity-card-light.svg">
+</picture>
 
 ## Contributors
 

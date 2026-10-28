@@ -13,6 +13,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const projectRoot = path.resolve(__dirname, "..");
 
+// 包根的许可文件：`LICENSE.md` / `LICENSE.txt` / `LICENCE` 都认。用带扩展名的形态，
+// 因为 SkillHub 的上传接口只接受带扩展名的文件类型，无扩展名的 `LICENSE` 会被
+// 400 拒绝（file type not allowed）。
+const LICENSE_FILE_RE = /^licen[cs]e(\.(md|txt))?$/i;
+
 function parseArgs(argv) {
   let targets = "";
   let outputDir = path.join(projectRoot, ".clawhub-publish-output");
@@ -73,6 +78,9 @@ function parseFrontmatter(skillContent) {
   const frontmatter = frontmatterMatch[1];
   const nameMatch = frontmatter.match(/^name:\s*(.+)$/m);
   const descriptionMatch = frontmatter.match(/^description:\s*(.+)$/m);
+  // SkillHub 的发布规范把 license 列为 SKILL.md frontmatter 字段，缺了它管理端审核
+  // 不通过 —— 所以在这里拦住，而不是把缺字段的包发出去再等审核打回。
+  const licenseMatch = frontmatter.match(/^license:\s*(.+)$/m);
 
   if (!nameMatch || !nameMatch[1].trim()) {
     throw new Error("SKILL.md frontmatter 缺少 name / SKILL.md frontmatter is missing name");
@@ -82,9 +90,16 @@ function parseFrontmatter(skillContent) {
     throw new Error("SKILL.md frontmatter 缺少 description / SKILL.md frontmatter is missing description");
   }
 
+  if (!licenseMatch || !licenseMatch[1].trim()) {
+    throw new Error(
+      "SKILL.md frontmatter 缺少 license / SKILL.md frontmatter is missing license（SkillHub 发布规范要求，见 https://skillhub.cn/tutorials#cli-publish）",
+    );
+  }
+
   return {
     name: nameMatch[1].trim(),
     description: descriptionMatch[1].trim(),
+    license: licenseMatch[1].trim(),
   };
 }
 
@@ -121,8 +136,19 @@ function validateArtifactDir(targetKey, artifactDir) {
 
   const metadata = parseFrontmatter(fs.readFileSync(skillFile, "utf8"));
 
+  // 包根与 SKILL.md 同级的 LICENSE 文件承载完整协议原文 —— 缺文件直接拦在产物生成阶段。
+  const licenseName = fs
+    .readdirSync(artifactDir)
+    .find((name) => LICENSE_FILE_RE.test(name));
+  if (!licenseName) {
+    throw new Error(
+      `${targetKey}: 发布包根目录缺少 LICENSE 文件（与 SKILL.md 同级）/ missing LICENSE file at artifact root: ${artifactDir}`,
+    );
+  }
+
   return {
     skillFile,
+    licenseFile: path.join(artifactDir, licenseName),
     metadata,
   };
 }
@@ -205,7 +231,11 @@ function buildTargetArtifact(target, outputDir) {
     registrySlug: target.registrySlug,
     displayName: target.displayName || validation.metadata.name,
     summary: target.summary || validation.metadata.description,
+    // 作为 `clawhub skill publish --topics` 传入的主题词；不设置则不发该参数。
+    topics: Array.isArray(target.topics) ? target.topics : [],
     iconUrl: target.iconUrl,
+    // 可选的发布主体；不设置则由 publish-to-clawhub.mjs 回落默认主体。
+    owner: target.owner,
     artifactRootDir,
     artifactDir,
     sourceType: target.type,

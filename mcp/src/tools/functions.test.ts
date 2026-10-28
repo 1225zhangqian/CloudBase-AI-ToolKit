@@ -17,6 +17,7 @@ import {
   functionUpdatingRuntime,
 } from "./function-updating.js";
 import type { ExtendedMcpServer } from "../server.js";
+import { functions as functionsDict } from "../i18n/locales/modules/functions.js";
 
 const personalCredential = {
   username: "100000000001",
@@ -35,6 +36,12 @@ const {
   mockCheckDeployConfig,
   mockDeployFunction,
   mockProbeCamCapabilityForLogin,
+  mockPublishVersion,
+  mockListVersionByFunction,
+  mockUpdateFunctionAliasConfig,
+  mockGetFunctionAlias,
+  mockSearchClsLog,
+  mockCheckLogServiceEnabled,
 } = vi.hoisted(() => ({
   mockCreateFunction: vi.fn(),
   mockUpdateFunctionCode: vi.fn(),
@@ -48,6 +55,12 @@ const {
   mockCheckDeployConfig: vi.fn(),
   mockDeployFunction: vi.fn(),
   mockProbeCamCapabilityForLogin: vi.fn(),
+  mockPublishVersion: vi.fn(),
+  mockListVersionByFunction: vi.fn(),
+  mockUpdateFunctionAliasConfig: vi.fn(),
+  mockGetFunctionAlias: vi.fn(),
+  mockSearchClsLog: vi.fn(),
+  mockCheckLogServiceEnabled: vi.fn(),
 }));
 
 vi.mock("../cloudbase-manager.js", () => ({
@@ -135,12 +148,21 @@ describe("functions tool helpers", () => {
       warnings: [],
       plan: { action: "create", operations: ["deploy-function"] },
     });
+    mockCheckLogServiceEnabled.mockResolvedValue(true);
+    mockSearchClsLog.mockResolvedValue({
+      LogResults: { Results: [], Context: "", ListOver: true },
+      RequestId: "req-search-cls",
+    });
     mockGetCloudBaseManager.mockResolvedValue({
       functions: {
         createFunction: mockCreateFunction,
         updateFunctionCode: mockUpdateFunctionCode,
         updateFunctionConfig: mockUpdateFunctionConfig,
         getFunctionDetail: mockGetFunctionDetail,
+        publishVersion: mockPublishVersion,
+        listVersionByFunction: mockListVersionByFunction,
+        updateFunctionAliasConfig: mockUpdateFunctionAliasConfig,
+        getFunctionAlias: mockGetFunctionAlias,
       },
       functionDeployer: {
         checkConfig: mockCheckDeployConfig,
@@ -148,6 +170,10 @@ describe("functions tool helpers", () => {
       },
       access: {
         createAccess: mockCreateAccess,
+      },
+      log: {
+        searchClsLog: mockSearchClsLog,
+        checkLogServiceEnabled: mockCheckLogServiceEnabled,
       },
     });
 
@@ -171,10 +197,12 @@ describe("functions tool helpers", () => {
   });
 
   it("documents fixed layer naming format in manageFunctions description", () => {
-    const description = tools.manageFunctions.meta.description as string;
-    expect(description).toContain("{layerName}_{当前envId}");
-    expect(description).toContain("common_cloud1-d9ghadgak3edf6b36");
-    expect(description).toContain("SCF 账号级共享命名空间");
+    // meta.description 已 i18n 化：工具注册的是词典 key，server.ts 包装层负责解析
+    expect(tools.manageFunctions.meta.description).toBe("functions.manageDescription");
+    // 词典 zh 文案仍保留固定的层命名格式说明
+    expect(functionsDict.zh.manageDescription).toContain("{layerName}_{当前envId}");
+    expect(functionsDict.zh.manageDescription).toContain("common_cloud1-d9ghadgak3edf6b36");
+    expect(functionsDict.zh.manageDescription).toContain("SCF 账号级共享命名空间");
   });
 
   it("keeps HTTP functions from forcing dependency install when package.json is absent", () => {
@@ -1111,8 +1139,13 @@ describe("functions tool helpers", () => {
     expect(protocolType.unwrap()._def.values).toEqual(["WS"]);
     expect(protocolType.safeParse("WS").success).toBe(true);
     expect(protocolType.safeParse("HTTP").success).toBe(false);
-    expect(protocolType.description).toContain("WS");
-    expect(protocolType.description).toContain("WebSocket");
+    expect(protocolType.description).toBe(
+      "functions.schema.create.protocolType",
+    );
+    expect(functionsDict.zh["schema.create.protocolType"]).toContain("WS");
+    expect(functionsDict.zh["schema.create.protocolType"]).toContain(
+      "WebSocket",
+    );
   });
 
   it("falls back to func.name when top-level functionName is missing", () => {
@@ -1364,10 +1397,54 @@ describe("functions tool helpers", () => {
       });
     });
 
+    it("masks env variable values in listFunctionLayers raw payload", async () => {
+      mockGetFunctionDetail.mockResolvedValue(detailWithSecret);
+
+      const result = await tools.queryFunctions.handler({
+        action: "listFunctionLayers",
+        functionName: "hello",
+      });
+
+      const payload = JSON.parse(result.content[0].text);
+      // 这个 action 只想取 Layers，但 raw 里带着 getFunctionDetail 的完整返回，
+      // 明文环境变量不能从这里漏出去
+      expect(JSON.stringify(payload)).not.toContain("super-secret-value");
+      expect(payload.data.raw.Environment.Variables[0]).toMatchObject({
+        Key: "DB_PASSWORD",
+        Value: "***",
+        ValueLength: "super-secret-value".length,
+      });
+      const logged = mockLogCloudBaseResult.mock.calls.at(-1)?.[1];
+      expect(logged.Environment.Variables[0].Value).toBe("***");
+    });
+
+    it("listFunctionLayers reveals plaintext only when revealEnvValues=true, logs stay masked", async () => {
+      mockGetFunctionDetail.mockResolvedValue(detailWithSecret);
+
+      const result = await tools.queryFunctions.handler({
+        action: "listFunctionLayers",
+        functionName: "hello",
+        revealEnvValues: true,
+      });
+
+      const payload = JSON.parse(result.content[0].text);
+      expect(payload.data.raw.Environment.Variables[0]).toMatchObject({
+        Key: "DB_PASSWORD",
+        Value: "super-secret-value",
+      });
+      const logged = mockLogCloudBaseResult.mock.calls.at(-1)?.[1];
+      expect(logged.Environment.Variables[0].Value).toBe("***");
+    });
+
     it("documents the default-masking behavior in the queryFunctions schema", () => {
       const schema = tools.queryFunctions.meta.inputSchema;
       expect(schema.revealEnvValues).toBeDefined();
-      expect(schema.revealEnvValues._def.description).toContain("默认 false");
+      expect(schema.revealEnvValues._def.description).toBe(
+        "functions.schema.query.revealEnvValues",
+      );
+      expect(
+        functionsDict.zh["schema.query.revealEnvValues"],
+      ).toContain("默认 false");
     });
   });
 
@@ -1467,6 +1544,613 @@ describe("functions tool helpers", () => {
           "localFallback",
         ].sort(),
       );
+    });
+  });
+
+  describe("function version and alias actions", () => {
+    beforeEach(() => {
+      mockPublishVersion.mockResolvedValue({
+        FunctionVersion: "3",
+        Description: "release",
+        CodeSize: 1024,
+        MemorySize: 256,
+        Handler: "index.main",
+        Timeout: 20,
+        Runtime: "Nodejs18.15",
+        Namespace: "env-test",
+        RequestId: "req-publish",
+      });
+      mockListVersionByFunction.mockResolvedValue({
+        FunctionVersion: ["$LATEST", "1", "2", "3"],
+        Versions: [
+          { Version: "3", Description: "release", Status: "Active" },
+          { Version: "2", Description: "", Status: "Active" },
+        ],
+        TotalCount: 4,
+        RequestId: "req-list-versions",
+      });
+      mockGetFunctionAlias.mockResolvedValue({
+        FunctionVersion: "$LATEST",
+        Name: "$DEFAULT",
+        RoutingConfig: {
+          AdditionalVersionWeights: [{ Version: "2", Weight: 0.1 }],
+        },
+        Description: "",
+        AddTime: "2026-01-01",
+        ModTime: "2026-01-02",
+        RequestId: "req-get-alias",
+      });
+      mockUpdateFunctionAliasConfig.mockResolvedValue({
+        RequestId: "req-update-alias",
+      });
+    });
+
+    it("exposes publishVersion and listVersionByFunction in action enums", () => {
+      const queryActions =
+        tools.queryFunctions.meta.inputSchema.action._def.values;
+      const manageActions =
+        tools.manageFunctions.meta.inputSchema.action._def.values;
+      expect(queryActions).toContain("listVersionByFunction");
+      expect(queryActions).toContain("getFunctionAlias");
+      expect(manageActions).toContain("publishVersion");
+      expect(manageActions).toContain("updateFunctionAliasConfig");
+    });
+
+    it("publishes a function version via manageFunctions publishVersion", async () => {
+      const result = await tools.manageFunctions.handler({
+        action: "publishVersion",
+        functionName: "demo-fn",
+        description: "release",
+      });
+      const payload = JSON.parse(result.content[0].text);
+
+      expect(mockPublishVersion).toHaveBeenCalledWith({
+        functionName: "demo-fn",
+        description: "release",
+      });
+      expect(payload.success).toBe(true);
+      expect(payload.data.action).toBe("publishVersion");
+      expect(payload.data.functionVersion).toBe("3");
+      expect(payload.message).toContain("demo-fn");
+    });
+
+    it("lists function versions via queryFunctions listVersionByFunction", async () => {
+      const result = await tools.queryFunctions.handler({
+        action: "listVersionByFunction",
+        functionName: "demo-fn",
+        limit: 20,
+        offset: 0,
+      });
+      const payload = JSON.parse(result.content[0].text);
+
+      expect(mockListVersionByFunction).toHaveBeenCalledWith({
+        functionName: "demo-fn",
+        limit: 20,
+        offset: 0,
+        order: undefined,
+        orderBy: undefined,
+      });
+      expect(payload.success).toBe(true);
+      expect(payload.data.versions).toHaveLength(2);
+      expect(payload.data.totalCount).toBe(4);
+    });
+
+    it("defaults aliasName to $DEFAULT for getFunctionAlias", async () => {
+      const result = await tools.queryFunctions.handler({
+        action: "getFunctionAlias",
+        functionName: "demo-fn",
+      });
+      const payload = JSON.parse(result.content[0].text);
+
+      expect(mockGetFunctionAlias).toHaveBeenCalledWith({
+        functionName: "demo-fn",
+        name: "$DEFAULT",
+      });
+      expect(payload.data.aliasName).toBe("$DEFAULT");
+      expect(payload.data.routingConfig.AdditionalVersionWeights[0].Weight).toBe(
+        0.1,
+      );
+    });
+
+    it("updates function alias config via manageFunctions", async () => {
+      const routingConfig = {
+        AdditionalVersionWeights: [{ Version: "3", Weight: 0.2 }],
+      };
+      const result = await tools.manageFunctions.handler({
+        action: "updateFunctionAliasConfig",
+        functionName: "demo-fn",
+        functionVersion: "$LATEST",
+        routingConfig,
+      });
+      const payload = JSON.parse(result.content[0].text);
+
+      expect(mockUpdateFunctionAliasConfig).toHaveBeenCalledWith({
+        functionName: "demo-fn",
+        name: "$DEFAULT",
+        functionVersion: "$LATEST",
+        description: undefined,
+        routingConfig,
+      });
+      expect(payload.success).toBe(true);
+      expect(payload.data.action).toBe("updateFunctionAliasConfig");
+    });
+
+    it("requires functionVersion for updateFunctionAliasConfig", async () => {
+      const result = await tools.manageFunctions.handler({
+        action: "updateFunctionAliasConfig",
+        functionName: "demo-fn",
+      });
+      const payload = JSON.parse(result.content[0].text);
+
+      expect(payload.success).toBe(false);
+      expect(payload.message).toContain("functionVersion");
+      expect(mockUpdateFunctionAliasConfig).not.toHaveBeenCalled();
+    });
+  });
+});
+
+/**
+ * 云函数 ZIP 两段式部署：阶段 A（getFunctionUploadUrl 预签名上传）与
+ * 阶段 B（code 三元组 → deployMode=cos）。真实上传链路已由 R1 探针在
+ * 真实环境验证，这里守住 MCP 侧的接线契约。
+ */
+describe("function zip two-phase deployment", () => {
+  let tools: ReturnType<typeof createMockServer>["tools"];
+  const originalSleep = functionUpdatingRuntime.sleep;
+
+  const mockManagerWith = (storages: unknown[]) => {
+    mockCheckLogServiceEnabled.mockResolvedValue(true);
+    mockSearchClsLog.mockResolvedValue({
+      LogResults: { Results: [], Context: "", ListOver: true },
+      RequestId: "req-search-cls",
+    });
+    mockGetCloudBaseManager.mockResolvedValue({
+      functions: {
+        createFunction: mockCreateFunction,
+        updateFunctionCode: mockUpdateFunctionCode,
+        getFunctionDetail: mockGetFunctionDetail,
+      },
+      commonService: (service: string) => ({
+        call: async (args: { Action: string }) => {
+          expect(service).toBe("tcb");
+          // DescribeEnvs 是账号级动作（API Key 等环境级凭据会被拒），
+          // 真实现会回退到环境级 DescribeEnvInfo（EnvBaseInfo.Storages 同构）
+          if (args.Action === "DescribeEnvs") {
+            return { EnvList: [{ Storages: storages }] };
+          }
+          expect(args.Action).toBe("DescribeEnvInfo");
+          return { EnvInfo: { EnvBaseInfo: { Storages: storages } } };
+        },
+      }),
+      currentEnvironment: () => ({
+        getAuthConfig: () => ({
+          envId: "env-test",
+          // 非 AKID 前缀占位符，避免 GitHub Push Protection 误判为真实 SecretId
+          secretId: "FIXTURE_COS_SECRET_ID_PLACEHOLDER_000002",
+          secretKey: "FIXTURE_COS_SECRET_KEY_PLACEHOLDER_000002",
+          token: "two-phase-token",
+          proxy: "",
+          region: "ap-guangzhou",
+        }),
+      }),
+    });
+    return mockGetCloudBaseManager;
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    functionUpdatingRuntime.sleep = async () => undefined;
+    mockIsCloudMode.mockReturnValue(false);
+    mockGetEnvId.mockResolvedValue("env-test");
+
+    ({ tools } = createMockServer());
+  });
+
+  afterEach(() => {
+    functionUpdatingRuntime.sleep = originalSleep;
+  });
+
+  it("getFunctionUploadUrl returns presigned URL, token headers, and stage-B triplet", async () => {
+    mockManagerWith([
+      { Bucket: "envtest-bucket-1258016615", Region: "ap-guangzhou" },
+    ]);
+
+    const result = await tools.queryFunctions.handler({
+      action: "getFunctionUploadUrl",
+      functionName: "helloWorld",
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.success).toBe(true);
+    expect(payload.data.uploadUrl).toMatch(
+      /^https:\/\/envtest-bucket-1258016615\.cos\.ap-guangzhou\.myqcloud\.com\/fnzip-upload\/\d+-[0-9a-f]+\/helloWorld\.zip\?q-sign-algorithm=sha1&/,
+    );
+    // 阶段 B 直接回传的三元组：短桶名 + 地域 + 对象 key
+    expect(payload.data.cosBucketName).toBe("envtest-bucket");
+    expect(payload.data.cosBucketRegion).toBe("ap-guangzhou");
+    expect(payload.data.cosObjectName).toMatch(
+      /^fnzip-upload\/\d+-[0-9a-f]+\/helloWorld\.zip$/,
+    );
+    // CloudBase 临时凭据：token 头必须暴露给调用方（否则 PUT 会 InvalidAccessKeyId）
+    expect(payload.data.uploadHeaders).toEqual([
+      { Key: "x-cos-security-token", Value: "two-phase-token" },
+    ]);
+    // 引导语必须说清阶段 B 怎么走
+    expect(payload.message).toContain("manageFunctions");
+    expect(payload.message).toContain("code");
+  });
+
+  it("getFunctionUploadUrl errors with storage guidance when env has no bucket", async () => {
+    mockManagerWith([]);
+
+    const result = await tools.queryFunctions.handler({
+      action: "getFunctionUploadUrl",
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.success).toBe(false);
+    expect(payload.message).toContain("Storages");
+  });
+
+  it("code schema is strict and rejects unknown fields", () => {
+    const schema = tools.manageFunctions.meta.inputSchema.code;
+    const ok = schema.safeParse({
+      cosBucketName: "envtest-bucket",
+      cosObjectName: "fnzip-upload/1/x.zip",
+    });
+    expect(ok.success).toBe(true);
+    const bad = schema.safeParse({
+      cosBucketName: "envtest-bucket",
+      cosObjectName: "fnzip-upload/1/x.zip",
+      cosObjectKey: "typo-field",
+    });
+    expect(bad.success).toBe(false);
+  });
+
+  it("cloud mode does not block createFunction when code triplet is provided", async () => {
+    mockManagerWith([
+      { Bucket: "envtest-bucket-1258016615", Region: "ap-guangzhou" },
+    ]);
+    // 先走阶段 A 取上传地址，再打开 cloud mode：
+    // cloud mode 放行的是「本环境自有桶里的合法三元组」，不是「任意三元组」
+    const upload = JSON.parse(
+      (
+        await tools.queryFunctions.handler({
+          action: "getFunctionUploadUrl",
+          functionName: "zipDemo",
+        })
+      ).content[0].text,
+    );
+    mockIsCloudMode.mockReturnValue(true);
+
+    const result = await tools.manageFunctions.handler({
+      action: "createFunction",
+      func: { name: "zipDemo" },
+      code: {
+        cosBucketName: upload.data.cosBucketName,
+        cosObjectName: upload.data.cosObjectName,
+      },
+      force: false,
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    // 关键：不能命中 cloudMode.localOnly
+    expect(payload.message).not.toContain("cloud mode");
+    expect(mockCreateFunction).toHaveBeenCalledTimes(1);
+    const args = mockCreateFunction.mock.calls[0][0];
+    expect(args.deployMode).toBe("cos");
+    expect(args.code).toEqual({
+      CosBucketName: "envtest-bucket",
+      CosBucketRegion: "ap-guangzhou",
+      CosObjectName: upload.data.cosObjectName,
+    });
+    expect(payload.data.deployMode).toBe("cos");
+  });
+
+  it("updateFunctionCode with code triplet passes deployMode=cos through", async () => {
+    mockManagerWith([
+      { Bucket: "envtest-bucket-1258016615", Region: "ap-guangzhou" },
+    ]);
+    mockGetFunctionDetail.mockResolvedValue({
+      Status: "Active",
+      Environment: { Variables: [] },
+    });
+
+    const upload = JSON.parse(
+      (
+        await tools.queryFunctions.handler({
+          action: "getFunctionUploadUrl",
+          functionName: "zipDemo",
+        })
+      ).content[0].text,
+    );
+
+    const result = await tools.manageFunctions.handler({
+      action: "updateFunctionCode",
+      functionName: "zipDemo",
+      code: {
+        cosBucketName: upload.data.cosBucketName,
+        cosObjectName: upload.data.cosObjectName,
+      },
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.success).toBe(true);
+    expect(mockUpdateFunctionCode).toHaveBeenCalledTimes(1);
+    const args = mockUpdateFunctionCode.mock.calls[0][0];
+    expect(args.deployMode).toBe("cos");
+    expect(args.code.CosObjectName).toBe(upload.data.cosObjectName);
+    expect(args.func.name).toBe("zipDemo");
+  });
+
+  it("rejects a hand-built code object key", async () => {
+    mockManagerWith([
+      { Bucket: "envtest-bucket-1258016615", Region: "ap-guangzhou" },
+    ]);
+
+    const result = await tools.manageFunctions.handler({
+      action: "createFunction",
+      func: { name: "zipDemo" },
+      code: {
+        cosBucketName: "envtest-bucket",
+        cosObjectName: "fnzip-upload/1/zipDemo.zip",
+      },
+      force: false,
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.success).toBe(false);
+    expect(payload.errorCode).toBe("FUNCTION_UPLOAD_TARGET_NOT_FOUND");
+    expect(payload.message).toContain("getFunctionUploadUrl");
+    // 被拒的调用不该落到云端
+    expect(mockCreateFunction).not.toHaveBeenCalled();
+  });
+
+  it("rejects a code object key outside the environment bucket even when it is well shaped", async () => {
+    mockManagerWith([
+      { Bucket: "envtest-bucket-1258016615", Region: "ap-guangzhou" },
+    ]);
+
+    const result = await tools.manageFunctions.handler({
+      action: "createFunction",
+      func: { name: "zipDemo" },
+      code: {
+        cosBucketName: "attacker-bucket",
+        cosBucketRegion: "ap-guangzhou",
+        cosObjectName: "fnzip-upload/1759200000-0123456789abcdef/zipDemo.zip",
+      },
+      force: false,
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.success).toBe(false);
+    expect(payload.errorCode).toBe("FUNCTION_UPLOAD_TARGET_NOT_FOUND");
+    expect(payload.data.expectedCosBucketName).toBe("envtest-bucket");
+    expect(mockCreateFunction).not.toHaveBeenCalled();
+  });
+
+  it("rejects a code object key from another region", async () => {
+    mockManagerWith([
+      { Bucket: "envtest-bucket-1258016615", Region: "ap-guangzhou" },
+    ]);
+
+    const result = await tools.manageFunctions.handler({
+      action: "createFunction",
+      func: { name: "zipDemo" },
+      code: {
+        cosBucketName: "envtest-bucket",
+        cosBucketRegion: "ap-shanghai",
+        cosObjectName: "fnzip-upload/1759200000-0123456789abcdef/zipDemo.zip",
+      },
+      force: false,
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.success).toBe(false);
+    expect(payload.errorCode).toBe("FUNCTION_UPLOAD_TARGET_NOT_FOUND");
+    expect(payload.data.expectedCosBucketRegion).toBe("ap-guangzhou");
+    expect(mockCreateFunction).not.toHaveBeenCalled();
+  });
+
+  it("accepts a well-shaped key in the environment bucket without any in-process registration", async () => {
+    // 校验刻意不依赖「本进程铸造过」：托管形态可多副本，跨进程的登记必然丢。
+    // 这条用例把这个取舍写死在测试里 —— 形状 + 环境自有桶就是通过条件。
+    mockManagerWith([
+      { Bucket: "envtest-bucket-1258016615", Region: "ap-guangzhou" },
+    ]);
+
+    const result = await tools.manageFunctions.handler({
+      action: "createFunction",
+      func: { name: "zipDemo" },
+      code: {
+        cosBucketName: "envtest-bucket-1258016615",
+        cosBucketRegion: "ap-guangzhou",
+        cosObjectName: "fnzip-upload/1759200000-0123456789abcdef/zipDemo.zip",
+      },
+      force: false,
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.success).toBe(true);
+    expect(mockCreateFunction).toHaveBeenCalledTimes(1);
+    expect(mockCreateFunction.mock.calls[0][0].code.CosObjectName).toBe(
+      "fnzip-upload/1759200000-0123456789abcdef/zipDemo.zip",
+    );
+  });
+
+  it("rejects a minted object key pointed at a different bucket", async () => {
+    mockManagerWith([
+      { Bucket: "envtest-bucket-1258016615", Region: "ap-guangzhou" },
+    ]);
+    const upload = JSON.parse(
+      (
+        await tools.queryFunctions.handler({
+          action: "getFunctionUploadUrl",
+          functionName: "zipDemo",
+        })
+      ).content[0].text,
+    );
+
+    const result = await tools.manageFunctions.handler({
+      action: "updateFunctionCode",
+      functionName: "zipDemo",
+      code: {
+        cosBucketName: "attacker-bucket",
+        cosObjectName: upload.data.cosObjectName,
+      },
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.success).toBe(false);
+    expect(payload.errorCode).toBe("FUNCTION_UPLOAD_TARGET_NOT_FOUND");
+    expect(mockUpdateFunctionCode).not.toHaveBeenCalled();
+  });
+});
+
+describe("queryFunctions logs via CLS", () => {
+  let tools: ReturnType<typeof createMockServer>["tools"];
+
+  const clsItem = (content: Record<string, unknown>, timestamp = "2026-10-18 20:02:09.045") => ({
+    Timestamp: timestamp,
+    Content: JSON.stringify(content),
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockIsCloudMode.mockReturnValue(false);
+    mockCheckLogServiceEnabled.mockResolvedValue(true);
+    mockSearchClsLog.mockResolvedValue({
+      LogResults: { Results: [], Context: "", ListOver: true },
+      RequestId: "req-search-cls",
+    });
+    mockGetCloudBaseManager.mockResolvedValue({
+      log: {
+        searchClsLog: mockSearchClsLog,
+        checkLogServiceEnabled: mockCheckLogServiceEnabled,
+      },
+    });
+    ({ tools } = createMockServer());
+  });
+
+  it("listFunctionLogs reads CLS by function_name and parses the payload", async () => {
+    mockSearchClsLog.mockResolvedValue({
+      LogResults: {
+        Results: [
+          clsItem({
+            request_id: "req-1",
+            function_name: "finish-rank",
+            log: "START RequestId: req-1",
+            status_code: "202",
+            ret_code: "2",
+            duration: "0",
+            memory: "256",
+            mem_usage: "0",
+            src: "system",
+            request_source: "TRIGGER_TIMER",
+          }),
+        ],
+        ListOver: true,
+      },
+    });
+
+    const result = await tools.queryFunctions.handler({
+      action: "listFunctionLogs",
+      functionName: "finish-rank",
+      startTime: "2026-10-18 00:00:00",
+      endTime: "2026-10-18 23:59:59",
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(mockSearchClsLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryString: '(src:app OR src:system) AND function_name:"finish-rank"',
+        StartTime: "2026-10-18 00:00:00",
+        EndTime: "2026-10-18 23:59:59",
+        Sort: "desc",
+        service: "tcb",
+      }),
+    );
+    expect(payload.success).toBe(true);
+    expect(payload.data.logs[0]).toMatchObject({
+      requestId: "req-1",
+      functionName: "finish-rank",
+      statusCode: "202",
+      durationMs: 0,
+      memoryMb: 256,
+      timestamp: "2026-10-18 20:02:09.045",
+    });
+    expect(payload.data.hasMore).toBe(false);
+  });
+
+  it("listFunctionLogs surfaces the CLS cursor when more logs exist", async () => {
+    mockSearchClsLog.mockResolvedValue({
+      LogResults: {
+        Results: [clsItem({ request_id: "req-1", function_name: "finish-rank", log: "line" })],
+        Context: "cursor-1",
+        ListOver: false,
+      },
+    });
+
+    const result = await tools.queryFunctions.handler({
+      action: "listFunctionLogs",
+      functionName: "finish-rank",
+      limit: 1,
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.data.hasMore).toBe(true);
+    expect(payload.data.context).toBe("cursor-1");
+    expect(payload.nextActions[0]).toMatchObject({
+      tool: "queryFunctions",
+      action: "listFunctionLogs",
+      suggested_args: { context: "cursor-1" },
+    });
+  });
+
+  it("getFunctionLogDetail filters CLS by request_id in ascending order", async () => {
+    mockSearchClsLog.mockResolvedValue({
+      LogResults: {
+        Results: [
+          clsItem({ request_id: "req-1", function_name: "finish-rank", log: "START", src: "system" }),
+          clsItem({ request_id: "req-1", function_name: "finish-rank", log: "REPORT", src: "system" }),
+        ],
+        ListOver: true,
+      },
+    });
+
+    const result = await tools.queryFunctions.handler({
+      action: "getFunctionLogDetail",
+      requestId: "req-1",
+      startTime: "2026-10-18 00:00:00",
+      endTime: "2026-10-18 23:59:59",
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(mockSearchClsLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        queryString: '(src:app OR src:system) AND request_id:"req-1"',
+        Sort: "asc",
+      }),
+    );
+    expect(payload.data.logs).toHaveLength(2);
+    expect(payload.data.functionName).toBe("finish-rank");
+  });
+
+  it("points at createLogService when the environment has no log service", async () => {
+    mockCheckLogServiceEnabled.mockResolvedValue(false);
+
+    const result = await tools.queryFunctions.handler({
+      action: "listFunctionLogs",
+      functionName: "finish-rank",
+    });
+    const payload = JSON.parse(result.content[0].text);
+
+    expect(payload.success).toBe(false);
+    expect(payload.errorCode).toBe("LOG_SERVICE_NOT_ENABLED");
+    expect(payload.nextActions[0]).toMatchObject({
+      tool: "manageLogs",
+      action: "createLogService",
+      suggested_args: { confirm: true },
     });
   });
 });

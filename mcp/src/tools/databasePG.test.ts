@@ -3,21 +3,44 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import type { ExtendedMcpServer } from "../server.js";
-import { __resetPgReadyCache } from "./databasePG.js";
+import { t } from "../i18n/index.js";
+import { databasePG as databasePGDict } from "../i18n/locales/modules/databasePG.js";
 import { registerPGDatabaseTools } from "./databasePG.js";
 
 const {
   mockGetCloudBaseManager,
   mockCommonServiceCall,
+  mockQueryEnvRuntimeBackends,
 } = vi.hoisted(() => ({
   mockGetCloudBaseManager: vi.fn(),
   mockCommonServiceCall: vi.fn(),
+  mockQueryEnvRuntimeBackends: vi.fn(),
 }));
 
 vi.mock("../cloudbase-manager.js", () => ({
   getCloudBaseManager: mockGetCloudBaseManager,
   getEnvId: vi.fn(async () => "env-test"),
 }));
+
+vi.mock("./env.js", () => ({
+  queryEnvRuntimeBackends: mockQueryEnvRuntimeBackends,
+}));
+
+function provisionedSnapshot(envId = "env-test") {
+  return {
+    envId,
+    runtimeMode: "postgresql" as const,
+    runtimeBackends: { postgresql: true, nosql: false, mysql: false },
+  };
+}
+
+function unprovisionedSnapshot(envId = "env-test") {
+  return {
+    envId,
+    runtimeMode: "nosql" as const,
+    runtimeBackends: { postgresql: false, nosql: true, mysql: false },
+  };
+}
 
 function buildToolPayload(result: any) {
   return JSON.parse(result.content[0].text);
@@ -60,9 +83,10 @@ function createFakeClient(
 
 describe("PG database tools", () => {
   beforeEach(() => {
-    __resetPgReadyCache();
     mockGetCloudBaseManager.mockReset();
     mockCommonServiceCall.mockReset();
+    mockQueryEnvRuntimeBackends.mockReset();
+    mockQueryEnvRuntimeBackends.mockResolvedValue(provisionedSnapshot());
   });
 
   it("registers PG tool names", () => {
@@ -114,6 +138,237 @@ describe("PG database tools", () => {
           role: "cloudbase_postgres",
         },
       },
+    });
+    expect(mockQueryEnvRuntimeBackends).not.toHaveBeenCalled();
+  });
+
+  describe("PG execution failures", () => {
+    function connectError(message = "Failed to connect to PostgreSQL instance.") {
+      const error = new Error(message) as Error & { code?: string };
+      error.code = "FailedOperation.PGConnectError";
+      return error;
+    }
+
+    it("returns a successful SQL result from one ExecutePGSql and does not check provision", async () => {
+      const { server, tools } = createMockServer();
+      const query = vi.fn(async () => ({
+        rows: [{ "?column?": 1 }],
+        rowCount: 1,
+      }));
+      registerPGDatabaseTools(server, {
+        createClient: vi.fn(() => createFakeClient(query)),
+      });
+
+      const payload = buildToolPayload(
+        await tools.queryPgDatabase.handler({
+          action: "sql",
+          sql: "SELECT 1",
+        }),
+      );
+
+      expect(payload.success).toBe(true);
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(String((query.mock.calls as unknown[][])[0]?.[0])).not.toBe("SELECT 1");
+      expect(mockQueryEnvRuntimeBackends).not.toHaveBeenCalled();
+    });
+
+    it("returns a statement error as-is and does not check provision", async () => {
+      const { server, tools } = createMockServer();
+      const query = vi.fn(async () => {
+        const error = new Error(
+          'ERROR: column "id" does not exist (SQLSTATE 42703)',
+        ) as Error & { code?: string };
+        error.code = "FailedOperation.PGExecuteSqlError";
+        throw error;
+      });
+      registerPGDatabaseTools(server, {
+        createClient: vi.fn(() => createFakeClient(query)),
+      });
+
+      const payload = buildToolPayload(
+        await tools.queryPgDatabase.handler({
+          action: "sql",
+          sql: "SELECT id FROM public.users",
+        }),
+      );
+
+      expect(payload).toMatchObject({
+        success: false,
+        errorCode: "PG_SQL_EXEC_FAILED",
+      });
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(mockQueryEnvRuntimeBackends).not.toHaveBeenCalled();
+    });
+
+    it("returns PG_NOT_PROVISIONED when a connect failure finds no PG backend", async () => {
+      const { server, tools } = createMockServer();
+      const query = vi.fn(async () => {
+        throw connectError();
+      });
+      mockQueryEnvRuntimeBackends.mockResolvedValue(unprovisionedSnapshot());
+      registerPGDatabaseTools(server, {
+        createClient: vi.fn(() => createFakeClient(query)),
+      });
+
+      const payload = buildToolPayload(
+        await tools.managePgDatabase.handler({
+          action: "execute",
+          sql: "INSERT INTO public.users(id) VALUES (1)",
+          confirm: true,
+        }),
+      );
+
+      expect(payload).toMatchObject({
+        success: false,
+        errorCode: "PG_NOT_PROVISIONED",
+        data: {
+          envId: "env-test",
+          runtimeMode: "nosql",
+          RuntimeBackends: { postgresql: false, nosql: true, mysql: false },
+        },
+      });
+      expect(payload.message).toBe(
+        t("databasePG.runtime.notProvisioned", { envId: "env-test" }),
+      );
+      expect(query).toHaveBeenCalledTimes(1);
+      expect(mockQueryEnvRuntimeBackends).toHaveBeenCalledTimes(1);
+    });
+
+    it("returns PG_NOT_READY when the backend is provisioned but the instance is not usable", async () => {
+      const { server, tools } = createMockServer();
+      registerPGDatabaseTools(server, {
+        createClient: vi.fn(() =>
+          createFakeClient(async () => {
+            throw connectError("instance still starting");
+          }),
+        ),
+      });
+
+      const payload = buildToolPayload(
+        await tools.queryPgDatabase.handler({ action: "objects", limit: 5 }),
+      );
+
+      expect(payload).toMatchObject({
+        success: false,
+        errorCode: "PG_NOT_READY",
+      });
+      expect(payload.message).toMatch(/初始化|initializing/);
+      expect(payload.message).toMatch(/稍后重试|retry later/);
+      expect(mockQueryEnvRuntimeBackends).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not let an env A failure change env B", async () => {
+      const serverA = createMockServer().server;
+      serverA.cloudBaseOptions = { envId: "env-a", region: "ap-guangzhou" };
+      const toolsA: Record<string, { handler: (args: any) => Promise<any> }> = {};
+      serverA.registerTool = vi.fn((name: string, _meta: any, handler: any) => {
+        toolsA[name] = { handler };
+      }) as any;
+      mockQueryEnvRuntimeBackends.mockImplementation(async (_options: unknown, envId: string) =>
+        envId === "env-a" ? unprovisionedSnapshot("env-a") : provisionedSnapshot(envId),
+      );
+      registerPGDatabaseTools(serverA, {
+        createClient: vi.fn(() =>
+          createFakeClient(async () => {
+            throw connectError();
+          }),
+        ),
+      });
+
+      const failed = buildToolPayload(
+        await toolsA.queryPgDatabase.handler({ action: "sql", sql: "SELECT 1" }),
+      );
+      expect(failed.errorCode).toBe("PG_NOT_PROVISIONED");
+
+      const serverB = createMockServer().server;
+      serverB.cloudBaseOptions = { envId: "env-b", region: "ap-guangzhou" };
+      const toolsB: Record<string, { handler: (args: any) => Promise<any> }> = {};
+      serverB.registerTool = vi.fn((name: string, _meta: any, handler: any) => {
+        toolsB[name] = { handler };
+      }) as any;
+      const queryB = vi.fn(async () => ({ rows: [{ ok: 1 }], rowCount: 1 }));
+      registerPGDatabaseTools(serverB, {
+        createClient: vi.fn(() => createFakeClient(queryB)),
+      });
+
+      const ok = buildToolPayload(
+        await toolsB.queryPgDatabase.handler({ action: "sql", sql: "SELECT 1" }),
+      );
+      expect(ok.success).toBe(true);
+      expect(queryB).toHaveBeenCalledTimes(1);
+    });
+
+    it("succeeds on the next call after the environment is provisioned", async () => {
+      const { server, tools } = createMockServer();
+      let provisioned = false;
+      mockQueryEnvRuntimeBackends.mockImplementation(async () =>
+        provisioned ? provisionedSnapshot() : unprovisionedSnapshot(),
+      );
+      const query = vi.fn(async () => {
+        if (!provisioned) {
+          throw connectError();
+        }
+        return { rows: [{ ok: 1 }], rowCount: 1 };
+      });
+      registerPGDatabaseTools(server, {
+        createClient: vi.fn(() => createFakeClient(query)),
+      });
+
+      const blocked = buildToolPayload(
+        await tools.queryPgDatabase.handler({ action: "sql", sql: "SELECT 1" }),
+      );
+      expect(blocked.errorCode).toBe("PG_NOT_PROVISIONED");
+
+      provisioned = true;
+      const ok = buildToolPayload(
+        await tools.queryPgDatabase.handler({ action: "sql", sql: "SELECT 1" }),
+      );
+      expect(ok.success).toBe(true);
+      expect(mockQueryEnvRuntimeBackends).toHaveBeenCalledTimes(1);
+    });
+
+    it("calls execute once when the statement fails", async () => {
+      const { server, tools } = createMockServer();
+      const query = vi.fn(async () => {
+        throw connectError();
+      });
+      registerPGDatabaseTools(server, {
+        createClient: vi.fn(() => createFakeClient(query)),
+      });
+
+      const payload = buildToolPayload(
+        await tools.managePgDatabase.handler({
+          action: "execute",
+          sql: "INSERT INTO public.users(id) VALUES (1)",
+          confirm: true,
+        }),
+      );
+
+      expect(payload.errorCode).toBe("PG_NOT_READY");
+      expect(query).toHaveBeenCalledTimes(1);
+    });
+
+    it("uses PG_NOT_READY and does not cache an unclassified failure", async () => {
+      const { server, tools } = createMockServer();
+      mockQueryEnvRuntimeBackends.mockRejectedValue(new Error("DescribeEnvInfo failed"));
+      const query = vi.fn(async () => {
+        throw new Error("database is not available");
+      });
+      registerPGDatabaseTools(server, {
+        createClient: vi.fn(() => createFakeClient(query)),
+      });
+
+      const first = buildToolPayload(
+        await tools.queryPgDatabase.handler({ action: "objects", limit: 5 }),
+      );
+      const second = buildToolPayload(
+        await tools.queryPgDatabase.handler({ action: "objects", limit: 5 }),
+      );
+
+      expect(first.errorCode).toBe("PG_NOT_READY");
+      expect(second.errorCode).toBe("PG_NOT_READY");
+      expect(mockQueryEnvRuntimeBackends).toHaveBeenCalledTimes(2);
+      expect(query).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -555,7 +810,7 @@ describe("PG database tools", () => {
         defaultRole: "cloudbase_postgres",
       },
     });
-    expect(payload.message).toContain("Platform-reserved roles (cloudbase_admin)");
+    expect(payload.message).toContain("平台保留角色（cloudbase_admin）");
     expect(createClient).not.toHaveBeenCalled();
   });
 
@@ -594,7 +849,6 @@ describe("PG database tools", () => {
 
     registerPGDatabaseTools(server, {
       createClient: vi.fn(() => fakeClient),
-      readyCheckOptions: { maxAttempts: 1, retryDelayMs: 1 },
     });
 
     const payload = buildToolPayload(
@@ -624,20 +878,45 @@ describe("PG database tools", () => {
     });
   });
 
+  it("exposes schema descriptions as databasePG message keys in both languages", () => {
+    const { server, tools } = createMockServer();
+    registerPGDatabaseTools(server, { createClient: vi.fn() });
+
+    const zhDict = databasePGDict.zh as Record<string, string>;
+    const enDict = databasePGDict.en as Record<string, string>;
+
+    for (const toolName of ["queryPgDatabase", "managePgDatabase"]) {
+      const shape = tools[toolName].meta.inputSchema as Record<string, any>;
+      for (const [field, schema] of Object.entries(shape)) {
+        const description = String(schema.description);
+        expect(
+          description,
+          `${toolName}.${field} must carry a message key`,
+        ).toMatch(/^databasePG\.schema\./);
+        const key = description.slice("databasePG.".length);
+        expect(typeof zhDict[key]).toBe("string");
+        expect(typeof enDict[key]).toBe("string");
+      }
+    }
+  });
+
   it("managePgDatabase role schema description does not recommend postgres", () => {
     const { server, tools } = createMockServer();
     registerPGDatabaseTools(server, { createClient: vi.fn() });
 
     const roleSchema = tools.managePgDatabase.meta.inputSchema.role;
-    const description =
-      typeof roleSchema?.description === "string"
-        ? roleSchema.description
-        : String(roleSchema?.description ?? "");
+    // Schema descriptions carry message keys; the server localizes them on register.
+    expect(roleSchema?.description).toBe("databasePG.schema.manageRole");
+
+    const description = databasePGDict.zh["schema.manageRole"];
 
     expect(description).toContain("cloudbase_postgres");
     expect(description).toContain("平台保留角色（cloudbase_admin");
     expect(description).toContain("postgres_pgdb_*");
     expect(description).not.toMatch(/可传 postgres[^_]/);
+    expect(databasePGDict.en["schema.manageRole"]).toContain(
+      "cloudbase_postgres",
+    );
   });
 
   it("managePgDatabase(execute) allows schema DDL only with allowDdlViaExecute=true", async () => {
@@ -804,7 +1083,7 @@ describe("PG database tools", () => {
     });
     const payload = buildToolPayload(result);
 
-    expect(payload.message).toContain("RLS is enabled but no policies");
+    expect(payload.message).toContain("RLS 已启用但未找到任何 policy");
     expect(payload.nextActions[0]).toMatchObject({
       tool: "managePgDatabase",
       action: "execute",
@@ -836,14 +1115,11 @@ describe("PG database tools", () => {
     });
   });
 
-  it("ensurePgReadyOnce caches readiness across calls", async () => {
+  it("does not send a readiness SELECT 1 before listing objects", async () => {
     const { server, tools } = createMockServer();
-    let probeCount = 0;
+    const seen: string[] = [];
     const fakeClient = createFakeClient(async (sql: string) => {
-      if (sql === "SELECT 1") {
-        probeCount += 1;
-        return { rows: [{ "?column?": 1 }], rowCount: 1 };
-      }
+      seen.push(sql);
       if (sql.includes("FROM pg_class c")) {
         return { rows: [], rowCount: 0 };
       }
@@ -854,80 +1130,11 @@ describe("PG database tools", () => {
       createClient: vi.fn(() => fakeClient),
     });
 
-    // First call triggers readiness probe
     await tools.queryPgDatabase.handler({ action: "objects", limit: 5 });
-    const probesAfterFirst = probeCount;
-
-    // Second call should reuse cached readiness (no additional SELECT 1)
     await tools.queryPgDatabase.handler({ action: "objects", limit: 5 });
 
-    // Only 1 SELECT 1 probe expected across both calls
-    expect(probeCount).toBe(probesAfterFirst);
-  });
-
-  it("ensurePgReadyOnce retries readiness checks until PostgreSQL accepts connections", async () => {
-    const { server, tools } = createMockServer();
-    let readyAttempts = 0;
-
-    registerPGDatabaseTools(server, {
-      createClient: vi.fn(() =>
-        createFakeClient(async (sql: string) => {
-          if (sql === "SELECT 1") {
-            readyAttempts += 1;
-            if (readyAttempts < 3) {
-              throw new Error("database is still starting");
-            }
-            return { rows: [{ "?column?": 1 }], rowCount: 1 };
-          }
-          if (sql.includes("FROM pg_class c")) {
-            return { rows: [], rowCount: 0 };
-          }
-          throw new Error(`Unexpected SQL: ${sql}`);
-        }),
-      ),
-      readyCheckOptions: {
-        maxAttempts: 3,
-        retryDelayMs: 1,
-      },
-    });
-
-    const payload = buildToolPayload(
-      await tools.queryPgDatabase.handler({
-        action: "objects",
-        limit: 5,
-      }),
-    );
-
-    expect(payload.success).toBe(true);
-    expect(readyAttempts).toBe(3);
-  });
-
-  it("returns PG_NOT_READY when PostgreSQL is not available", async () => {
-    const { server, tools } = createMockServer();
-
-    registerPGDatabaseTools(server, {
-      createClient: vi.fn(() =>
-        createFakeClient(async () => {
-          throw new Error("database is not available");
-        }),
-      ),
-      readyCheckOptions: {
-        maxAttempts: 2,
-        retryDelayMs: 1,
-      },
-    });
-
-    const payload = buildToolPayload(
-      await tools.queryPgDatabase.handler({
-        action: "objects",
-        limit: 5,
-      }),
-    );
-
-    expect(payload).toMatchObject({
-      success: false,
-      errorCode: "PG_NOT_READY",
-    });
+    expect(seen.some((sql) => sql === "SELECT 1")).toBe(false);
+    expect(mockQueryEnvRuntimeBackends).not.toHaveBeenCalled();
   });
 
   it("managePgDatabase(dryRun) works without readiness probe", async () => {
@@ -1362,7 +1569,7 @@ describe("PG database tools", () => {
         errorCode: "MIGRATION_NAME_INVALID",
         data: { requiredPattern: "^[a-z][a-z_]*$" },
       });
-      expect(payload.message).toContain("only lowercase letters and underscores");
+      expect(payload.message).toContain("小写字母和下划线");
       expect(mockCommonServiceCall).not.toHaveBeenCalled();
     });
 
@@ -1756,8 +1963,8 @@ describe("PG database tools", () => {
             taskResult: { TaskId: "task-1" },
           },
         });
-        expect(String(payload.message)).toContain("describeMigrationTask FIRST");
-        expect(String(payload.message)).toContain("Do NOT re-push");
+        expect(String(payload.message)).toContain("describeMigrationTask");
+        expect(String(payload.message)).toContain("禁止重推");
         expect(payload.nextActions?.[0]).toMatchObject({
           tool: "managePgDatabase",
           action: "describeMigrationTask",
@@ -1801,7 +2008,7 @@ describe("PG database tools", () => {
           taskResult: { TaskId: "task-1" },
         },
       });
-      expect(String(payload.message)).toContain("describeMigrationTask FIRST");
+      expect(String(payload.message)).toContain("describeMigrationTask");
       expect(mockCommonServiceCall).not.toHaveBeenCalledWith(
         expect.objectContaining({ Action: "DescribeTaskResult" }),
       );
@@ -2322,6 +2529,31 @@ describe("PG database tools", () => {
       ).toBe(false);
     });
 
+    it("fetchMigration fails closed on a remote Version that is not 14 digits", async () => {
+      const { server, tools } = createMockServer();
+      registerPGDatabaseTools(server, { createClient: vi.fn() });
+      setupMigrationMock();
+      mockFetchMigrationCloudApis([
+        {
+          Version: "../../../../tmp/evil",
+          Name: "init_schema",
+          Query: "CREATE TABLE public.a(id int);",
+        },
+      ]);
+
+      const payload = buildToolPayload(
+        await tools.managePgDatabase.handler({ action: "fetchMigration" }),
+      );
+
+      expect(payload).toMatchObject({
+        success: false,
+        errorCode: "LOCAL_MIGRATION_FETCH_INVALID_VERSION",
+      });
+      expect(
+        fs.existsSync(path.join(migrationWorkspace, "cloudbase/migrations")),
+      ).toBe(false);
+    });
+
     it("fetchMigration returns empty success when remote history is empty", async () => {
       const { server, tools } = createMockServer();
       registerPGDatabaseTools(server, { createClient: vi.fn() });
@@ -2336,65 +2568,6 @@ describe("PG database tools", () => {
         success: true,
         data: { total: 0, writtenCount: 0, skippedCount: 0 },
       });
-    });
-
-    it("rollbackMigration requires lastN", async () => {
-      const { server, tools } = createMockServer();
-      registerPGDatabaseTools(server, { createClient: vi.fn() });
-
-      const payload = buildToolPayload(
-        await tools.managePgDatabase.handler({
-          action: "rollbackMigration",
-          confirm: true,
-        }),
-      );
-
-      expect(payload).toMatchObject({
-        success: false,
-        errorCode: "LAST_N_REQUIRED",
-      });
-    });
-
-    it("rollbackMigration requires confirm=true", async () => {
-      const { server, tools } = createMockServer();
-      registerPGDatabaseTools(server, { createClient: vi.fn() });
-
-      const payload = buildToolPayload(
-        await tools.managePgDatabase.handler({
-          action: "rollbackMigration",
-          lastN: 1,
-        }),
-      );
-
-      expect(payload).toMatchObject({
-        success: false,
-        errorCode: "CONFIRM_REQUIRED",
-      });
-    });
-
-    it("rollbackMigration sends LastN", async () => {
-      const { server, tools } = createMockServer();
-      registerPGDatabaseTools(server, { createClient: vi.fn() });
-      setupMigrationMock();
-      mockCommonServiceCall.mockResolvedValue({
-        RequestId: "req-rollback",
-      });
-
-      const payload = buildToolPayload(
-        await tools.managePgDatabase.handler({
-          action: "rollbackMigration",
-          lastN: 3,
-          confirm: true,
-        }),
-      );
-
-      expect(payload).toMatchObject({ success: true });
-      expect(mockCommonServiceCall).toHaveBeenCalledWith(
-        expect.objectContaining({
-          Action: "RollbackPGUserMigrations",
-          Param: expect.objectContaining({ LastN: 3 }),
-        }),
-      );
     });
 
     it("repairMigration requires migrationVersion", async () => {
@@ -2740,29 +2913,6 @@ describe("PG database tools", () => {
           }),
         );
         expect(commonServiceCall).not.toHaveBeenCalled();
-      });
-
-      it("rollbackMigration has no native wrapper and keeps using commonService", async () => {
-        const { server, tools } = createMockServer();
-        registerPGDatabaseTools(server, { createClient: vi.fn() });
-        setupMigrationMock();
-        mockCommonServiceCall.mockResolvedValue({ RequestId: "req-rollback-native" });
-
-        const payload = buildToolPayload(
-          await tools.managePgDatabase.handler({
-            action: "rollbackMigration",
-            lastN: 2,
-            confirm: true,
-          }),
-        );
-
-        expect(payload).toMatchObject({ success: true });
-        expect(mockCommonServiceCall).toHaveBeenCalledWith(
-          expect.objectContaining({
-            Action: "RollbackPGUserMigrations",
-            Param: expect.objectContaining({ LastN: 2 }),
-          }),
-        );
       });
 
       it("falls back to commonService when database lacks native methods", async () => {

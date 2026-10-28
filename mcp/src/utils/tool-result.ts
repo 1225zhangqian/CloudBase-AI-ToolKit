@@ -7,7 +7,11 @@ export type ToolNextStep = {
   suggested_args?: Record<string, unknown>;
 };
 
-export function buildJsonToolResult(payload: ToolPayload) {
+/**
+ * `meta` rides along in `_meta`, which the model never sees: it is the channel for data the UI
+ * needs in full while the text payload keeps only the summary the model reasons about.
+ */
+export function buildJsonToolResult(payload: ToolPayload, meta?: Record<string, unknown>) {
   return {
     content: [
       {
@@ -15,6 +19,7 @@ export function buildJsonToolResult(payload: ToolPayload) {
         text: JSON.stringify(payload, null, 2),
       },
     ],
+    ...(meta && Object.keys(meta).length > 0 ? { _meta: meta } : {}),
   };
 }
 
@@ -71,6 +76,29 @@ export function withBusinessFailureIsError<T>(result: T): T {
     return result;
   }
   return { ...record, isError: true } as T;
+}
+
+/**
+ * 纯文本失败回执：**必须显式带 `isError: true`**。
+ *
+ * 为什么需要它：`withBusinessFailureIsError` 只能识别结构化的 `{ success: false }`
+ * 载荷（`isBusinessFailureToolResult` 会 JSON.parse 文本内容再嗅 `success`）。工具在自己
+ * 的 catch 里返回 `{ content: [{ type: "text", text }] }` 这种**纯文本**回执时，文本不是
+ * JSON，嗅探不到任何失败标记 → 客户端只看到 `isError: false`，把失败当成功处理。
+ *
+ * 实测（F7）：`queryEnv(action="usage")` 不带 envId 时抛出的引导文案就是这样返回的，
+ * 只看 `isError` 的客户端会漏判。MCP 协议里 `isError` 是唯一可靠的失败标记，别省。
+ */
+export function buildTextErrorResult(text: string) {
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text,
+      },
+    ],
+    isError: true as const,
+  };
 }
 
 export class ToolPayloadError extends Error {

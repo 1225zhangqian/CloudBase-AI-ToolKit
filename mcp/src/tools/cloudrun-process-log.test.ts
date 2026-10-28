@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { t, type MessageKey } from "../i18n/index.js";
 
 const { mockGetCloudBaseManager, mockGetEnvId } = vi.hoisted(() => ({
   mockGetCloudBaseManager: vi.fn(),
@@ -79,12 +80,12 @@ describe("queryCloudRun getProcessLog schema", () => {
 
   it("documents getDeployLog as build log and getProcessLog as runtime log", async () => {
     const { tools } = await createCloudRunTools();
-    const actionDesc = tools.queryCloudRun.meta.inputSchema.action.description as string;
+    const actionDesc = t(tools.queryCloudRun.meta.inputSchema.action.description as MessageKey);
     expect(actionDesc).toMatch(/getDeployLog=.*构建日志/);
     expect(actionDesc).toMatch(/getProcessLog=.*运行日志/);
     expect(actionDesc).toMatch(/CODING/);
     expect(tools.queryCloudRun.meta.inputSchema.runId).toBeDefined();
-    expect(tools.queryCloudRun.meta.description).toMatch(/getProcessLog/);
+    expect(t(tools.queryCloudRun.meta.description as MessageKey)).toMatch(/getProcessLog/);
   });
 
   it("documents InitialDelaySeconds real readiness semantics", async () => {
@@ -92,7 +93,9 @@ describe("queryCloudRun getProcessLog schema", () => {
     const serverConfig = tools.manageCloudRun.meta.inputSchema.serverConfig.unwrap();
     const delayField = serverConfig.shape.InitialDelaySeconds;
     // .describe() is attached to the optional wrapper
-    const delayDesc = (delayField.description ?? delayField.unwrap?.()?.description) as string;
+    const delayDesc = t(
+      (delayField.description ?? delayField.unwrap?.()?.description) as MessageKey,
+    );
     expect(delayDesc).toMatch(/每 5s|每 5 秒/);
     expect(delayDesc).toMatch(/30/);
     expect(delayDesc).toMatch(/150/);
