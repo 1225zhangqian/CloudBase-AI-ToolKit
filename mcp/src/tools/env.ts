@@ -65,6 +65,7 @@ import {
 import type { EnvCreditsPayload, EnvMetricsPayload } from "../resources/env-credits.js";
 import type { CreateEnvParams } from "@cloudbase/manager-node/types/interfaces/tcb.interface.js";
 import { isMcpUiEnabled, mcpUiMeta } from "../utils/mcp-ui.js";
+import { TCB_PURCHASE_URL } from "./env-setup.js";
 
 /**
  * Resources accepted by CreateEnv. Matches Cloud API / Manager SDK contract.
@@ -1075,7 +1076,7 @@ async function prepareAuthEnvironment(params: {
           reason: "tcb_init_failed",
           errorCode: "TCB_INIT_FAILED",
           message: t("env.prepare.tcbInitFailed"),
-          helpUrl: "https://buy.cloud.tencent.com/lowcode?buyType=tcb&channel=mcp",
+          helpUrl: TCB_PURCHASE_URL,
         });
 
     return {
@@ -1133,7 +1134,7 @@ async function prepareAuthEnvironment(params: {
         reason: "env_creation_failed",
         errorCode: "ENV_CREATION_FAILED",
         message: t("env.prepare.envCreateFailed"),
-        helpUrl: "https://buy.cloud.tencent.com/lowcode?buyType=tcb&channel=mcp",
+        helpUrl: TCB_PURCHASE_URL,
       });
 
   const failureMessage = userNotice
