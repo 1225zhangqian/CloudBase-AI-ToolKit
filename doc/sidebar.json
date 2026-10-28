@@ -84,7 +84,6 @@
               "ai/cloudbase-ai-toolkit/prompts/auth-tool-cloudbase",
               "ai/cloudbase-ai-toolkit/prompts/auth-web-cloudbase",
               "ai/cloudbase-ai-toolkit/prompts/auth-wechat-miniprogram",
-              "ai/cloudbase-ai-toolkit/prompts/auth-http-api",
               "ai/cloudbase-ai-toolkit/prompts/auth-nodejs-cloudbase"
             ]
           },
@@ -98,8 +97,6 @@
               "ai/cloudbase-ai-toolkit/prompts/cloudbase-document-database-in-wechat-miniprogram",
               "ai/cloudbase-ai-toolkit/prompts/relational-database-mcp-cloudbase",
               "ai/cloudbase-ai-toolkit/prompts/relational-database-web-cloudbase",
-              "ai/cloudbase-ai-toolkit/prompts/data-model-creation",
-              "ai/cloudbase-ai-toolkit/prompts/database-http-api",
               "ai/cloudbase-ai-toolkit/prompts/postgresql-development-cloudbase",
               "ai/cloudbase-ai-toolkit/prompts/postgresql-best-practices-cloudbase"
             ]
@@ -154,7 +151,8 @@
               "ai/cloudbase-ai-toolkit/prompts/cloudbase-cli",
               "ai/cloudbase-ai-toolkit/prompts/cloudbase-mcp",
               "ai/cloudbase-ai-toolkit/prompts/cloudbase-code-review",
-              "ai/cloudbase-ai-toolkit/prompts/ops-inspector"
+              "ai/cloudbase-ai-toolkit/prompts/ops-inspector",
+              "ai/cloudbase-ai-toolkit/prompts/issue-report"
             ]
           }
         ]

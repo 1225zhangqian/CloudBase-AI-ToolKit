@@ -2,21 +2,27 @@ categories:
   - id: auth
     label: 身份认证
     order: 1
+    weight: normal
   - id: database
     label: 数据库
     order: 2
+    weight: normal
   - id: backend
     label: 后端开发
     order: 3
+    weight: normal
   - id: frontend
     label: 应用集成
     order: 4
+    weight: normal
   - id: ai
     label: AI
     order: 5
+    weight: normal
   - id: tools
     label: 开发工具
     order: 6
+    weight: normal
 
 rules:
   
@@ -26,6 +32,7 @@ rules:
     shortDescription: 配置管理认证提供商
     category: auth
     order: 1
+    weight: normal
     prompts:
       - "在 CloudBase 控制台帮我配置短信登录方式"
       - "在 CloudBase 中启用邮箱验证码登录"
@@ -38,6 +45,8 @@ rules:
     shortDescription: Web SDK 身份认证
     category: auth
     order: 2
+    weight: core
+    rank: 8
     prompts:
       - "帮我实现一个 Web 登录页面，使用 CloudBase Auth"
       - "在 Web 应用中创建一个使用 CloudBase Auth 的手机号注册和登录功能"
@@ -48,27 +57,19 @@ rules:
     shortDescription: 微信小程序身份认证
     category: auth
     order: 3
+    weight: core
+    rank: 9
     prompts:
       - "在微信小程序中使用 CloudBase Auth 实现用户登录功能"
       - "创建一个使用 CloudBase Auth 支持微信登录的小程序应用"
   
-  - id: auth-http-api
-    title: 身份认证：App 集成
-    description: 使用 CloudBase HTTP API 进行身份认证，适用于 Android、iOS、Cocos、Flutter、React Native 等原生应用和框架
-    shortDescription: Android、iOS 原生应用
-    category: auth
-    order: 4
-    ruleDir: http-api-cloudbase
-    prompts:
-      - "在 Android 应用中使用 CloudBase HTTP API 实现用户登录功能"
-      - "在 iOS 应用中使用 CloudBase HTTP API 实现用户注册和登录"
-
   - id: auth-nodejs-cloudbase
     title: 身份认证：Node.js 服务端
     description: 使用 CloudBase Node SDK 进行服务端身份认证
     shortDescription: Node.js 服务端身份认证
     category: auth
     order: 5
+    weight: normal
     prompts:
       - "帮我实现一个云函数，验证用户身份并获取用户信息"
       - "创建一个 Node.js 后端服务，使用 CloudBase Auth 进行用户认证"
@@ -79,6 +80,8 @@ rules:
     shortDescription: Web SDK 文档数据库
     category: database
     order: 1
+    weight: core
+    rank: 5
     prompts:
       - "帮我创建一个待办事项应用，使用 CloudBase 文档数据库存储数据"
       - "在 Web 应用中使用 CloudBase 文档数据库实现分页查询和复杂查询功能"
@@ -89,6 +92,8 @@ rules:
     shortDescription: 小程序 SDK 文档数据库
     category: database
     order: 2
+    weight: core
+    rank: 6
     prompts:
       - "在微信小程序中使用 CloudBase 文档数据库实现数据查询和更新"
       - "创建一个使用 CloudBase 文档数据库的小程序应用"
@@ -99,47 +104,30 @@ rules:
     shortDescription: MySQL 关系型数据库
     category: database
     order: 3
+    weight: normal
     prompts:
       - "在 CloudBase 关系型数据库中帮我创建一个用户表并设置权限"
       - "在 CloudBase 关系型数据库中执行 SQL 查询和更新操作"
-  
+
   - id: relational-database-web-cloudbase
     title: 关系型数据库：Web SDK
     description: 在 Web 应用中使用 CloudBase 关系型数据库,支持[连接自有数据库](https://docs.cloudbase.net/database/configuration/db/hosted-mysql/init)
     shortDescription: Web SDK 关系型数据库
     category: database
     order: 4
+    weight: normal
     prompts:
       - "帮我创建一个使用 CloudBase 关系型数据库的 Web 应用"
       - "在 Web 应用中使用 CloudBase 关系型数据库 SDK 实现数据查询和操作"
 
-  - id: data-model-creation
-    title: 数据库：数据模型创建
-    description: 使用 AI 创建复杂数据模型
-    shortDescription: 复杂数据模型设计
-    category: database
-    order: 5
-    prompts:
-      - "帮我创建一个用户和订单的数据模型"
-      - "设计一个博客系统的数据模型"
-  
-  - id: database-http-api
-    title: 数据库：App 集成
-    description: 使用 CloudBase HTTP API 进行数据库操作，适用于 Android、iOS 等原生应用
-    shortDescription: Android、iOS 原生应用
-    category: database
-    order: 6
-    ruleDir: http-api-cloudbase
-    prompts:
-      - "在 Android 应用中使用 CloudBase HTTP API 实现数据查询和更新"
-      - "在 iOS 应用中使用 CloudBase HTTP API 实现数据库操作"
-  
   - id: postgresql-development-cloudbase
     title: 关系型数据库：PostgreSQL
     description: 使用 CloudBase PostgreSQL（PG 模式）设计表结构、通过 JS SDK 或 MCP 工具读写数据、配置权限，并落地 Web 后台管理场景
     shortDescription: PostgreSQL 开发与调试
     category: database
     order: 7
+    weight: core
+    rank: 4
     prompts:
       - "帮我在 CloudBase PostgreSQL 中设计用户表并配置权限"
       - "在 Web 应用中使用 CloudBase PostgreSQL 的 JS SDK 实现数据增删改查"
@@ -151,6 +139,7 @@ rules:
     shortDescription: PostgreSQL 设计与性能优化
     category: database
     order: 8
+    weight: normal
     prompts:
       - "循环里查 users，帮我改成批量查询"
       - "这个 PostgreSQL 接口很慢，帮我分析执行计划并补索引"
@@ -162,6 +151,8 @@ rules:
     shortDescription: Node.js 云函数
     category: backend
     order: 1
+    weight: core
+    rank: 7
     prompts:
       - "在完成 CloudBase MCP 连接后，帮我创建一个云函数并部署"
       - "配置 CloudBase 云函数的 HTTP 访问"
@@ -174,6 +165,7 @@ rules:
     shortDescription: Node.js、Python、Go、Java 等
     category: backend
     order: 2
+    weight: normal
     prompts:
       - "帮我部署一个 Node.js 后端服务到 CloudBase 云托管"
       - "在 CloudBase 云托管中创建一个支持多语言的后端服务"
@@ -184,6 +176,7 @@ rules:
     shortDescription: cloudbaserc 声明式部署
     category: backend
     order: 3
+    weight: normal
     prompts:
       - "帮我把 CloudBase 项目改成 cloudbaserc 声明式部署配置"
       - "部署前先给我一份 deployPlan 预演结果，确认后再应用"
@@ -195,6 +188,7 @@ rules:
     shortDescription: 管控面 API 调用与 CAM 授权
     category: backend
     order: 4
+    weight: advanced
     prompts:
       - "帮我给 CloudBase 云函数配置一个 CPU 使用率告警"
       - "通过 callCloudApi 调用腾讯云监控接口查询云函数的指标数据"
@@ -206,6 +200,8 @@ rules:
     shortDescription: React、Vue、Vite、浏览器验证
     category: frontend
     order: 1
+    weight: core
+    rank: 2
     prompts:
       - "帮我搭一个 React + Vite Web 应用，并规划本地开发和构建流程"
       - "帮我排查一个 Vue 页面交互问题，并给出浏览器验证步骤"
@@ -217,6 +213,7 @@ rules:
     shortDescription: Lovable-like 最小前后端，Web SDK CRUD 优先
     category: frontend
     order: 2
+    weight: advanced
     prompts:
       - "用 CloudBase 给我搭一套最小可用前后端 demo 项目"
       - "做一个留言板 / Todo，用云数据库，不要云函数中转"
@@ -228,6 +225,8 @@ rules:
     shortDescription: 小程序开发、tabBar、CloudBase
     category: frontend
     order: 3
+    weight: core
+    rank: 3
     prompts:
       - "帮我创建一个微信小程序项目并集成 CloudBase"
       - "实现小程序与 CloudBase 的完整集成"
@@ -240,6 +239,7 @@ rules:
     shortDescription: 微信支付、公众号 OAuth
     category: frontend
     order: 4
+    weight: normal
     prompts:
       - "在 CloudBase 小程序中接入微信支付，并处理支付回调"
       - "帮我用 CloudBase 集成中心实现公众号 JSAPI 支付"
@@ -252,6 +252,7 @@ rules:
     shortDescription: 专业界面设计指南
     category: frontend
     order: 5
+    weight: method
     prompts:
       - "帮我设计一个现代化的用户界面，用于 CloudBase 应用"
       - "创建一个美观的登录页面，集成 CloudBase Auth"
@@ -262,6 +263,7 @@ rules:
     shortDescription: Android、iOS 原生应用
     category: frontend
     order: 6
+    weight: normal
     prompts:
       - "帮我通过 HTTP API 调用 CloudBase 服务"
       - "在 Android 应用中集成 CloudBase HTTP API"
@@ -273,6 +275,7 @@ rules:
     shortDescription: Web SDK 云存储
     category: frontend
     order: 7
+    weight: normal
     prompts:
       - "帮我实现一个文件上传功能，文件存到 CloudBase 云存储"
       - "在 Web 应用中获取 CloudBase 云存储文件的临时访问链接"
@@ -284,6 +287,7 @@ rules:
     shortDescription: 需求分析、技术设计、任务拆分
     category: tools
     order: 1
+    weight: method
     prompts:
       - "帮我按照 Spec 工作流开发一个 CloudBase 新功能"
       - "为 CloudBase 项目创建一个完整的需求文档、技术方案和任务拆分"
@@ -294,6 +298,8 @@ rules:
     shortDescription: 平台知识库和最佳实践
     category: tools
     order: 2
+    weight: core
+    rank: 1
     prompts:
       - "帮我了解 CloudBase 平台的功能和特性，包括云函数、小程序云开发、数据库等"
       - "创建一个完整的 CloudBase 应用架构，包含云函数、数据库、存储等组件"
@@ -306,6 +312,7 @@ rules:
     shortDescription: tcb 命令行资源管理
     category: tools
     order: 3
+    weight: normal
     prompts:
       - "帮我把云函数用 tcb CLI 部署到 CloudBase"
       - "在 CI 脚本里用 CloudBase CLI 完成一次批量部署发布"
@@ -317,10 +324,27 @@ rules:
     shortDescription: MCP 连接方式与开源贡献
     category: tools
     order: 3
+    weight: normal
     prompts:
       - "帮我把 IDE 接到 CloudBase 远程 MCP，国内站和国际站分别用哪个地址？"
       - "本地 MCP 和国际站远程 MCP 的环境变量有什么区别？"
       - "这个 MCP 工具的 bug 应该提到哪里？"
+
+  - id: issue-report
+    skill: cloudbase-mcp
+    # 这条讲的是 cloudbase-mcp 这个 skill 里的"问题反馈"能力，没有独立目录。
+    # 覆盖率检查只认 ruleDir 或 id 当目录名，不写这一行就会被判成"指向不存在的目录"。
+    ruleDir: cloudbase-mcp
+    title: 支持：问题反馈
+    description: MCP 工具出错、结果不对，或者说不清哪里坏了——按模板整理成一份可提交的问题报告，业务内容自动打码
+    shortDescription: 整理问题报告并提交
+    category: tools
+    order: 6
+    weight: normal
+    prompts:
+      - "CloudBase MCP 工具报错了，帮我按 issue 报告模板整理一份，我要提给官方"
+      - "这次对话不方便分享，帮我整理失败的那几步，业务内容打码"
+      - "帮我判断这个报错是环境问题还是 MCP 的 bug"
 
   - id: cloudbase-code-review
     title: 开发工具：代码审查
@@ -328,6 +352,7 @@ rules:
     shortDescription: 项目落地检查与常见坑
     category: tools
     order: 4
+    weight: normal
     prompts:
       - "帮我检查这个 CloudBase Web 项目有没有鉴权配置问题"
       - "帮我审查小程序项目里的 SDK 用法是否符合规范"
@@ -339,6 +364,7 @@ rules:
     shortDescription: 环境巡检、告警与故障诊断
     category: tools
     order: 5
+    weight: normal
     prompts:
       - "帮我巡检一下 CloudBase 环境的健康状况"
       - "云函数调用量突然变成 0 了，帮我排查原因"
@@ -350,6 +376,7 @@ rules:
     shortDescription: 在 Web 应用中调用 AI
     category: ai
     order: 1
+    weight: normal
     prompts:
       - "在 React Web 应用中集成 CloudBase AI 模型，实现文本生成功能"
       - "创建一个使用 CloudBase AI 模型的聊天界面，支持流式响应"
@@ -361,6 +388,7 @@ rules:
     shortDescription: 在后端服务中调用 AI
     category: ai
     order: 2
+    weight: normal
     prompts:
       - "在 CloudBase 云函数中集成 AI 模型，实现文本生成功能"
       - "创建一个使用 CloudBase AI 模型生成图片的云函数"
@@ -372,6 +400,7 @@ rules:
     shortDescription: 在小程序中调用 AI
     category: ai
     order: 3
+    weight: normal
     prompts:
       - "在微信小程序中集成 CloudBase AI 模型，实现智能对话功能"
       - "创建一个使用 CloudBase AI 模型的小程序应用，支持流式响应"
@@ -383,6 +412,7 @@ rules:
     shortDescription: Agent 服务构建与部署
     category: ai
     order: 4
+    weight: advanced
     prompts:
       - "帮我用 CloudBase Agent SDK 搭建一个支持流式输出的 AI Agent 服务"
       - "把 LangGraph 的 Agent 通过 CloudBase Agent SDK 部署到云托管"

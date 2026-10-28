@@ -20,7 +20,7 @@ categories:
 
 rules:
   - id: auth-tool
-    title: Authentication: Provider Configuration
+    title: "Authentication: Provider Configuration"
     description: Configure and manage CloudBase authentication providers; enable/disable login methods (SMS, email, WeChat, Google, anonymous, username/password, etc.)
     shortDescription: Configure auth providers
     category: auth
@@ -32,7 +32,7 @@ rules:
       - "Enable anonymous login in CloudBase"
 
   - id: auth-web
-    title: Authentication: Web SDK
+    title: "Authentication: Web SDK"
     description: Implement frontend authentication using the CloudBase Web SDK
     shortDescription: Web SDK authentication
     category: auth
@@ -42,7 +42,7 @@ rules:
       - "Implement phone signup & login in a Web app using CloudBase Auth"
 
   - id: auth-wechat
-    title: Authentication: WeChat Mini Program
+    title: "Authentication: WeChat Mini Program"
     description: Use CloudBase Auth in WeChat Mini Programs
     shortDescription: Mini Program authentication
     category: auth
@@ -52,7 +52,7 @@ rules:
       - "Create a Mini Program app that supports WeChat login with CloudBase Auth"
 
   - id: auth-http-api
-    title: Authentication: App Integration
+    title: "Authentication: App Integration"
     description: Use CloudBase HTTP API for authentication, suitable for Android, iOS, Cocos, Flutter, React Native and other native apps/frameworks
     shortDescription: Android/iOS native apps
     category: auth
@@ -63,7 +63,7 @@ rules:
       - "Implement user signup and login in an iOS app using CloudBase HTTP API"
 
   - id: auth-nodejs
-    title: Authentication: Node.js (Server)
+    title: "Authentication: Node.js (Server)"
     description: Implement server-side authentication using the CloudBase Node SDK
     shortDescription: Node.js server authentication
     category: auth
@@ -73,7 +73,7 @@ rules:
       - "Create a Node.js backend service that authenticates users via CloudBase Auth"
 
   - id: no-sql-web-sdk
-    title: Document Database: Web SDK
+    title: "Document Database: Web SDK"
     description: Use the CloudBase document database Web SDK for data operations
     shortDescription: Web SDK document database
     category: database
@@ -83,7 +83,7 @@ rules:
       - "Implement pagination and complex queries using CloudBase document database in a Web app"
 
   - id: no-sql-wx-mp-sdk
-    title: Document Database: Mini Program SDK
+    title: "Document Database: Mini Program SDK"
     description: Use the CloudBase document database SDK in WeChat Mini Programs
     shortDescription: Mini Program document database
     category: database
@@ -93,8 +93,8 @@ rules:
       - "Create a Mini Program app using CloudBase document database"
 
   - id: relational-database-tool
-    title: Relational Database: Tools & Rules
-    description: Manage CloudBase relational database (MySQL) with tools and rules. Supports connecting your own database: https://docs.cloudbase.net/database/configuration/db/hosted-mysql/init
+    title: "Relational Database: Tools & Rules"
+    description: "Manage CloudBase relational database (MySQL) with tools and rules. Supports connecting your own database: https://docs.cloudbase.net/database/configuration/db/hosted-mysql/init"
     shortDescription: MySQL relational database
     category: database
     order: 3
@@ -103,8 +103,8 @@ rules:
       - "Run SQL queries and updates in CloudBase relational database"
 
   - id: relational-database-web
-    title: Relational Database: Web SDK
-    description: Use CloudBase relational database in Web apps. Supports connecting your own database: https://docs.cloudbase.net/database/configuration/db/hosted-mysql/init
+    title: "Relational Database: Web SDK"
+    description: "Use CloudBase relational database in Web apps. Supports connecting your own database: https://docs.cloudbase.net/database/configuration/db/hosted-mysql/init"
     shortDescription: Web SDK relational database
     category: database
     order: 4
@@ -112,18 +112,8 @@ rules:
       - "Create a Web app that uses CloudBase relational database"
       - "Implement data queries and mutations in a Web app using CloudBase relational database SDK"
 
-  - id: data-model-creation
-    title: Database: Data Model Creation
-    description: Create complex data models with AI
-    shortDescription: Complex data modeling
-    category: database
-    order: 5
-    prompts:
-      - "Create a data model for users and orders"
-      - "Design a data model for a blog system"
-
   - id: database-http-api
-    title: Database: App Integration
+    title: "Database: App Integration"
     description: Use CloudBase HTTP API for database operations, suitable for Android/iOS native apps
     shortDescription: Android/iOS native apps
     category: database
@@ -134,7 +124,7 @@ rules:
       - "Operate the database in an iOS app using CloudBase HTTP API"
 
   - id: cloud-functions
-    title: Backend Development: Cloud Functions
+    title: "Backend Development: Cloud Functions"
     description: Develop and deploy Node.js Cloud Functions, including runtime selection, deployment, log queries, and HTTP access configuration
     shortDescription: Node.js Cloud Functions
     category: backend
@@ -146,7 +136,7 @@ rules:
       - "Update environment variables for a CloudBase Cloud Function"
 
   - id: cloudrun-development
-    title: Backend Development: CloudRun
+    title: "Backend Development: CloudRun"
     description: Develop and deploy backend services in any language with CloudRun
     shortDescription: Node.js, Python, Go, Java, etc.
     category: backend
@@ -156,7 +146,7 @@ rules:
       - "Create a multi-language backend service in CloudBase CloudRun"
 
   - id: web-development
-    title: App Integration: Web Apps
+    title: "App Integration: Web Apps"
     description: General Web app development, build/debug flows, browser validation, and CloudBase integration
     shortDescription: React, Vue, Vite, browser validation
     category: frontend
@@ -167,7 +157,7 @@ rules:
       - "Integrate this Web frontend with CloudBase and deploy to static hosting"
 
   - id: miniprogram-development
-    title: App Integration: WeChat Mini Programs
+    title: "App Integration: WeChat Mini Programs"
     description: WeChat Mini Program development rules and CloudBase integration
     shortDescription: Mini Program development & integration
     category: frontend
@@ -178,7 +168,7 @@ rules:
       - "Help me optimize Mini Program SEO: make pages discoverable by WeChat search (Mini Program search optimization guide)"
 
   - id: ui-design
-    title: App Integration: UI Design
+    title: "App Integration: UI Design"
     description: Visual direction, design specs, and frontend prototype guidance
     shortDescription: Professional UI design guidance
     category: frontend
@@ -188,7 +178,7 @@ rules:
       - "Create a beautiful login page integrated with CloudBase Auth"
 
   - id: http-api
-    title: App Integration: App Integration
+    title: "App Integration: App Integration"
     description: Use CloudBase HTTP API to access platform capabilities, suitable for Android/iOS and any native language
     shortDescription: Android/iOS native apps
     category: frontend
@@ -199,7 +189,7 @@ rules:
       - "Integrate CloudBase HTTP API in an iOS app"
 
   - id: spec-workflow
-    title: Dev Tools: Spec Workflow
+    title: "Dev Tools: Spec Workflow"
     description: An engineering planning workflow that drives work via requirements analysis, technical design, and task breakdown
     shortDescription: Requirements, design, task breakdown
     category: tools
@@ -209,7 +199,7 @@ rules:
       - "Create complete requirements, technical design, and task breakdown for a CloudBase project"
 
   - id: cloudbase-platform
-    title: Dev Tools: CloudBase Platform
+    title: "Dev Tools: CloudBase Platform"
     description: CloudBase platform knowledge base and best practices
     shortDescription: Platform knowledge & best practices
     category: tools

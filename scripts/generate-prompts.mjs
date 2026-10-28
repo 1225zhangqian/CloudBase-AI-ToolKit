@@ -402,7 +402,13 @@ async function main() {
     const actualSkillDir = path.join(SKILLS_DIR, ruleDir || id);
     
     if (!fs.existsSync(actualSkillDir)) {
-      console.warn(`Warning: Skill directory not found: ${actualSkillDir}`);
+      if (ruleConfig.skill && ruleConfig.skill !== id) {
+        // Scene id differs from the skill that backs it (e.g. issue-report -> cloudbase-mcp).
+        // No page of its own; the scene links to the skill's page instead.
+        console.log(`Shared page: ${id} -> ${ruleConfig.skill}`);
+      } else {
+        console.warn(`Warning: Skill directory not found: ${actualSkillDir}`);
+      }
       continue;
     }
     

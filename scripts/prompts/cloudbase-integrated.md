@@ -60,7 +60,7 @@ When user mentions login/auth requirements:
   - **⚠️ Timeout Configuration**: When creating cloud functions with AI operations, set `timeout` parameter appropriately (see ai-model-nodejs rule)
 - **CloudRun Backend**: `.codebuddy/rules/tcb/rules/cloudrun-development/rule.md` (functions/containers deployment)
 - **Universal Platform**: `.codebuddy/rules/tcb/rules/cloudbase-platform/rule.md` (environment, services, console management)
-- **Additional Rules**: `.codebuddy/rules/tcb/rules/auth-nodejs-cloudbase/rule.md` (Node.js auth), `.codebuddy/rules/tcb/rules/auth-http-api/rule.md` (HTTP API auth), `.codebuddy/rules/tcb/rules/data-model-creation/rule.md` (data models), `.codebuddy/rules/tcb/rules/spec-workflow/rule.md` (workflow)
+- **Additional Rules**: `.codebuddy/rules/tcb/rules/auth-nodejs-cloudbase/rule.md` (Node.js auth), `.codebuddy/rules/tcb/rules/auth-http-api/rule.md` (HTTP API auth), `.codebuddy/rules/tcb/rules/spec-workflow/rule.md` (workflow)
 
 ### 5. Core Behavior Rules
 - **Tool Priority**: Use CloudBase tools for all CloudBase operations

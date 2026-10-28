@@ -110,18 +110,6 @@
     ]
   },
   {
-    "id": "data-model-creation",
-    "title": "数据库：数据模型创建",
-    "description": "使用 AI 创建复杂数据模型",
-    "shortDescription": "复杂数据模型设计",
-    "category": "database",
-    "order": 5,
-    "prompts": [
-      "帮我创建一个用户和订单的数据模型",
-      "设计一个博客系统的数据模型"
-    ]
-  },
-  {
     "id": "database-http-api",
     "title": "数据库：App 集成",
     "description": "使用 CloudBase HTTP API 进行数据库操作，适用于 Android、iOS 等原生应用",

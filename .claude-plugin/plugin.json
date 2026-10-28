@@ -30,7 +30,6 @@
     "./config/rules/miniprogram-development.mdc",
     "./config/rules/cloudrun-development.mdc",
     "./config/rules/database.mdc",
-    "./config/rules/data-model-creation.mdc",
     "./config/rules/ui-design.mdc",
     "./config/rules/cloudbase-platform.mdc",
     "./config/rules/workflows.mdc"
