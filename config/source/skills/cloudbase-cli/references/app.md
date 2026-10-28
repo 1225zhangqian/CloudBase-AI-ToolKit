@@ -235,7 +235,12 @@ Key flags:
 
 > ⚠️ `--yes` without `--env-id` hangs in CI — non-interactive mode cannot open the environment selector. Always pass both.
 
-To skip build entirely in CI: `tcb deploy my-app --env-id env-xxx --build-command '' --output-dir './' --yes`
+To skip the **cloud** build in CI and upload prebuilt artifacts instead:
+`tcb app deploy my-app --env-id env-xxx --build-command '' --output-dir './' --yes`
+
+> This applies to `tcb app deploy` (the cloud-build command). `tcb deploy` never builds at all —
+> it uploads existing artifacts and fails with `BUILD_OUTPUT_NOT_FOUND` when they are missing,
+> so passing `--build-command ''` there is pointless.
 
 ---
 
