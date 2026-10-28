@@ -119,22 +119,6 @@ const SKILL_METADATA = {
       examples: ["deploy docker app", "create cloudrun service"],
     },
   },
-  "data-model-creation": {
-    priority: 7,
-    docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/data-model-creation"],
-    pathPatterns: ["**/schema.prisma", "**/drizzle.config.*", "**/migrations/**"],
-    bashPatterns: ["\\b(db|migrate|schema):"],
-    phrases: ["数据模型", "建模", "model", "schema", "er图", "entity", "数据库设计", "data model"],
-    anyOf: ["mysql", "postgresql", "nosql", "关系型"],
-    noneOf: [],
-    minScore: 6,
-    retrieval: {
-      aliases: ["data modeling", "schema design", "er diagram"],
-      intents: ["design database schema", "create er diagram"],
-      entities: ["Mermaid", "ER Diagram", "MySQL Types", "PostgreSQL"],
-      examples: ["design database schema", "create er diagram", "model data"],
-    },
-  },
   "cloudbase-document-database-web-sdk": {
     priority: 7,
     docs: ["https://docs.cloudbase.net/ai/cloudbase-ai-toolkit/prompts/cloudbase-document-database-web-sdk"],

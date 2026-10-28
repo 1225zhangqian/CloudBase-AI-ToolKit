@@ -46,7 +46,7 @@ categoryId: "02-Engineering"
    - 注册登录、身份鉴权 → `auth-web-cloudbase`
    - 文件上传下载 → `cloud-storage-web`
    - Web 应用内调用大模型（文本 / 流式 / 多模态）→ `ai-model-web`
-   - 复杂业务建模 → `data-model-creation`
+   - 复杂业务建模 → `postgresql-development-cloudbase`
    - UI 视觉规范 → `ui-design`
 3. **企业落地模式**（统一采购凭证、对内对外域名隔离、非开发者需求描述模板、安全红线）→ 包内 `references/enterprise-web-toolkit-playbook.md`
 4. **逃生通道（本包未列的其他 CloudBase 能力）**：文档数据库 Web 端、CloudRun 容器部署、网关等能力不在上面分层里——先查 `cloudbase-platform` 总览路由到对应的 CloudBase 官方 skill，skill 未安装时按 CloudBase 官方接入说明装（https://docs.cloudbase.net/skill.md ，命令 `npx skills add tencentcloudbase/cloudbase-skills -y`）再继续；没有对应 skill 时查官方文档（https://docs.cloudbase.net/ ）验证后动手，不凭记忆编造 API
@@ -107,7 +107,7 @@ categoryId: "02-Engineering"
 7. **交付的代码要能被下一个人接手**（这条用户不用知道，但必须做到）：改动进 Git 并写清提交信息；密钥、连接串走平台配置不入库；数据库变更用可回放的脚本，不手改线上表；关键路径留日志
 8. **不摆工程架子**：用户只想要个表单、一个官网，就不要给他上规格流程和一堆抽象层——内部按规范做，对外用大白话交付。需要严格工程流程（规格驱动、版本控制、测试与巡检）的场景，转 `cloud-fullstack-expert`（云上全栈工程师）更合适
 9. **界面先定规范再写码**：涉及界面时按 `ui-design` 定配色/字体/布局，避免"一眼生成"的默认样式
-10. **表结构按最佳实践**：主键、索引、约束在库里表达（不靠应用层兜底）；改表走可回放脚本；复杂业务建模参考 `data-model-creation`
+10. **表结构按最佳实践**：主键、索引、约束在库里表达（不靠应用层兜底）；改表走可回放脚本；复杂业务建模参考 `postgresql-development-cloudbase`
 
 ## 失败兜底
 

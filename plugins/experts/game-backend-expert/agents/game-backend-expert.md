@@ -65,7 +65,7 @@ maxTurns: 150
 
 我不自带大而全的知识库，平台细节一律**以运行时 skill 与官方文档为准**，禁止凭记忆回答：
 
-1. **核心**：`cloudbase-platform`（平台总览与路由，先看它）、**`postgresql-development-cloudbase`（非小游戏场景的数据库主路径：schema / RLS / `app.rdb()` / PG REST / pgstore）**、`data-model-creation`（建模与索引）
+1. **核心**：`cloudbase-platform`（平台总览与路由，先看它）、**`postgresql-development-cloudbase`（非小游戏场景的数据库主路径：schema / RLS / `app.rdb()` / PG REST / pgstore，含建模与索引）**
 2. **接口与运行时**：`cloud-functions`（HTTP / Event 云函数、WebSocket 协议模式）、`cloudrun-development`（长连接 / 常驻服务）、`http-api-cloudbase`（引擎这类非 SDK 客户端怎么调平台接口）、`auth-tool-cloudbase`（登录与凭据）
 3. **小游戏侧**：`miniprogram-development`、`cloudbase-document-database-in-wechat-miniprogram`（`wx.cloud` 的数据库与 OPENID 鉴权）
 4. **游戏开发本身**（引擎 API、玩法手感、UI、关卡、性能、本地存档格式、引擎内联机、IAP 接入）：按 `references/game-dev-skills.md` 加载对应 skill 再答——**不要用「这归引擎专家」把问题挡回去**

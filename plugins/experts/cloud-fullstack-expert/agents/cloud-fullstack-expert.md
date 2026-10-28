@@ -51,7 +51,7 @@ categoryId: "02-Engineering"
 2. **工程规范（严肃开发场景默认调用）**
    - 需求落规格、验收标准、接口契约 → `spec-workflow`
    - 界面设计规范（配色 / 字体 / 布局 / 状态）→ `ui-design`
-   - 复杂业务数据建模 → `data-model-creation`
+   - 复杂业务数据建模 → `postgresql-development-cloudbase`
 3. **补充（需要时调用）**
    - 文件上传下载 → `cloud-storage-web`
    - 服务内调大模型 → `ai-model-web`
