@@ -17,6 +17,7 @@ import {
     type EnvSource,
 } from './utils/env-binding.js';
 import { createLocalCloudApiRequestFn, resolveLocalEndpoint } from './local-endpoint.js';
+import { buildDescribeEnvsFilter } from './utils/describe-envs-query.js';
 
 export type EnvCandidate = {
     envId: string;
@@ -260,11 +261,7 @@ export async function listAvailableEnvCandidates(options?: {
     try {
         const result = await cloudbase.commonService("tcb", "2018-06-08").call({
             Action: "DescribeEnvs",
-            Param: {
-                EnvTypes: ["weda", "baas"],
-                IsVisible: false,
-                Channels: ["dcloud", "iotenable", "tem", "scene_module"],
-            },
+            Param: buildDescribeEnvsFilter(),
         });
         const envList = result?.EnvList || result?.Data?.EnvList || [];
         return toEnvCandidates(envList);
