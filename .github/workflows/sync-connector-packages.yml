@@ -1,23 +1,26 @@
-name: Sync Connector Intl Package
+name: Sync Connector Packages
 
-# Keeps the committed `cloudbase-intl` connector package coherent with its inputs. Two things
-# can drift, and both are fixed here because they have to land in one commit:
+# Keeps the committed WorkBuddy connector packages coherent with their inputs — both
+# `connectors/cloudbase` (China site) and `connectors/cloudbase-intl` (international site).
+# Two things can drift, and both are fixed here because they have to land in one commit:
 #
-#  1. `connectors/cloudbase-intl/skills/` is generated output, aggregated from config/source/**
-#     by scripts/build-connector-cloudbase-intl.mjs. It is committed, so a corpus change landing
-#     on main leaves the mirror stale until someone rebuilds — which happened twice. This
-#     regenerates it, the same way plugin/cloudbase/skills and config/.claude/skills are backfilled.
+#  1. `connectors/*/skills/` is generated output, aggregated from config/source/** by
+#     scripts/build-connector-cloudbase.mjs / -cloudbase-intl.mjs. It is committed, so a corpus
+#     change landing on main leaves the mirror stale until someone rebuilds — which happened
+#     twice for the intl package. This regenerates both, the same way plugin/cloudbase/skills
+#     and config/.claude/skills are backfilled.
 #  2. connector-meta.json's `version` has to advance whenever the package content changes.
 #     The content is derived, so it changes for reasons that never touch that file, and a
-#     hand-maintained version goes stale silently. scripts/bump-connector-versions.mjs patches it.
+#     hand-maintained version goes stale silently. scripts/bump-connector-versions.mjs patches
+#     every package in its PACK_DIRS list.
 #
 # Doing both in one job matters: a separate bump job would race the mirror commit, and the loser's
 # push would be rejected. Ordering matters too — the bump compares the working tree (not HEAD),
 # so it has to run after the rebuild.
 #
-# This also acts as an early warning: the build carries fail-hard guards (China-site host residue,
-# region/host contradictions, secrets), so an upstream change that would invalidate the connector
-# shows up red here instead of at release time.
+# This also acts as an early warning: both builds carry fail-hard guards (China-site host residue,
+# region/host contradictions, per-skill LICENSE, secrets), so an upstream change that would
+# invalidate a connector shows up red here instead of at release time.
 on:
   push:
     branches:
@@ -26,20 +29,22 @@ on:
       - 'config/source/skills/**'
       - 'config/source/guideline/**'
       - 'scripts/build-allinone-skill.ts'
+      - 'scripts/build-connector-cloudbase.mjs'
       - 'scripts/build-connector-cloudbase-intl.mjs'
       - 'scripts/bump-connector-versions.mjs'
-      # Covers the hand-written package inputs (meta/mcp/icon/extra) as well as the generated
-      # tree. Self-triggering is not a risk: pushes made with GITHUB_TOKEN do not retrigger
+      # Covers the hand-written package inputs (meta/mcp/cli/icon/extra) as well as the generated
+      # trees. Self-triggering is not a risk: pushes made with GITHUB_TOKEN do not retrigger
       # workflows, so the commit below cannot start this job again.
+      - 'connectors/cloudbase/**'
       - 'connectors/cloudbase-intl/**'
-      - '.github/workflows/sync-connector-intl-package.yml'
+      - '.github/workflows/sync-connector-packages.yml'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: sync-connector-intl-package
+  group: sync-connector-packages
   cancel-in-progress: false
 
 jobs:
@@ -76,24 +81,25 @@ jobs:
       # The bump is inside the loop, not before it: it compares the working tree against the last
       # tag, so a reset that discards the rebuild would discard the bump's input too. The rebuild
       # runs scripts/build-allinone-skill.ts through tsx (hence the install step above), and the
-      # zip it produces carries the pre-bump version — harmless, since this job never publishes;
+      # zips it produces carry pre-bump versions — harmless, since this job never publishes;
       # release-plugin-zips.yml re-zips from source.
-      - name: Rebuild, bump, and push if the package drifted
+      - name: Rebuild, bump, and push if either package drifted
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           pushed=false
           for i in 1 2 3; do
+            pnpm run build:connector
             pnpm run build:connector:intl
             node scripts/bump-connector-versions.mjs
-            if [[ -z "$(git status --porcelain connectors/cloudbase-intl)" ]]; then
-              echo "Generated mirror and version already up to date."
+            if [[ -z "$(git status --porcelain connectors/cloudbase connectors/cloudbase-intl)" ]]; then
+              echo "Generated mirrors and versions already up to date."
               exit 0
             fi
-            git add connectors/cloudbase-intl
+            git add connectors/cloudbase connectors/cloudbase-intl
             # GITHUB_TOKEN pushes do not retrigger workflows, so this marker is documentation
             # rather than a loop guard — kept so the intent stays explicit.
-            git commit -m "chore(connectors): sync generated cloudbase-intl package [skip ci]"
+            git commit -m "chore(connectors): sync generated connector packages [skip ci]"
             if git push; then
               pushed=true
               break

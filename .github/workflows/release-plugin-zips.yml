@@ -44,9 +44,11 @@ jobs:
       #   - cloudbase-qoder.zip          Qoder / QoderWork plugin (full plugin dir)
       #   - cloudbase-skill.zip          QoderWork entry skill (skills/cloudbase)
       #   - <expert-name>.zip            WorkBuddy expert packages (plugins/experts/*, one zip each)
-      #   - cloudbase-intl-connector.zip WorkBuddy connector (international site). Built by the
+      #   - cloudbase-connector.zip      WorkBuddy connector (China site). Built by the
       #                                  pack-connector job below, not here: it aggregates
       #                                  config/source/** and needs a full install.
+      #   - cloudbase-intl-connector.zip WorkBuddy connector (international site). Same job,
+      #                                  same aggregator, region-rewritten content source.
       #   - <plugin>-claude-plugin.zip   Claude Code plugin (.claude-plugin manifest + components)
       #   - <plugin>-agent-plugin.zip    Portable Agent Plugins 1.0.0 core (root plugin.json +
       #                                  skills/ + mcp.json)
@@ -84,13 +86,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release upload "${{ steps.tag.outputs.tag }}" dist/*.zip --clobber
 
-  # pack-connector builds dist/cloudbase-intl-connector.zip (WorkBuddy connector for the
-  # CloudBase international site) and attaches it to the same release.
+  # pack-connector builds both WorkBuddy connector zips — dist/cloudbase-connector.zip
+  # (China site) and dist/cloudbase-intl-connector.zip (international site) — and attaches
+  # them to the same release.
   #
-  # Separate job on purpose: unlike the plugin packs it aggregates config/source/** through
-  # tsx, so it needs a full install, and its build carries fail-hard guards (China-site host
-  # residue, region/host contradictions, secrets). Isolating it keeps a guard failure from
-  # taking the plugin and expert zips down with it.
+  # Separate job on purpose: unlike the plugin packs they aggregate config/source/** through
+  # tsx, so they need a full install, and their builds carry fail-hard guards (China-site host
+  # residue, region/host contradictions, per-skill LICENSE, secrets). Isolating the job keeps
+  # a guard failure from taking the plugin and expert zips down with it.
   pack-connector:
     runs-on: ubuntu-latest
     steps:
@@ -123,6 +126,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build cloudbase connector zip (China site)
+        run: pnpm run build:connector
+
       - name: Build cloudbase-intl connector zip
         run: pnpm run build:connector:intl
 
@@ -132,7 +138,11 @@ jobs:
         run: |
           gh release view "${{ steps.tag.outputs.tag }}" --json tagName >/dev/null
 
-      - name: Upload connector zip to release assets
+      - name: Upload connector zips to release assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release upload "${{ steps.tag.outputs.tag }}" dist/cloudbase-intl-connector.zip --clobber
+        run: |
+          gh release upload "${{ steps.tag.outputs.tag }}" \
+            dist/cloudbase-connector.zip \
+            dist/cloudbase-intl-connector.zip \
+            --clobber
