@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Auto-bump the version of the `cloudbase-intl` connector package when its content changed.
+ * Auto-bump the version of every WorkBuddy connector package when its content changed.
  *
  * Why: connector submission requires a version increment whenever the package content
- * changes. This package is *derived* — its `skills/` tree is aggregated from
- * `config/source/**` at build time — so its content changes for reasons that never touch
+ * changes. These packages are *derived* — their `skills/` trees are aggregated from
+ * `config/source/**` at build time — so their content changes for reasons that never touch
  * `connector-meta.json`, and a hand-maintained version would silently go stale. CI runs
- * this on main (from sync-connector-intl-package.yml) and commits the bump back.
+ * this on main and commits the bump back.
  *
  * Comparison base: the most recent tag, same as scripts/bump-expert-versions.mjs — a
  * version only has to advance relative to what was last published.
@@ -38,8 +38,13 @@ const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
-const PACK_DIR = "connectors/cloudbase-intl";
-const META_FILE = `${PACK_DIR}/connector-meta.json`;
+/**
+ * Every WorkBuddy connector package that carries a version. Both are *derived*: their
+ * skills/ trees are aggregated from config/source/** at build time, so content changes
+ * without anyone touching connector-meta.json — which is exactly why the version has to be
+ * bumped by CI rather than by hand. New connector packages get added to this list.
+ */
+const PACK_DIRS = ["connectors/cloudbase", "connectors/cloudbase-intl"];
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
@@ -91,29 +96,31 @@ function normalizeMeta(text) {
  */
 const NOT_SHIPPED = ["SUBMISSION.md", "extra/"];
 
-function shippedFiles(files) {
+function shippedFiles(files, packDir) {
   return files.filter(
     (file) =>
       !NOT_SHIPPED.some((excluded) =>
         excluded.endsWith("/")
-          ? file.startsWith(`${PACK_DIR}/${excluded}`)
-          : file === `${PACK_DIR}/${excluded}`,
+          ? file.startsWith(`${packDir}/${excluded}`)
+          : file === `${packDir}/${excluded}`,
       ),
   );
 }
 
 /** Does the package content (version field aside) differ from `base`? */
-function packChangedSince() {
+function packChangedSince(packDir, metaFile) {
   const worktreeFiles = shippedFiles(
-    git(["ls-files", PACK_DIR])
+    git(["ls-files", packDir])
       .split("\n")
       .filter(Boolean)
       .filter((file) => existsSync(path.join(repoRoot, file))),
+    packDir,
   );
   const baseFiles = shippedFiles(
-    git(["ls-tree", "-r", "--name-only", base, PACK_DIR])
+    git(["ls-tree", "-r", "--name-only", base, packDir])
       .split("\n")
       .filter(Boolean),
+    packDir,
   );
 
   // Added or removed files are a content change on their own.
@@ -128,7 +135,7 @@ function packChangedSince() {
     const baseHash = git(["rev-parse", `${base}:${file}`], { allowFail: true });
     if (baseHash === worktreeHash) continue;
 
-    if (file === META_FILE) {
+    if (file === metaFile) {
       const baseText = git(["show", `${base}:${file}`], { allowFail: true });
       const worktreeText = readFileSync(path.join(repoRoot, file), "utf8");
       if (normalizeMeta(baseText ?? "") !== normalizeMeta(worktreeText)) {
@@ -148,30 +155,40 @@ function bumpPatch(version) {
   return parts.join(".");
 }
 
-// Not yet in the base ref -> brand new package, keep its initial version.
-if (git(["cat-file", "-e", `${base}:${META_FILE}`], { allowFail: true }) === null) {
-  console.log(
-    `  ${PACK_DIR}: not present at ${base} (new package), keeping its initial version`,
-  );
-  process.exit(0);
+/** Bump one package; returns true when a version was written (or would be, on --dry-run). */
+function bumpPack(packDir) {
+  const metaFile = `${packDir}/connector-meta.json`;
+  const metaPath = path.join(repoRoot, metaFile);
+
+  // Not yet in the base ref -> brand new package, keep its initial version.
+  if (git(["cat-file", "-e", `${base}:${metaFile}`], { allowFail: true }) === null) {
+    console.log(`  ${packDir}: not present at ${base} (new package), keeping its initial version`);
+    return false;
+  }
+
+  if (!packChangedSince(packDir, metaFile)) {
+    console.log(`  ${packDir}: no content changed since ${base}.`);
+    return false;
+  }
+
+  const meta = JSON.parse(readFileSync(metaPath, "utf8"));
+  const from = meta.version ?? "1.0.0";
+  const to = bumpPatch(from);
+  if (!to) {
+    console.warn(`  ⚠️  ${packDir}: cannot parse version "${meta.version}", skipped`);
+    return false;
+  }
+
+  console.log(`  ${packDir}: ${from} -> ${to}`);
+  if (!dryRun) {
+    meta.version = to;
+    writeFileSync(metaPath, JSON.stringify(meta, null, 2) + "\n");
+  }
+  return true;
 }
 
-if (!packChangedSince()) {
-  console.log(`No ${PACK_DIR} content changed since ${base}.`);
-  process.exit(0);
+let bumped = 0;
+for (const packDir of PACK_DIRS) {
+  if (bumpPack(packDir)) bumped += 1;
 }
-
-const metaPath = path.join(repoRoot, META_FILE);
-const meta = JSON.parse(readFileSync(metaPath, "utf8"));
-const from = meta.version ?? "1.0.0";
-const to = bumpPatch(from);
-if (!to) {
-  console.warn(`  ⚠️  cannot parse version "${meta.version}", skipped`);
-  process.exit(0);
-}
-
-console.log(`  ${PACK_DIR}: ${from} -> ${to}`);
-if (!dryRun) {
-  meta.version = to;
-  writeFileSync(metaPath, JSON.stringify(meta, null, 2) + "\n");
-}
+if (bumped === 0) console.log(`No connector package content changed since ${base}.`);
